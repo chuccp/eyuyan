@@ -75,7 +75,6 @@ public static class YyFormSerializer
             Background = Attribute(root, "背景", "#F4F7FB")
         };
         var names = new HashSet<string>(StringComparer.Ordinal);
-
         foreach (var element in root.Elements())
         {
             var type = element.Name.LocalName;

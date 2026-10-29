@@ -302,7 +302,6 @@ public partial class MainWindow : Window
         {
             var project = YyProject.CreateProject(dialog.FileName, projectName);
             OpenWorkspace(project.DirectoryPath);
-            OpenDocument(project.EntryPath);
             SetStatus($"已创建项目：{project.Name}", ReadyBrush);
         }
         catch (Exception exception) when (
@@ -593,6 +592,92 @@ public partial class MainWindow : Window
         OpenDocument(codePath);
     }
 
+    private void CreateOrOpenClickHandler(YyControlModel control)
+    {
+        if (_designForm is null || string.IsNullOrWhiteSpace(_currentDocument?.FilePath))
+        {
+            MessageBox.Show(
+                "请先保存窗体，再双击按钮生成代码后置事件。",
+                "生成事件代码",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var formPath = _currentDocument.FilePath;
+        var formDirectory = Path.GetDirectoryName(formPath)!;
+        var codeFileName = string.IsNullOrWhiteSpace(_designForm.CodeFile)
+            ? Path.GetFileNameWithoutExtension(formPath) + ".ey"
+            : _designForm.CodeFile;
+        var codePath = Path.GetFullPath(Path.Combine(formDirectory, codeFileName));
+        var codeDocument = _documents.FirstOrDefault(document =>
+            string.Equals(document.FilePath, codePath, StringComparison.OrdinalIgnoreCase));
+        var source = codeDocument?.Text
+            ?? (File.Exists(codePath)
+                ? File.ReadAllText(codePath, new UTF8Encoding(false, true))
+                : $"""
+                   .版本 3
+                   .程序集 {_designForm.Name}代码
+
+                   ' 在这里编写窗体事件代码。
+                   """);
+
+        var handlerName = control.ClickEvent;
+        if (string.IsNullOrWhiteSpace(handlerName))
+        {
+            var baseName = control.Name + "_被单击";
+            handlerName = baseName;
+            var index = 2;
+            var existing = YyRunner.CompileSource(source, codePath).Functions
+                .Select(function => function.Name)
+                .ToHashSet(StringComparer.Ordinal);
+            while (existing.Contains(handlerName))
+            {
+                handlerName = baseName + index++;
+            }
+        }
+
+        var functionMarker = "子程序 " + handlerName;
+        if (!source.Contains(functionMarker, StringComparison.Ordinal))
+        {
+            source = source.TrimEnd() + Environment.NewLine + Environment.NewLine +
+                $"""
+                 子程序 {handlerName}()
+                     ' 在这里编写 {control.Name} 的单击逻辑。
+                 结束子程序
+                 """ + Environment.NewLine;
+        }
+
+        if (codeDocument is null)
+        {
+            codeDocument = new EditorDocument(codePath, Path.GetFileName(codePath), source);
+            _documents.Add(codeDocument);
+            if (!File.Exists(codePath))
+            {
+                codeDocument.MarkModified();
+            }
+        }
+        else
+        {
+            codeDocument.Text = source;
+        }
+
+        control.ClickEvent = handlerName;
+        _designForm.CodeFile = Path.GetRelativePath(formDirectory, codePath).Replace('\\', '/');
+        DesignerChanged();
+        DocumentTabs.SelectedItem = codeDocument;
+        var offset = codeDocument.Text.IndexOf(functionMarker, StringComparison.Ordinal);
+        if (offset >= 0)
+        {
+            Editor.CaretOffset = offset;
+            var line = Editor.Document.GetLineByOffset(offset);
+            Editor.Select(line.Offset, line.Length);
+            Editor.ScrollToLine(line.LineNumber);
+        }
+
+        SetStatus($"已生成事件 {handlerName}()", ReadyBrush);
+    }
+
     private void PreviewCurrentForm()
     {
         StudioTrace.Write($"Preview form requested; form loaded={_designForm is not null}");
@@ -639,7 +724,11 @@ public partial class MainWindow : Window
                 : $"已打开项目：{_project.Name}",
             ReadyBrush);
 
-        var openPath = _project?.EntryPath ?? Directory.EnumerateFiles(path, "*.ey", SearchOption.AllDirectories)
+        var startupForm = _project?.Forms.FirstOrDefault(form =>
+            string.Equals(form.Model.Name, _project.StartupForm, StringComparison.Ordinal));
+        var openPath = startupForm?.FormPath
+            ?? _project?.EntryPath
+            ?? Directory.EnumerateFiles(path, "*.ey", SearchOption.AllDirectories)
             .Where(file => !IgnoredDirectories.Any(part =>
                 file.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                     .Contains(part, StringComparer.OrdinalIgnoreCase)))
@@ -699,11 +788,56 @@ public partial class MainWindow : Window
             item.Items.Add(BuildDirectoryNode(directory));
         }
 
-        foreach (var file in files)
+        var formFiles = files
+            .Where(file => string.Equals(Path.GetExtension(file), ".yyx", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        var linkedCodeFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var formFile in formFiles)
+        {
+            var formItem = new TreeViewItem
+            {
+                Header = MakeTreeHeader("▣  " + Path.GetFileName(formFile), isFolder: false),
+                Tag = formFile,
+                Padding = new Thickness(3, 3, 3, 3)
+            };
+            try
+            {
+                var form = YyFormSerializer.Deserialize(File.ReadAllText(formFile));
+                if (!string.IsNullOrWhiteSpace(form.CodeFile))
+                {
+                    var codePath = Path.GetFullPath(
+                        Path.Combine(Path.GetDirectoryName(formFile)!, form.CodeFile));
+                    if (File.Exists(codePath))
+                    {
+                        linkedCodeFiles.Add(codePath);
+                        formItem.Items.Add(new TreeViewItem
+                        {
+                            Header = MakeTreeHeader("◈  " + Path.GetFileName(codePath), isFolder: false),
+                            Tag = codePath,
+                            Padding = new Thickness(3, 3, 3, 3)
+                        });
+                    }
+                }
+            }
+            catch (Exception exception) when (exception is IOException or YyFormFormatException)
+            {
+                // The file remains openable so the user can repair invalid form XML.
+            }
+
+            item.Items.Add(formItem);
+        }
+
+        foreach (var file in files.Where(file =>
+                     !linkedCodeFiles.Contains(file) &&
+                     !formFiles.Contains(file, StringComparer.OrdinalIgnoreCase)))
         {
             item.Items.Add(new TreeViewItem
             {
-                Header = MakeTreeHeader("◇  " + Path.GetFileName(file), isFolder: false),
+                Header = MakeTreeHeader(
+                    (string.Equals(Path.GetExtension(file), ".ey", StringComparison.OrdinalIgnoreCase)
+                        ? "◈  "
+                        : "◇  ") + Path.GetFileName(file),
+                    isFolder: false),
                 Tag = file,
                 Padding = new Thickness(3, 3, 3, 3)
             });
@@ -1093,6 +1227,14 @@ public partial class MainWindow : Window
         var control = FindAncestorTag<YyControlModel>(e.OriginalSource as DependencyObject);
         if (control is not null)
         {
+            if (e.ClickCount == 2 && control.Type == YyControlTypes.Button)
+            {
+                SelectDesignerControl(control);
+                CreateOrOpenClickHandler(control);
+                e.Handled = true;
+                return;
+            }
+
             var additive = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
             if (additive)
             {

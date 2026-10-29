@@ -151,7 +151,6 @@ public sealed class YyProject
                     sourcePaths.Add(codePath);
                 }
 
-                ValidateEventBindings(form, codePath);
             }
 
             forms.Add(new YyProjectForm(formPath, codePath, form));
@@ -317,38 +316,6 @@ public sealed class YyProject
             References = _references.Select(path => ToRelativePath(path, DirectoryPath)).ToList()
         };
         WriteManifest(ProjectPath, manifest);
-    }
-
-    private static void ValidateEventBindings(YyFormModel form, string codePath)
-    {
-        var source = File.ReadAllText(codePath, new UTF8Encoding(false, true));
-        var program = YyRunner.CompileSource(source, codePath);
-        var handlers = program.Functions
-            .Select(function => function.Name)
-            .ToHashSet(StringComparer.Ordinal);
-
-        foreach (var (eventName, eventKind) in new[]
-                 {
-                     (form.LoadEvent, "载入"),
-                     (form.CloseEvent, "关闭")
-                 })
-        {
-            if (!string.IsNullOrWhiteSpace(eventName) && !handlers.Contains(eventName))
-            {
-                throw new InvalidDataException(
-                    $"窗体“{form.Title}”绑定了不存在的事件函数“{eventName}”（{eventKind}，{Path.GetFileName(codePath)}）。");
-            }
-        }
-
-        foreach (var control in form.Controls)
-        {
-            if (!string.IsNullOrWhiteSpace(control.ClickEvent) &&
-                !handlers.Contains(control.ClickEvent))
-            {
-                throw new InvalidDataException(
-                    $"窗体“{form.Title}”的控件“{control.Name}”绑定了不存在的事件函数“{control.ClickEvent}”（{Path.GetFileName(codePath)}）。");
-            }
-        }
     }
 
     private static List<string> ResolveOptionalFiles(

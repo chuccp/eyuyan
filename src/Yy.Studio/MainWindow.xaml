@@ -455,7 +455,7 @@
                                 <TextBlock Text="窗体设计器"
                                            FontSize="12"
                                            FontWeight="SemiBold" />
-                                <TextBlock Text="从左侧拖入控件 · Ctrl+单击多选"
+                                <TextBlock Text="拖放控件 · Ctrl+单击多选 · 双击按钮生成事件代码"
                                            FontSize="10"
                                            Foreground="{StaticResource MutedBrush}"
                                            Margin="12,0,0,0" />

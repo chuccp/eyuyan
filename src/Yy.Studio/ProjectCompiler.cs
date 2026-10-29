@@ -66,6 +66,7 @@ public sealed class ProjectCompiler
             startInfo.ArgumentList.Add("true");
             startInfo.ArgumentList.Add("-p:PublishSingleFile=true");
             startInfo.ArgumentList.Add("-p:IncludeNativeLibrariesForSelfExtract=true");
+            startInfo.ArgumentList.Add("-p:EnableCompressionInSingleFile=true");
             startInfo.ArgumentList.Add("-p:DebugType=None");
             startInfo.ArgumentList.Add("-p:DebugSymbols=false");
             startInfo.ArgumentList.Add("-o");
@@ -138,19 +139,49 @@ public sealed class ProjectCompiler
             .Select(function => function.Name)
             .ToHashSet(StringComparer.Ordinal);
 
-        foreach (var form in project.Forms.Where(form => form.CodePath is not null))
+        foreach (var form in project.Forms)
         {
-            var codeSource = File.ReadAllText(form.CodePath!, new UTF8Encoding(false, true));
-            var codeProgram = YyRunner.CompileSource(codeSource, form.CodePath!);
-            foreach (var function in codeProgram.Functions)
+            if (form.CodePath is not null)
             {
-                if (!names.Add(function.Name))
+                var codeSource = File.ReadAllText(form.CodePath, new UTF8Encoding(false, true));
+                var codeProgram = YyRunner.CompileSource(codeSource, form.CodePath);
+                foreach (var function in codeProgram.Functions)
+                {
+                    if (!names.Add(function.Name))
+                    {
+                        throw new InvalidDataException(
+                            $"子程序“{function.Name}”在项目源码与窗体代码后置中重复定义。");
+                    }
+
+                    functions.Add(function);
+                }
+            }
+
+        }
+
+        foreach (var form in project.Forms)
+        {
+            foreach (var (eventName, kind) in new[]
+                     {
+                         (form.Model.LoadEvent, "载入"),
+                         (form.Model.CloseEvent, "关闭")
+                     })
+            {
+                if (!string.IsNullOrWhiteSpace(eventName) && !names.Contains(eventName))
                 {
                     throw new InvalidDataException(
-                        $"子程序“{function.Name}”在项目源码与窗体代码后置中重复定义。");
+                        $"窗体“{form.Model.Title}”的{kind}事件“{eventName}”没有对应子程序。");
                 }
+            }
 
-                functions.Add(function);
+            foreach (var control in form.Model.Controls)
+            {
+                if (!string.IsNullOrWhiteSpace(control.ClickEvent) &&
+                    !names.Contains(control.ClickEvent))
+                {
+                    throw new InvalidDataException(
+                        $"窗体“{form.Model.Title}”的控件“{control.Name}”绑定了不存在的事件“{control.ClickEvent}”。");
+                }
             }
         }
 
