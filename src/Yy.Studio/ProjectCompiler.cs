@@ -176,11 +176,19 @@ public sealed class ProjectCompiler
 
             foreach (var control in form.Model.Controls)
             {
-                if (!string.IsNullOrWhiteSpace(control.ClickEvent) &&
-                    !names.Contains(control.ClickEvent))
+                foreach (var eventName in new[]
+                         {
+                             control.ClickEvent,
+                             control.TextChangedEvent,
+                             control.SelectionChangedEvent,
+                             control.CheckedChangedEvent
+                         })
                 {
-                    throw new InvalidDataException(
-                        $"窗体“{form.Model.Title}”的控件“{control.Name}”绑定了不存在的事件“{control.ClickEvent}”。");
+                    if (!string.IsNullOrWhiteSpace(eventName) && !names.Contains(eventName))
+                    {
+                        throw new InvalidDataException(
+                            $"窗体“{form.Model.Title}”的控件“{control.Name}”绑定了不存在的事件“{eventName}”。");
+                    }
                 }
             }
         }

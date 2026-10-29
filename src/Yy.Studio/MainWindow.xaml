@@ -828,6 +828,33 @@
                                  BorderBrush="{StaticResource BorderBrush}"
                                  TextChanged="OnDesignerPropertyChanged" />
 
+                        <TextBlock Text="文本改变事件" Foreground="{StaticResource MutedBrush}" FontSize="10" />
+                        <TextBox x:Name="PropertyTextChangedEventBox"
+                                 Margin="0,4,0,10"
+                                 Padding="7,5"
+                                 Background="#1E1E1E"
+                                 Foreground="{StaticResource TextBrush}"
+                                 BorderBrush="{StaticResource BorderBrush}"
+                                 TextChanged="OnDesignerPropertyChanged" />
+
+                        <TextBlock Text="选择改变事件" Foreground="{StaticResource MutedBrush}" FontSize="10" />
+                        <TextBox x:Name="PropertySelectionChangedEventBox"
+                                 Margin="0,4,0,10"
+                                 Padding="7,5"
+                                 Background="#1E1E1E"
+                                 Foreground="{StaticResource TextBrush}"
+                                 BorderBrush="{StaticResource BorderBrush}"
+                                 TextChanged="OnDesignerPropertyChanged" />
+
+                        <TextBlock Text="选中改变事件" Foreground="{StaticResource MutedBrush}" FontSize="10" />
+                        <TextBox x:Name="PropertyCheckedChangedEventBox"
+                                 Margin="0,4,0,10"
+                                 Padding="7,5"
+                                 Background="#1E1E1E"
+                                 Foreground="{StaticResource TextBrush}"
+                                 BorderBrush="{StaticResource BorderBrush}"
+                                 TextChanged="OnDesignerPropertyChanged" />
+
                         <TextBlock Text="窗体载入事件" Foreground="{StaticResource MutedBrush}" FontSize="10" />
                         <TextBox x:Name="PropertyLoadEventBox"
                                  Margin="0,4,0,10"
@@ -854,6 +881,12 @@
                                   Unchecked="OnDesignerCheckChanged" />
                         <CheckBox x:Name="PropertyVisibleCheck"
                                   Content="设计时可见"
+                                  Foreground="{StaticResource TextBrush}"
+                                  Margin="0,0,0,12"
+                                  Checked="OnDesignerCheckChanged"
+                                  Unchecked="OnDesignerCheckChanged" />
+                        <CheckBox x:Name="PropertyCheckedCheck"
+                                  Content="复选框默认选中"
                                   Foreground="{StaticResource TextBrush}"
                                   Margin="0,0,0,12"
                                   Checked="OnDesignerCheckChanged"

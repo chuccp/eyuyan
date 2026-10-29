@@ -275,6 +275,7 @@ public sealed class GeneratedCodeEmitter
         Line("{");
         _indent++;
         Line("private readonly Dictionary<string, FrameworkElement> _yyControls = new(StringComparer.Ordinal);");
+        Line("private bool _yyEventRunning;");
         Line("public IReadOnlyDictionary<string, FrameworkElement> YyControls => _yyControls;");
         Line();
         Line($"public YyForm_{index}()");
@@ -326,6 +327,8 @@ public sealed class GeneratedCodeEmitter
         Line("private void InvokeEvent(string name)");
         Line("{");
         _indent++;
+        Line("if (_yyEventRunning) return;");
+        Line("_yyEventRunning = true;");
         Line("try");
         Line("{");
         _indent++;
@@ -336,6 +339,12 @@ public sealed class GeneratedCodeEmitter
         Line("{");
         _indent++;
         Line("MessageBox.Show(exception.Message, \"易语事件\", MessageBoxButton.OK, MessageBoxImage.Error);");
+        _indent--;
+        Line("}");
+        Line("finally");
+        Line("{");
+        _indent++;
+        Line("_yyEventRunning = false;");
         _indent--;
         Line("}");
         _indent--;
@@ -365,6 +374,10 @@ public sealed class GeneratedCodeEmitter
         Line($"{variable}.Height = {Number(control.Height)};");
         Line($"{variable}.IsEnabled = {(control.IsEnabled ? "true" : "false")};");
         Line($"{variable}.Visibility = {(control.IsVisible ? "Visibility.Visible" : "Visibility.Hidden")};");
+        if (control.Type == YyControlTypes.CheckBox)
+        {
+            Line($"{variable}.IsChecked = {(control.IsChecked ? "true" : "false")};");
+        }
         if (control.Type is YyControlTypes.Button or YyControlTypes.Label or YyControlTypes.TextBox
             or YyControlTypes.CheckBox or YyControlTypes.GroupBox)
         {
@@ -415,6 +428,23 @@ public sealed class GeneratedCodeEmitter
         if (control.Type == YyControlTypes.Button && !string.IsNullOrWhiteSpace(control.ClickEvent))
         {
             Line($"{variable}.Click += (_, _) => InvokeEvent({Quote(control.ClickEvent)});");
+        }
+
+        if (control.Type == YyControlTypes.TextBox && !string.IsNullOrWhiteSpace(control.TextChangedEvent))
+        {
+            Line($"{variable}.TextChanged += (_, _) => InvokeEvent({Quote(control.TextChangedEvent)});");
+        }
+
+        if (control.Type == YyControlTypes.CheckBox && !string.IsNullOrWhiteSpace(control.CheckedChangedEvent))
+        {
+            Line($"{variable}.Checked += (_, _) => InvokeEvent({Quote(control.CheckedChangedEvent)});");
+            Line($"{variable}.Unchecked += (_, _) => InvokeEvent({Quote(control.CheckedChangedEvent)});");
+        }
+
+        if (control.Type is YyControlTypes.ComboBox or YyControlTypes.ListBox &&
+            !string.IsNullOrWhiteSpace(control.SelectionChangedEvent))
+        {
+            Line($"{variable}.SelectionChanged += (_, _) => InvokeEvent({Quote(control.SelectionChangedEvent)});");
         }
     }
 

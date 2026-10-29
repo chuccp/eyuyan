@@ -19,6 +19,7 @@ Run("窗体 XML 往返", () =>
     };
     form.Controls.Add(YyControlTypes.Create(YyControlTypes.Button, 1));
     form.Controls.Add(YyControlTypes.Create(YyControlTypes.TextBox, 2));
+    form.Controls[1].TextChangedEvent = "文本框_文本改变";
 
     var xml = YyFormSerializer.Serialize(form);
     var restored = YyFormSerializer.Deserialize(xml);
@@ -28,6 +29,7 @@ Run("窗体 XML 往返", () =>
     Equal("客户登记", restored.Title);
     Equal(2, restored.Controls.Count);
     Equal("按钮1", restored.Controls[0].Name);
+    Equal("文本框_文本改变", restored.Controls[1].TextChangedEvent);
 });
 
 Run("示例窗体读取", () =>
@@ -40,6 +42,9 @@ Run("示例窗体读取", () =>
     Equal("主窗口_关闭", form.CloseEvent);
     Equal(8, form.Controls.Count);
     Equal("保存按钮_被单击", form.Controls.Single(control => control.Name == "保存按钮").ClickEvent);
+    Equal(
+        "姓名输入框_文本改变",
+        form.Controls.Single(control => control.Name == "姓名输入框").TextChangedEvent);
 });
 
 Run("项目清单读取", () =>
@@ -207,6 +212,16 @@ static void TestCompiledExe()
             True(input is not null, "编译程序中没有找到输入框。");
             ((ValuePattern)input!.GetCurrentPattern(ValuePattern.Pattern))
                 .SetValue("编译客户");
+            Thread.Sleep(500);
+            var texts = window.FindAll(
+                TreeScope.Descendants,
+                new PropertyCondition(
+                    AutomationElement.ControlTypeProperty,
+                    ControlType.Text));
+            True(
+                texts.Cast<AutomationElement>().Any(element =>
+                    element.Current.Name.Contains("你好，编译客户", StringComparison.Ordinal)),
+                "编译后的文本改变事件没有更新标题控件。");
             var saveButton = window.FindFirst(
                 TreeScope.Descendants,
                 new PropertyCondition(AutomationElement.NameProperty, "保存客户"));
@@ -240,6 +255,10 @@ static void TestCompiledExe()
                 catch (IOException) when (attempt < 9)
                 {
                     Thread.Sleep(200);
+                }
+                catch (IOException)
+                {
+                    // Windows Defender can briefly hold freshly compiled executables.
                 }
             }
         }

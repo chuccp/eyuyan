@@ -89,6 +89,9 @@ public static class YyFormSerializer
                 Name = RequiredAttribute(element, "名称"),
                 Text = Attribute(element, "文本", string.Empty),
                 ClickEvent = NullIfEmpty(Attribute(element, "单击", string.Empty)),
+                TextChangedEvent = NullIfEmpty(Attribute(element, "文本改变", string.Empty)),
+                SelectionChangedEvent = NullIfEmpty(Attribute(element, "选择改变", string.Empty)),
+                CheckedChangedEvent = NullIfEmpty(Attribute(element, "选中改变", string.Empty)),
                 X = NumberAttribute(element, "左", 40, -10_000, 10_000),
                 Y = NumberAttribute(element, "上", 40, -10_000, 10_000),
                 Width = NumberAttribute(element, "宽", 120, 24, 3840),
@@ -97,7 +100,8 @@ public static class YyFormSerializer
                 Foreground = Attribute(element, "前景", "#17212B"),
                 Background = Attribute(element, "背景", "#FFFFFF"),
                 IsEnabled = BooleanAttribute(element, "启用", true),
-                IsVisible = BooleanAttribute(element, "可见", true)
+                IsVisible = BooleanAttribute(element, "可见", true),
+                IsChecked = BooleanAttribute(element, "选中", false)
             };
 
             if (!IsIdentifier(control.Name))
@@ -109,6 +113,19 @@ public static class YyFormSerializer
                 !IsIdentifier(control.ClickEvent))
             {
                 throw Error(element, $"控件“{control.Name}”的事件名不是有效函数标识符。");
+            }
+
+            foreach (var eventName in new[]
+                     {
+                         control.TextChangedEvent,
+                         control.SelectionChangedEvent,
+                         control.CheckedChangedEvent
+                     })
+            {
+                if (!string.IsNullOrWhiteSpace(eventName) && !IsIdentifier(eventName))
+                {
+                    throw Error(element, $"控件“{control.Name}”的事件名“{eventName}”不是有效函数标识符。");
+                }
             }
 
             if (!names.Add(control.Name))
@@ -159,11 +176,27 @@ public static class YyFormSerializer
             new XAttribute("前景", control.Foreground),
             new XAttribute("背景", control.Background),
             new XAttribute("启用", control.IsEnabled),
-            new XAttribute("可见", control.IsVisible));
+            new XAttribute("可见", control.IsVisible),
+            new XAttribute("选中", control.IsChecked));
 
         if (!string.IsNullOrWhiteSpace(control.ClickEvent))
         {
             element.SetAttributeValue("单击", control.ClickEvent);
+        }
+
+        if (!string.IsNullOrWhiteSpace(control.TextChangedEvent))
+        {
+            element.SetAttributeValue("文本改变", control.TextChangedEvent);
+        }
+
+        if (!string.IsNullOrWhiteSpace(control.SelectionChangedEvent))
+        {
+            element.SetAttributeValue("选择改变", control.SelectionChangedEvent);
+        }
+
+        if (!string.IsNullOrWhiteSpace(control.CheckedChangedEvent))
+        {
+            element.SetAttributeValue("选中改变", control.CheckedChangedEvent);
         }
 
         return element;

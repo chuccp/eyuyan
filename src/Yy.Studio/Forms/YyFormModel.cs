@@ -19,6 +19,9 @@ public sealed class YyControlModel
     public string Name { get; set; } = string.Empty;
     public string Text { get; set; } = string.Empty;
     public string? ClickEvent { get; set; }
+    public string? TextChangedEvent { get; set; }
+    public string? SelectionChangedEvent { get; set; }
+    public string? CheckedChangedEvent { get; set; }
     public double X { get; set; } = 40;
     public double Y { get; set; } = 40;
     public double Width { get; set; } = 120;
@@ -28,6 +31,7 @@ public sealed class YyControlModel
     public string Background { get; set; } = "#FFFFFF";
     public bool IsEnabled { get; set; } = true;
     public bool IsVisible { get; set; } = true;
+    public bool IsChecked { get; set; }
 }
 
 public static class YyControlTypes

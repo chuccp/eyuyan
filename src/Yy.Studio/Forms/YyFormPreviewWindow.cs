@@ -17,6 +17,7 @@ public sealed class YyFormPreviewWindow : Window
     private CancellationTokenSource? _eventCancellation;
     private bool _closeEventHandled;
     private bool _allowClose;
+    private bool _updatingControls;
 
     public YyFormPreviewWindow(YyFormModel form, string? formPath = null)
     {
@@ -55,6 +56,37 @@ public sealed class YyFormPreviewWindow : Window
                 button.Click += async (_, _) => await RunFormEventAsync(
                     control.ClickEvent,
                     $"控件“{control.Name}”单击");
+            }
+
+            if (element is TextBox textBox && !string.IsNullOrWhiteSpace(control.TextChangedEvent))
+            {
+                textBox.TextChanged += async (_, _) => await RunFormEventAsync(
+                    control.TextChangedEvent,
+                    $"控件“{control.Name}”文本改变");
+            }
+
+            if (element is CheckBox checkBox && !string.IsNullOrWhiteSpace(control.CheckedChangedEvent))
+            {
+                checkBox.Checked += async (_, _) => await RunFormEventAsync(
+                    control.CheckedChangedEvent,
+                    $"控件“{control.Name}”选中改变");
+                checkBox.Unchecked += async (_, _) => await RunFormEventAsync(
+                    control.CheckedChangedEvent,
+                    $"控件“{control.Name}”选中改变");
+            }
+
+            if (element is ComboBox comboBox && !string.IsNullOrWhiteSpace(control.SelectionChangedEvent))
+            {
+                comboBox.SelectionChanged += async (_, _) => await RunFormEventAsync(
+                    control.SelectionChangedEvent,
+                    $"控件“{control.Name}”选择改变");
+            }
+
+            if (element is ListBox listBox && !string.IsNullOrWhiteSpace(control.SelectionChangedEvent))
+            {
+                listBox.SelectionChanged += async (_, _) => await RunFormEventAsync(
+                    control.SelectionChangedEvent,
+                    $"控件“{control.Name}”选择改变");
             }
         }
 
@@ -109,7 +141,7 @@ public sealed class YyFormPreviewWindow : Window
 
     private async Task RunFormEventAsync(string? eventName, string context)
     {
-        if (string.IsNullOrWhiteSpace(eventName))
+        if (_updatingControls || string.IsNullOrWhiteSpace(eventName))
         {
             return;
         }
@@ -213,39 +245,47 @@ public sealed class YyFormPreviewWindow : Window
 
     private void ApplyControlValues(IReadOnlyDictionary<string, object?> variables)
     {
-        foreach (var control in _form.Controls)
+        _updatingControls = true;
+        try
         {
-            if (!variables.TryGetValue(control.Name, out var value) ||
-                value is not IReadOnlyDictionary<string, object?> values)
+            foreach (var control in _form.Controls)
             {
-                continue;
-            }
+                if (!variables.TryGetValue(control.Name, out var value) ||
+                    value is not IReadOnlyDictionary<string, object?> values)
+                {
+                    continue;
+                }
 
-            if (values.TryGetValue("文本", out var textValue) && textValue is not null)
-            {
-                var text = textValue.ToString() ?? string.Empty;
-                control.Text = text;
-                SetElementText(_elements[control], text);
-            }
+                if (values.TryGetValue("文本", out var textValue))
+                {
+                    var text = textValue?.ToString() ?? string.Empty;
+                    control.Text = text;
+                    SetElementText(_elements[control], text);
+                }
 
-            if (values.TryGetValue("启用", out var enabledValue) && enabledValue is bool enabled)
-            {
-                control.IsEnabled = enabled;
-                _elements[control].IsEnabled = enabled;
-            }
+                if (values.TryGetValue("启用", out var enabledValue) && enabledValue is bool enabled)
+                {
+                    control.IsEnabled = enabled;
+                    _elements[control].IsEnabled = enabled;
+                }
 
-            if (values.TryGetValue("可见", out var visibleValue) && visibleValue is bool visible)
-            {
-                control.IsVisible = visible;
-                _elements[control].Visibility = visible ? Visibility.Visible : Visibility.Hidden;
-            }
+                if (values.TryGetValue("可见", out var visibleValue) && visibleValue is bool visible)
+                {
+                    control.IsVisible = visible;
+                    _elements[control].Visibility = visible ? Visibility.Visible : Visibility.Hidden;
+                }
 
-            if (values.TryGetValue("选中", out var selectedValue) &&
-                selectedValue is bool selected &&
-                _elements[control] is CheckBox checkBox)
-            {
-                checkBox.IsChecked = selected;
+                if (values.TryGetValue("选中", out var selectedValue) &&
+                    selectedValue is bool selected &&
+                    _elements[control] is CheckBox checkBox)
+                {
+                    checkBox.IsChecked = selected;
+                }
             }
+        }
+        finally
+        {
+            _updatingControls = false;
         }
     }
 

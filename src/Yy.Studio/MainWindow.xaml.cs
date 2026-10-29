@@ -592,7 +592,9 @@ public partial class MainWindow : Window
         OpenDocument(codePath);
     }
 
-    private void CreateOrOpenClickHandler(YyControlModel control)
+    private void CreateOrOpenControlEventHandler(
+        YyControlModel control,
+        ControlEventKind eventKind)
     {
         if (_designForm is null || string.IsNullOrWhiteSpace(_currentDocument?.FilePath))
         {
@@ -622,10 +624,17 @@ public partial class MainWindow : Window
                    ' 在这里编写窗体事件代码。
                    """);
 
-        var handlerName = control.ClickEvent;
+        var handlerName = GetControlEvent(control, eventKind);
         if (string.IsNullOrWhiteSpace(handlerName))
         {
-            var baseName = control.Name + "_被单击";
+            var suffix = eventKind switch
+            {
+                ControlEventKind.TextChanged => "_文本改变",
+                ControlEventKind.SelectionChanged => "_选择改变",
+                ControlEventKind.CheckedChanged => "_选中改变",
+                _ => "_被单击"
+            };
+            var baseName = control.Name + suffix;
             handlerName = baseName;
             var index = 2;
             var existing = YyRunner.CompileSource(source, codePath).Functions
@@ -643,7 +652,7 @@ public partial class MainWindow : Window
             source = source.TrimEnd() + Environment.NewLine + Environment.NewLine +
                 $"""
                  子程序 {handlerName}()
-                     ' 在这里编写 {control.Name} 的单击逻辑。
+                     ' 在这里编写 {control.Name} 的 {GetEventDisplayName(eventKind)} 逻辑。
                  结束子程序
                  """ + Environment.NewLine;
         }
@@ -662,7 +671,7 @@ public partial class MainWindow : Window
             codeDocument.Text = source;
         }
 
-        control.ClickEvent = handlerName;
+        SetControlEvent(control, eventKind, handlerName);
         _designForm.CodeFile = Path.GetRelativePath(formDirectory, codePath).Replace('\\', '/');
         DesignerChanged();
         DocumentTabs.SelectedItem = codeDocument;
@@ -675,8 +684,49 @@ public partial class MainWindow : Window
             Editor.ScrollToLine(line.LineNumber);
         }
 
-        SetStatus($"已生成事件 {handlerName}()", ReadyBrush);
+        SetStatus($"已绑定 {GetEventDisplayName(eventKind)} 事件 {handlerName}()", ReadyBrush);
     }
+
+    private static string? GetControlEvent(YyControlModel control, ControlEventKind eventKind)
+    {
+        return eventKind switch
+        {
+            ControlEventKind.TextChanged => control.TextChangedEvent,
+            ControlEventKind.SelectionChanged => control.SelectionChangedEvent,
+            ControlEventKind.CheckedChanged => control.CheckedChangedEvent,
+            _ => control.ClickEvent
+        };
+    }
+
+    private static void SetControlEvent(
+        YyControlModel control,
+        ControlEventKind eventKind,
+        string? eventName)
+    {
+        switch (eventKind)
+        {
+            case ControlEventKind.TextChanged:
+                control.TextChangedEvent = eventName;
+                break;
+            case ControlEventKind.SelectionChanged:
+                control.SelectionChangedEvent = eventName;
+                break;
+            case ControlEventKind.CheckedChanged:
+                control.CheckedChangedEvent = eventName;
+                break;
+            default:
+                control.ClickEvent = eventName;
+                break;
+        }
+    }
+
+    private static string GetEventDisplayName(ControlEventKind eventKind) => eventKind switch
+    {
+        ControlEventKind.TextChanged => "文本改变",
+        ControlEventKind.SelectionChanged => "选择改变",
+        ControlEventKind.CheckedChanged => "选中改变",
+        _ => "单击"
+    };
 
     private void PreviewCurrentForm()
     {
@@ -1203,6 +1253,21 @@ public partial class MainWindow : Window
     private static string GetControlBaseName(string type) =>
         type == YyControlTypes.Label ? "标签" : type;
 
+    private static bool TryGetDefaultEvent(string controlType, out ControlEventKind eventKind)
+    {
+        eventKind = controlType switch
+        {
+            YyControlTypes.Button => ControlEventKind.Click,
+            YyControlTypes.TextBox => ControlEventKind.TextChanged,
+            YyControlTypes.ComboBox or YyControlTypes.ListBox => ControlEventKind.SelectionChanged,
+            YyControlTypes.CheckBox => ControlEventKind.CheckedChanged,
+            _ => default
+        };
+
+        return controlType is YyControlTypes.Button or YyControlTypes.TextBox
+            or YyControlTypes.ComboBox or YyControlTypes.ListBox or YyControlTypes.CheckBox;
+    }
+
     private void OnDesignerCanvasMouseDown(object sender, MouseButtonEventArgs e)
     {
         if (_designForm is null)
@@ -1227,10 +1292,10 @@ public partial class MainWindow : Window
         var control = FindAncestorTag<YyControlModel>(e.OriginalSource as DependencyObject);
         if (control is not null)
         {
-            if (e.ClickCount == 2 && control.Type == YyControlTypes.Button)
+            if (e.ClickCount == 2 && TryGetDefaultEvent(control.Type, out var eventKind))
             {
                 SelectDesignerControl(control);
-                CreateOrOpenClickHandler(control);
+                CreateOrOpenControlEventHandler(control, eventKind);
                 e.Handled = true;
                 return;
             }
@@ -1971,6 +2036,9 @@ public partial class MainWindow : Window
                 PropertyFontSizeBox.Text = string.Empty;
                 PropertyCodeFileBox.Text = string.Empty;
                 PropertyEventBox.Text = string.Empty;
+                PropertyTextChangedEventBox.Text = string.Empty;
+                PropertySelectionChangedEventBox.Text = string.Empty;
+                PropertyCheckedChangedEventBox.Text = string.Empty;
                 PropertyLoadEventBox.Text = string.Empty;
                 PropertyCloseEventBox.Text = string.Empty;
                 PropertyNameBox.IsEnabled = false;
@@ -1984,10 +2052,14 @@ public partial class MainWindow : Window
                 PropertyFontSizeBox.IsEnabled = false;
                 PropertyCodeFileBox.IsEnabled = false;
                 PropertyEventBox.IsEnabled = false;
+                PropertyTextChangedEventBox.IsEnabled = false;
+                PropertySelectionChangedEventBox.IsEnabled = false;
+                PropertyCheckedChangedEventBox.IsEnabled = false;
                 PropertyLoadEventBox.IsEnabled = false;
                 PropertyCloseEventBox.IsEnabled = false;
                 PropertyEnabledCheck.IsEnabled = false;
                 PropertyVisibleCheck.IsEnabled = false;
+                PropertyCheckedCheck.IsEnabled = false;
             }
             else if (_selectedControl is null)
             {
@@ -2003,6 +2075,9 @@ public partial class MainWindow : Window
                 PropertyFontSizeBox.Text = string.Empty;
                 PropertyCodeFileBox.Text = _designForm.CodeFile;
                 PropertyEventBox.Text = string.Empty;
+                PropertyTextChangedEventBox.Text = string.Empty;
+                PropertySelectionChangedEventBox.Text = string.Empty;
+                PropertyCheckedChangedEventBox.Text = string.Empty;
                 PropertyLoadEventBox.Text = _designForm.LoadEvent ?? string.Empty;
                 PropertyCloseEventBox.Text = _designForm.CloseEvent ?? string.Empty;
                 PropertyXBox.IsEnabled = false;
@@ -2011,6 +2086,9 @@ public partial class MainWindow : Window
                 PropertyFontSizeBox.IsEnabled = false;
                 PropertyCodeFileBox.IsEnabled = true;
                 PropertyEventBox.IsEnabled = false;
+                PropertyTextChangedEventBox.IsEnabled = false;
+                PropertySelectionChangedEventBox.IsEnabled = false;
+                PropertyCheckedChangedEventBox.IsEnabled = false;
                 PropertyLoadEventBox.IsEnabled = true;
                 PropertyCloseEventBox.IsEnabled = true;
                 PropertyNameBox.IsEnabled = true;
@@ -2020,6 +2098,7 @@ public partial class MainWindow : Window
                 PropertyBackgroundBox.IsEnabled = true;
                 PropertyEnabledCheck.IsEnabled = false;
                 PropertyVisibleCheck.IsEnabled = false;
+                PropertyCheckedCheck.IsEnabled = false;
                 PropertyEnabledCheck.IsChecked = true;
                 PropertyVisibleCheck.IsChecked = true;
             }
@@ -2037,6 +2116,9 @@ public partial class MainWindow : Window
                 PropertyFontSizeBox.Text = _selectedControl.FontSize.ToString("0.###");
                 PropertyCodeFileBox.Text = string.Empty;
                 PropertyEventBox.Text = _selectedControl.ClickEvent ?? string.Empty;
+                PropertyTextChangedEventBox.Text = _selectedControl.TextChangedEvent ?? string.Empty;
+                PropertySelectionChangedEventBox.Text = _selectedControl.SelectionChangedEvent ?? string.Empty;
+                PropertyCheckedChangedEventBox.Text = _selectedControl.CheckedChangedEvent ?? string.Empty;
                 PropertyLoadEventBox.Text = string.Empty;
                 PropertyCloseEventBox.Text = string.Empty;
                 PropertyXBox.IsEnabled = true;
@@ -2044,7 +2126,11 @@ public partial class MainWindow : Window
                 PropertyForegroundBox.IsEnabled = true;
                 PropertyFontSizeBox.IsEnabled = true;
                 PropertyCodeFileBox.IsEnabled = false;
-                PropertyEventBox.IsEnabled = true;
+                PropertyEventBox.IsEnabled = _selectedControl.Type == YyControlTypes.Button;
+                PropertyTextChangedEventBox.IsEnabled = _selectedControl.Type == YyControlTypes.TextBox;
+                PropertySelectionChangedEventBox.IsEnabled =
+                    _selectedControl.Type is YyControlTypes.ComboBox or YyControlTypes.ListBox;
+                PropertyCheckedChangedEventBox.IsEnabled = _selectedControl.Type == YyControlTypes.CheckBox;
                 PropertyLoadEventBox.IsEnabled = false;
                 PropertyCloseEventBox.IsEnabled = false;
                 PropertyNameBox.IsEnabled = true;
@@ -2056,8 +2142,10 @@ public partial class MainWindow : Window
                 PropertyBackgroundBox.IsEnabled = true;
                 PropertyEnabledCheck.IsEnabled = true;
                 PropertyVisibleCheck.IsEnabled = true;
+                PropertyCheckedCheck.IsEnabled = _selectedControl.Type == YyControlTypes.CheckBox;
                 PropertyEnabledCheck.IsChecked = _selectedControl.IsEnabled;
                 PropertyVisibleCheck.IsChecked = _selectedControl.IsVisible;
+                PropertyCheckedCheck.IsChecked = _selectedControl.IsChecked;
             }
         }
         finally
@@ -2141,6 +2229,17 @@ public partial class MainWindow : Window
             _selectedControl.ClickEvent = string.IsNullOrWhiteSpace(PropertyEventBox.Text)
                 ? null
                 : PropertyEventBox.Text.Trim();
+            _selectedControl.TextChangedEvent = string.IsNullOrWhiteSpace(PropertyTextChangedEventBox.Text)
+                ? null
+                : PropertyTextChangedEventBox.Text.Trim();
+            _selectedControl.SelectionChangedEvent =
+                string.IsNullOrWhiteSpace(PropertySelectionChangedEventBox.Text)
+                    ? null
+                    : PropertySelectionChangedEventBox.Text.Trim();
+            _selectedControl.CheckedChangedEvent =
+                string.IsNullOrWhiteSpace(PropertyCheckedChangedEventBox.Text)
+                    ? null
+                    : PropertyCheckedChangedEventBox.Text.Trim();
             RefreshSelectedControlElement();
         }
 
@@ -2164,6 +2263,7 @@ public partial class MainWindow : Window
 
         _selectedControl.IsEnabled = PropertyEnabledCheck.IsChecked == true;
         _selectedControl.IsVisible = PropertyVisibleCheck.IsChecked == true;
+        _selectedControl.IsChecked = PropertyCheckedCheck.IsChecked == true;
         RefreshSelectedControlElement();
         DesignerChanged();
     }
@@ -2663,6 +2763,14 @@ public partial class MainWindow : Window
         None,
         Move,
         Resize
+    }
+
+    private enum ControlEventKind
+    {
+        Click,
+        TextChanged,
+        SelectionChanged,
+        CheckedChanged
     }
 
     private enum ResizeDirection

@@ -41,6 +41,11 @@ public static class YyFormRenderer
             textBlock.TextWrapping = TextWrapping.Wrap;
         }
 
+        if (element is CheckBox checkbox)
+        {
+            checkbox.IsChecked = model.IsChecked;
+        }
+
         return element;
     }
 
