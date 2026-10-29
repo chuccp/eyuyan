@@ -77,40 +77,80 @@
               BorderBrush="{StaticResource BorderBrush}"
               BorderThickness="0,0,0,1"
               Padding="6,1">
-            <MenuItem Header="文件">
-                <MenuItem Header="新建项目…      Ctrl+Alt+N" Command="{x:Static local:MainWindow.NewProjectCommand}"
-                          xmlns:local="clr-namespace:Yy.Studio" />
-                <MenuItem Header="新建" Command="{x:Static local:MainWindow.NewFileCommand}"
-                          xmlns:local="clr-namespace:Yy.Studio" />
-                <MenuItem Header="新建窗体" Command="{x:Static local:MainWindow.NewFormCommand}"
-                          xmlns:local="clr-namespace:Yy.Studio" />
-                <MenuItem Header="打开文件…" Command="{x:Static local:MainWindow.OpenFileCommand}"
-                          xmlns:local="clr-namespace:Yy.Studio" />
-                <MenuItem Header="打开文件夹…" Command="{x:Static local:MainWindow.OpenFolderCommand}"
-                          xmlns:local="clr-namespace:Yy.Studio" />
+            <MenuItem Header="文件" Style="{StaticResource TopMenuItem}">
+                <MenuItem Header="新建项目…"
+                          InputGestureText="Ctrl+Alt+N"
+                          Command="{x:Static local:MainWindow.NewProjectCommand}"
+                          xmlns:local="clr-namespace:Yy.Studio">
+                    <MenuItem.Icon><TextBlock Text="＋" /></MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="新建源码" InputGestureText="Ctrl+N"
+                          Command="{x:Static local:MainWindow.NewFileCommand}"
+                          xmlns:local="clr-namespace:Yy.Studio">
+                    <MenuItem.Icon><TextBlock Text="◇" /></MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="新建窗体" InputGestureText="Ctrl+Shift+N"
+                          Command="{x:Static local:MainWindow.NewFormCommand}"
+                          xmlns:local="clr-namespace:Yy.Studio">
+                    <MenuItem.Icon><TextBlock Text="▣" /></MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="打开文件…" InputGestureText="Ctrl+O"
+                          Command="{x:Static local:MainWindow.OpenFileCommand}"
+                          xmlns:local="clr-namespace:Yy.Studio">
+                    <MenuItem.Icon><TextBlock Text="↗" /></MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="打开文件夹…" InputGestureText="Ctrl+Shift+O"
+                          Command="{x:Static local:MainWindow.OpenFolderCommand}"
+                          xmlns:local="clr-namespace:Yy.Studio">
+                    <MenuItem.Icon><TextBlock Text="▱" /></MenuItem.Icon>
+                </MenuItem>
                 <Separator />
-                <MenuItem Header="保存" Command="{x:Static local:MainWindow.SaveFileCommand}"
-                          xmlns:local="clr-namespace:Yy.Studio" />
-                <MenuItem Header="另存为…" Command="{x:Static local:MainWindow.SaveAsCommand}"
-                          xmlns:local="clr-namespace:Yy.Studio" />
+                <MenuItem Header="保存" InputGestureText="Ctrl+S"
+                          Command="{x:Static local:MainWindow.SaveFileCommand}"
+                          xmlns:local="clr-namespace:Yy.Studio">
+                    <MenuItem.Icon><TextBlock Text="↓" /></MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="另存为…" InputGestureText="Ctrl+Shift+S"
+                          Command="{x:Static local:MainWindow.SaveAsCommand}"
+                          xmlns:local="clr-namespace:Yy.Studio">
+                    <MenuItem.Icon><TextBlock Text="⇩" /></MenuItem.Icon>
+                </MenuItem>
                 <Separator />
-                <MenuItem Header="退出" Click="OnExitClick" />
+                <MenuItem Header="退出" InputGestureText="Alt+F4" Click="OnExitClick">
+                    <MenuItem.Icon><TextBlock Text="×" /></MenuItem.Icon>
+                </MenuItem>
             </MenuItem>
-            <MenuItem Header="运行">
-                <MenuItem Header="运行项目入口      Ctrl+F5" Command="{x:Static local:MainWindow.RunProjectCommand}"
-                          xmlns:local="clr-namespace:Yy.Studio" />
-                <MenuItem Header="运行程序      F5" Command="{x:Static local:MainWindow.RunCommand}"
-                          xmlns:local="clr-namespace:Yy.Studio" />
-                <MenuItem Header="停止程序      Shift+F5" Command="{x:Static local:MainWindow.StopCommand}"
-                          xmlns:local="clr-namespace:Yy.Studio" />
+            <MenuItem Header="运行" Style="{StaticResource TopMenuItem}">
+                <MenuItem Header="运行项目入口" InputGestureText="Ctrl+F5"
+                          Command="{x:Static local:MainWindow.RunProjectCommand}"
+                          xmlns:local="clr-namespace:Yy.Studio">
+                    <MenuItem.Icon><TextBlock Text="▶" /></MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="运行当前文件" InputGestureText="F5"
+                          Command="{x:Static local:MainWindow.RunCommand}"
+                          xmlns:local="clr-namespace:Yy.Studio">
+                    <MenuItem.Icon><TextBlock Text="▷" /></MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="停止" InputGestureText="Shift+F5"
+                          Command="{x:Static local:MainWindow.StopCommand}"
+                          xmlns:local="clr-namespace:Yy.Studio">
+                    <MenuItem.Icon><TextBlock Text="■" /></MenuItem.Icon>
+                </MenuItem>
             </MenuItem>
-            <MenuItem Header="生成">
-                <MenuItem Header="编译为 EXE      Ctrl+B" Command="{x:Static local:MainWindow.CompileProjectCommand}"
-                          xmlns:local="clr-namespace:Yy.Studio" />
+            <MenuItem Header="生成" Style="{StaticResource TopMenuItem}">
+                <MenuItem Header="编译为 EXE" InputGestureText="Ctrl+B"
+                          Command="{x:Static local:MainWindow.CompileProjectCommand}"
+                          xmlns:local="clr-namespace:Yy.Studio">
+                    <MenuItem.Icon><TextBlock Text="⚙" /></MenuItem.Icon>
+                </MenuItem>
             </MenuItem>
-            <MenuItem Header="帮助">
-                <MenuItem Header="语法速查" Click="OnSyntaxClick" />
-                <MenuItem Header="关于易语 Studio" Click="OnAboutClick" />
+            <MenuItem Header="帮助" Style="{StaticResource TopMenuItem}">
+                <MenuItem Header="语法速查" Click="OnSyntaxClick">
+                    <MenuItem.Icon><TextBlock Text="?" /></MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="关于易语 Studio" Click="OnAboutClick">
+                    <MenuItem.Icon><TextBlock Text="ⓘ" /></MenuItem.Icon>
+                </MenuItem>
             </MenuItem>
         </Menu>
 
