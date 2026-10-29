@@ -71,9 +71,12 @@
 
     <DockPanel LastChildFill="True">
         <Menu DockPanel.Dock="Top"
-              Background="{StaticResource PanelBrush}"
+              Height="28"
+              Background="{StaticResource PanelRaisedBrush}"
               Foreground="{StaticResource TextBrush}"
-              Padding="8,3">
+              BorderBrush="{StaticResource BorderBrush}"
+              BorderThickness="0,0,0,1"
+              Padding="6,1">
             <MenuItem Header="文件">
                 <MenuItem Header="新建项目…      Ctrl+Alt+N" Command="{x:Static local:MainWindow.NewProjectCommand}"
                           xmlns:local="clr-namespace:Yy.Studio" />
@@ -112,58 +115,66 @@
         </Menu>
 
         <Border DockPanel.Dock="Top"
-                Height="60"
-                Background="#131820"
+                Height="44"
+                Background="#2D2D30"
                 BorderBrush="{StaticResource BorderBrush}"
                 BorderThickness="0,0,0,1">
-            <Grid Margin="16,0">
+            <Grid Margin="8,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <Border Width="36" Height="36"
-                        CornerRadius="9"
+                <Border Width="25" Height="25"
+                        CornerRadius="3"
                         Background="{StaticResource AccentBrush}"
                         VerticalAlignment="Center">
                     <TextBlock Text="易"
-                               Foreground="#092019"
-                               FontSize="20"
-                               FontWeight="Black"
+                               Foreground="White"
+                               FontSize="14"
+                               FontWeight="Bold"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center" />
                 </Border>
-                <StackPanel Grid.Column="1" Margin="11,0,0,0" VerticalAlignment="Center">
-                    <TextBlock Text="易语 Studio" FontSize="16" FontWeight="SemiBold" />
-                    <TextBlock Text="原生 · 现代 · 中文编程"
+                <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center"
+                            Orientation="Horizontal">
+                    <TextBlock Text="易语 Studio" FontSize="13" FontWeight="SemiBold" />
+                    <TextBlock Text="中文应用开发环境"
                                FontSize="10"
                                Foreground="{StaticResource MutedBrush}"
-                               Margin="0,2,0,0" />
+                               Margin="10,1,0,0" />
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Style="{StaticResource ToolButton}" Content="新建项目"
+                    <Button Style="{StaticResource ToolButton}" Content="＋ 新建项目"
+                            ToolTip="新建易语项目 (Ctrl+Alt+N)"
                             Command="{x:Static local:MainWindow.NewProjectCommand}"
                             xmlns:local="clr-namespace:Yy.Studio" />
-                    <Button Style="{StaticResource ToolButton}" Content="打开文件夹"
+                    <Button Style="{StaticResource ToolButton}" Content="打开目录"
+                            ToolTip="打开文件或文件夹"
                             Command="{x:Static local:MainWindow.OpenFolderCommand}"
                             xmlns:local="clr-namespace:Yy.Studio" />
                     <Button Style="{StaticResource ToolButton}" Content="保存"
+                            ToolTip="保存当前文件 (Ctrl+S)"
                             Command="{x:Static local:MainWindow.SaveFileCommand}"
                             xmlns:local="clr-namespace:Yy.Studio" />
-                    <Button Style="{StaticResource ToolButton}" Content="新建窗体"
+                    <Button Style="{StaticResource ToolButton}" Content="窗体"
+                            ToolTip="新建窗体设计"
                             Command="{x:Static local:MainWindow.NewFormCommand}"
                             xmlns:local="clr-namespace:Yy.Studio" />
                     <Button x:Name="CompileProjectButton"
                             Style="{StaticResource ToolButton}"
-                            Content="编译 EXE"
+                            Content="编译"
+                            ToolTip="编译项目为独立 EXE (Ctrl+B)"
                             Command="{x:Static local:MainWindow.CompileProjectCommand}"
                             xmlns:local="clr-namespace:Yy.Studio" />
-                    <Button x:Name="RunButton" Style="{StaticResource RunButton}" Content="▶  运行"
+                    <Button x:Name="RunButton" Style="{StaticResource RunButton}" Content="▶  启动"
+                            ToolTip="运行或预览 (F5)"
                             Command="{x:Static local:MainWindow.RunCommand}"
                             xmlns:local="clr-namespace:Yy.Studio" />
                     <Button x:Name="StopButton" Style="{StaticResource ToolButton}" Content="■  停止"
+                            ToolTip="停止运行 (Shift+F5)"
                             IsEnabled="False"
                             Command="{x:Static local:MainWindow.StopCommand}"
                             xmlns:local="clr-namespace:Yy.Studio" />
@@ -172,46 +183,83 @@
         </Border>
 
         <Border DockPanel.Dock="Bottom"
-                Height="28"
-                Background="#151A22"
-                BorderBrush="{StaticResource BorderBrush}"
+                Height="24"
+                Background="#007ACC"
+                BorderBrush="#0067A8"
                 BorderThickness="0,1,0,0">
-            <Grid Margin="12,0">
+            <Grid Margin="8,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Ellipse x:Name="StatusDot" Width="7" Height="7" Fill="{StaticResource AccentBrush}" />
+                    <Ellipse x:Name="StatusDot" Width="7" Height="7" Fill="White" />
                     <TextBlock x:Name="StatusText" Text="就绪"
                                Margin="7,0,0,0" FontSize="11"
-                               Foreground="{StaticResource MutedBrush}" />
+                               Foreground="White" />
                 </StackPanel>
                 <TextBlock x:Name="CaretText" Grid.Column="1" Text="行 1，列 1"
-                           FontSize="11" Foreground="{StaticResource MutedBrush}"
+                           FontSize="11" Foreground="#EAF6FF"
                            Margin="0,0,18,0" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="2" Text="UTF-8  ·  Windows 原生"
-                           FontSize="11" Foreground="{StaticResource MutedBrush}"
+                           FontSize="11" Foreground="#EAF6FF"
                            VerticalAlignment="Center" />
             </Grid>
         </Border>
 
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="235" MinWidth="180" />
-                <ColumnDefinition Width="1" />
+                <ColumnDefinition Width="44" />
+                <ColumnDefinition x:Name="ExplorerColumn" Width="240" MinWidth="180" />
+                <ColumnDefinition Width="4" />
                 <ColumnDefinition Width="*" MinWidth="420" />
-                <ColumnDefinition Width="1" />
-                <ColumnDefinition Width="278" MinWidth="220" />
+                <ColumnDefinition Width="4" />
+                <ColumnDefinition Width="300" MinWidth="220" />
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" MinHeight="300" />
-                <RowDefinition Height="1" />
-                <RowDefinition Height="178" MinHeight="110" />
+                <RowDefinition Height="4" />
+                <RowDefinition Height="164" MinHeight="110" />
             </Grid.RowDefinitions>
 
-            <Border Grid.Column="0" Grid.RowSpan="3" Background="{StaticResource PanelBrush}">
+            <Border Grid.Column="0" Grid.RowSpan="3" Background="#333337">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Button x:Name="ExplorerActivityButton"
+                            Width="44"
+                            Height="46"
+                            Background="#2D2D30"
+                            BorderThickness="0,0,2,0"
+                            BorderBrush="{StaticResource AccentBrush}"
+                            Foreground="{StaticResource TextBrush}"
+                            ToolTip="解决方案资源管理器"
+                            Click="OnToggleExplorer">
+                        <StackPanel>
+                            <TextBlock Text="▱" FontSize="18" HorizontalAlignment="Center" />
+                            <TextBlock Text="项目" FontSize="9" HorizontalAlignment="Center"
+                                       Foreground="#D7D7D7" Margin="0,1,0,0" />
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Row="2"
+                            Width="44"
+                            Height="42"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Foreground="{StaticResource MutedBrush}"
+                            ToolTip="关于易语 Studio"
+                            Click="OnAboutClick">
+                        <TextBlock Text="⚙" FontSize="18" HorizontalAlignment="Center" />
+                    </Button>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="1" x:Name="ExplorerPanel" Grid.RowSpan="3"
+                    Background="{StaticResource PanelBrush}">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -219,7 +267,8 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <DockPanel Margin="0,0,0,2">
-                        <TextBlock x:Name="ProjectTitleText" Text="项目" Style="{StaticResource SectionTitle}" />
+                        <TextBlock x:Name="ProjectTitleText" Text="解决方案资源管理器"
+                                   Style="{StaticResource SectionTitle}" />
                         <Button Content="+"
                                 Style="{StaticResource ToolButton}"
                                 Padding="8,2"
@@ -236,10 +285,10 @@
                     <Border Grid.Row="2"
                             Margin="12"
                             Padding="10"
-                            Background="#11161D"
+                            Background="#1E1E1E"
                             BorderBrush="{StaticResource BorderBrush}"
                             BorderThickness="1"
-                            CornerRadius="6">
+                            CornerRadius="2">
                         <StackPanel>
                             <TextBlock Text="源码格式" FontSize="10" Foreground="{StaticResource MutedBrush}" />
                             <TextBlock Text=".ey  ·  UTF-8" FontSize="12" Margin="0,3,0,0" />
@@ -253,14 +302,22 @@
                 </Grid>
             </Border>
 
-            <Rectangle Grid.Column="1" Grid.RowSpan="3" Fill="{StaticResource BorderBrush}" />
+            <GridSplitter x:Name="ExplorerSplitter"
+                          Grid.Column="2"
+                          Grid.RowSpan="3"
+                          Width="4"
+                          HorizontalAlignment="Stretch"
+                          Background="{StaticResource BorderBrush}"
+                          ResizeBehavior="PreviousAndNext"
+                          ResizeDirection="Columns"
+                          ShowsPreview="True" />
 
-            <Grid Grid.Column="2" Background="{StaticResource WindowBrush}">
+            <Grid Grid.Column="3" Background="{StaticResource WindowBrush}">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="42" />
+                    <RowDefinition Height="34" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
-                <Border Background="#151A22"
+                <Border Background="#2D2D30"
                         BorderBrush="{StaticResource BorderBrush}"
                         BorderThickness="0,0,0,1">
                     <Grid Margin="8,0">
@@ -300,14 +357,15 @@
                                                     <ContentPresenter VerticalAlignment="Center" />
                                                 </Border>
                                                 <ControlTemplate.Triggers>
-                                                    <Trigger Property="IsSelected" Value="True">
+                                    <Trigger Property="IsSelected" Value="True">
                                                         <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
                                                         <Setter TargetName="TabChrome" Property="BorderBrush"
                                                                 Value="{StaticResource AccentBrush}" />
+                                        <Setter TargetName="TabChrome" Property="Background" Value="#1E1E1E" />
                                                     </Trigger>
                                                     <Trigger Property="IsMouseOver" Value="True">
                                                         <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
-                                                        <Setter TargetName="TabChrome" Property="Background" Value="#1C2430" />
+                                        <Setter TargetName="TabChrome" Property="Background" Value="#3A3D41" />
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
@@ -352,7 +410,7 @@
                                 Command="{x:Static local:MainWindow.NewFileCommand}"
                                 xmlns:local="clr-namespace:Yy.Studio" />
                         <Border Grid.Column="2"
-                                Background="#24303D"
+                                Background="#3A3D41"
                                 CornerRadius="4"
                                 Padding="6,2"
                                 Margin="3,0,8,0"
@@ -371,10 +429,10 @@
 
                 <avalon:TextEditor x:Name="Editor"
                                    Grid.Row="1"
-                                   Background="#101318"
-                                   Foreground="#DCE4EE"
-                                   FontFamily="Cascadia Mono, Consolas, Microsoft YaHei UI"
-                                   FontSize="14"
+                                   Background="#1E1E1E"
+                                   Foreground="#D4D4D4"
+                                   FontFamily="Cascadia Code, Consolas, Microsoft YaHei UI"
+                                   FontSize="13"
                                    ShowLineNumbers="True"
                                    HorizontalScrollBarVisibility="Auto"
                                    VerticalScrollBarVisibility="Auto"
@@ -383,13 +441,13 @@
 
                 <Grid x:Name="DesignerPanel"
                       Grid.Row="1"
-                      Background="#0D1116"
+                      Background="#1E1E1E"
                       Visibility="Collapsed">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="42" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <Border Background="#151A22"
+                    <Border Background="#2D2D30"
                             BorderBrush="{StaticResource BorderBrush}"
                             BorderThickness="0,0,0,1">
                         <Grid Margin="10,0">
@@ -462,7 +520,7 @@
                             <ColumnDefinition Width="1" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Border Background="{StaticResource PanelBrush}">
+                        <Border Background="#252526">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
@@ -498,16 +556,16 @@
                             </Grid>
                         </Border>
 
-                        <Rectangle Grid.Column="1" Fill="{StaticResource BorderBrush}" />
+                        <Rectangle Grid.Column="1" Fill="#3F3F46" />
 
                         <ScrollViewer Grid.Column="2"
-                                      Background="#0D1116"
+                                      Background="#1E1E1E"
                                       HorizontalScrollBarVisibility="Auto"
                                       VerticalScrollBarVisibility="Auto"
                                       Padding="28">
                             <Border HorizontalAlignment="Center"
                                     VerticalAlignment="Top"
-                                    Background="#222A35"
+                                    Background="#2D2D30"
                                     Padding="12"
                                     CornerRadius="8">
                                 <Canvas x:Name="DesignerCanvas"
@@ -553,9 +611,16 @@
                 </Grid>
             </Grid>
 
-            <Rectangle Grid.Column="3" Grid.RowSpan="3" Fill="{StaticResource BorderBrush}" />
+            <GridSplitter Grid.Column="4"
+                          Grid.RowSpan="3"
+                          Width="4"
+                          HorizontalAlignment="Stretch"
+                          Background="{StaticResource BorderBrush}"
+                          ResizeBehavior="PreviousAndNext"
+                          ResizeDirection="Columns"
+                          ShowsPreview="True" />
 
-            <Border Grid.Column="4" Grid.RowSpan="2" Background="{StaticResource PanelBrush}">
+            <Border Grid.Column="5" Grid.RowSpan="3" Background="{StaticResource PanelBrush}">
                 <Grid>
                 <TabControl x:Name="InspectorTabs">
                     <TabItem Header="概要">
@@ -804,9 +869,16 @@
                 </Grid>
             </Border>
 
-            <Rectangle Grid.Column="4" Grid.Row="1" Fill="{StaticResource BorderBrush}" />
+            <GridSplitter Grid.Column="3"
+                          Grid.Row="1"
+                          Height="4"
+                          HorizontalAlignment="Stretch"
+                          Background="{StaticResource BorderBrush}"
+                          ResizeBehavior="PreviousAndNext"
+                          ResizeDirection="Rows"
+                          ShowsPreview="True" />
 
-            <Border Grid.Column="2" Grid.Row="2" Background="#0D1116">
+            <Border Grid.Column="3" Grid.Row="2" Background="#1E1E1E">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="34" />
@@ -829,7 +901,7 @@
                     </Border>
                     <TextBox x:Name="OutputBox"
                              Grid.Row="1"
-                             Background="#0D1116"
+                             Background="#1E1E1E"
                              Foreground="#B9C6D6"
                              BorderThickness="0"
                              FontFamily="Cascadia Mono, Consolas, Microsoft YaHei UI"

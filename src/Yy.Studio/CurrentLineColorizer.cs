@@ -9,7 +9,7 @@ namespace Yy.Studio;
 public sealed class CurrentLineColorizer : DocumentColorizingTransformer
 {
     private readonly TextEditor _editor;
-    private readonly Brush _brush = new SolidColorBrush(Color.FromArgb(48, 55, 86, 106));
+    private readonly Brush _brush = new SolidColorBrush(Color.FromArgb(38, 0, 122, 204));
 
     public CurrentLineColorizer(TextEditor editor)
     {

@@ -76,6 +76,7 @@ public partial class MainWindow : Window
     private bool _designerDragChanged;
     private bool _updatingDesignerProperties;
     private Point _toolboxDragStart;
+    private GridLength _explorerWidth = new(240);
     private CancellationTokenSource? _runCancellation;
     private bool _isLoadingDocument;
 
@@ -1627,7 +1628,7 @@ public partial class MainWindow : Window
                 Width = control.Width,
                 Height = control.Height,
                 BorderBrush = YyFormRenderer.Brush(
-                    ReferenceEquals(control, _selectedControl) ? "#55D6B3" : "#7AA7FF"),
+                    ReferenceEquals(control, _selectedControl) ? "#007ACC" : "#569CD6"),
                 BorderThickness = new Thickness(1.5),
                 Background = Brushes.Transparent,
                 IsHitTestVisible = false
@@ -1650,8 +1651,8 @@ public partial class MainWindow : Window
             {
                 Width = 8,
                 Height = 8,
-                Background = YyFormRenderer.Brush("#55D6B3"),
-                BorderBrush = YyFormRenderer.Brush("#0D1116"),
+                Background = YyFormRenderer.Brush("#007ACC"),
+                BorderBrush = YyFormRenderer.Brush("#1E1E1E"),
                 BorderThickness = new Thickness(1),
                 Tag = new ResizeHandleTag(direction)
             };
@@ -2469,6 +2470,29 @@ public partial class MainWindow : Window
             "关于易语 Studio",
             MessageBoxButton.OK,
             MessageBoxImage.Information);
+    }
+
+    private void OnToggleExplorer(object sender, RoutedEventArgs e)
+    {
+        if (ExplorerPanel.Visibility == Visibility.Visible)
+        {
+            _explorerWidth = ExplorerColumn.Width;
+            ExplorerPanel.Visibility = Visibility.Collapsed;
+            ExplorerSplitter.Visibility = Visibility.Collapsed;
+            ExplorerColumn.MinWidth = 0;
+            ExplorerColumn.Width = new GridLength(0);
+            ExplorerActivityButton.Background = Brushes.Transparent;
+            ExplorerActivityButton.BorderBrush = Brushes.Transparent;
+        }
+        else
+        {
+            ExplorerPanel.Visibility = Visibility.Visible;
+            ExplorerSplitter.Visibility = Visibility.Visible;
+            ExplorerColumn.MinWidth = 180;
+            ExplorerColumn.Width = _explorerWidth.Value > 0 ? _explorerWidth : new GridLength(240);
+            ExplorerActivityButton.Background = YyFormRenderer.Brush("#2D2D30");
+            ExplorerActivityButton.BorderBrush = YyFormRenderer.Brush("#007ACC");
+        }
     }
 
     private void OnWindowClosing(object? sender, CancelEventArgs e)
