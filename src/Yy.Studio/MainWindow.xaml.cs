@@ -870,8 +870,8 @@ public partial class MainWindow : Window
     {
         var dialog = new OpenFileDialog
         {
-            Title = "打开易语源码",
-            Filter = "易语文件 (*.yyc;*.ey;*.yyx)|*.yyc;*.ey;*.yyx|结构化代码 (*.yyc)|*.yyc|兼容源码 (*.ey)|*.ey|窗体设计 (*.yyx)|*.yyx|所有文件 (*.*)|*.*",
+            Title = "打开易语文件",
+            Filter = "易语文件 (*.yyc;*.yyx)|*.yyc;*.yyx|结构化代码 (*.yyc)|*.yyc|窗体设计 (*.yyx)|*.yyx",
             CheckFileExists = true,
             Multiselect = false
         };
@@ -1388,8 +1388,7 @@ public partial class MainWindow : Window
         var openPath = startupForm?.FormPath
             ?? _project?.EntryPath
             ?? Directory.EnumerateFiles(path, "*.yy*", SearchOption.AllDirectories)
-            .Where(file => string.Equals(Path.GetExtension(file), ".yyc", StringComparison.OrdinalIgnoreCase) ||
-                           string.Equals(Path.GetExtension(file), ".ey", StringComparison.OrdinalIgnoreCase))
+            .Where(file => string.Equals(Path.GetExtension(file), ".yyc", StringComparison.OrdinalIgnoreCase))
             .Where(file => !IgnoredDirectories.Any(part =>
                 file.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                     .Contains(part, StringComparer.OrdinalIgnoreCase)))
@@ -1433,7 +1432,6 @@ public partial class MainWindow : Window
                 .ToArray();
             files = Directory.EnumerateFiles(path)
                 .Where(file => string.Equals(Path.GetExtension(file), ".yyc", StringComparison.OrdinalIgnoreCase) ||
-                               string.Equals(Path.GetExtension(file), ".ey", StringComparison.OrdinalIgnoreCase) ||
                                string.Equals(Path.GetExtension(file), ".yyx", StringComparison.OrdinalIgnoreCase) ||
                                string.Equals(Path.GetExtension(file), ".yyproj", StringComparison.OrdinalIgnoreCase))
                 .OrderBy(file => file, StringComparer.OrdinalIgnoreCase)
@@ -1523,8 +1521,7 @@ public partial class MainWindow : Window
             item.Items.Add(new TreeViewItem
             {
                 Header = MakeTreeHeader(
-                    (string.Equals(Path.GetExtension(file), ".yyc", StringComparison.OrdinalIgnoreCase) ||
-                     string.Equals(Path.GetExtension(file), ".ey", StringComparison.OrdinalIgnoreCase)
+                    (string.Equals(Path.GetExtension(file), ".yyc", StringComparison.OrdinalIgnoreCase)
                         ? "◈  "
                         : "◇  ") + Path.GetFileName(file),
                     isFolder: false),
@@ -1666,6 +1663,19 @@ public partial class MainWindow : Window
     private void OpenDocument(string path)
     {
         var fullPath = Path.GetFullPath(path);
+        var extension = Path.GetExtension(fullPath);
+        if (!string.Equals(extension, ".yyc", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(extension, ".yyx", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(extension, ".yyproj", StringComparison.OrdinalIgnoreCase))
+        {
+            MessageBox.Show(
+                "旧版源码格式不再受支持。\n\n请使用 .yyc 结构化代码、.yyx 窗体或 .yyproj 项目。",
+                "不支持的旧格式",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
         var existing = _documents.FirstOrDefault(document =>
             string.Equals(document.FilePath, fullPath, StringComparison.OrdinalIgnoreCase));
         if (existing is not null)
@@ -1847,26 +1857,15 @@ public partial class MainWindow : Window
     {
         try
         {
-            var model = string.Equals(
-                Path.GetExtension(document.FilePath ?? document.DisplayName),
-                ".yyc",
-                StringComparison.OrdinalIgnoreCase)
-                ? YyCodeSerializer.Deserialize(document.Text)
-                : YyCodeDocumentConverter.FromSource(document.Text, document.FilePath);
+            var model = YyCodeSerializer.Deserialize(document.Text);
             Editor.Visibility = Visibility.Collapsed;
             DesignerPanel.Visibility = Visibility.Collapsed;
             StructuredEditor.Visibility = Visibility.Visible;
             ParameterHintBar.Visibility = Visibility.Collapsed;
             HideInspectorColumn();
-            StructuredEditor.SetDesignContext(
-                GetAssociatedFormForCurrentDocument(),
-                document.IsLegacyCode);
+            StructuredEditor.SetDesignContext(GetAssociatedFormForCurrentDocument());
             StructuredEditor.LoadDocument(model);
-            SetStatus(
-                document.IsLegacyCode
-                    ? $"已解析旧版 .ey：{document.DisplayName} · 组件与事件已重建关联"
-                    : $"结构化代码：{document.DisplayName}",
-                ReadyBrush);
+            SetStatus($"结构化代码：{document.DisplayName}", ReadyBrush);
         }
         catch (Exception exception) when (
             exception is YyCodeFormatException or YyDiagnostic or IOException or UnauthorizedAccessException)
@@ -1956,12 +1955,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        _currentDocument.Text = string.Equals(
-            Path.GetExtension(_currentDocument.FilePath ?? _currentDocument.DisplayName),
-            ".yyc",
-            StringComparison.OrdinalIgnoreCase)
-            ? YyCodeSerializer.Serialize(StructuredEditor.Document)
-            : YyCodeDocumentConverter.ToSource(StructuredEditor.Document);
+        _currentDocument.Text = YyCodeSerializer.Serialize(StructuredEditor.Document);
         UpdateDocumentIdentity();
         RefreshOutline(silent: true);
     }
@@ -3204,16 +3198,13 @@ public partial class MainWindow : Window
     private bool SaveDocumentAs(EditorDocument document)
     {
         var isForm = document.IsForm;
-        var isStructured = document.IsStructuredCode;
         var dialog = new SaveFileDialog
         {
-            Title = isForm ? "保存窗体设计" : isStructured ? "保存结构化代码" : "保存易语源码",
+            Title = isForm ? "保存窗体设计" : "保存结构化代码",
             Filter = isForm
-                ? "窗体设计 (*.yyx)|*.yyx|所有文件 (*.*)|*.*"
-                : isStructured
-                    ? "结构化代码 (*.yyc)|*.yyc|兼容源码 (*.ey)|*.ey|所有文件 (*.*)|*.*"
-                : "易语源码 (*.ey)|*.ey|所有文件 (*.*)|*.*",
-            DefaultExt = isForm ? ".yyx" : isStructured ? ".yyc" : ".ey",
+                ? "窗体设计 (*.yyx)|*.yyx"
+                : "结构化代码 (*.yyc)|*.yyc",
+            DefaultExt = isForm ? ".yyx" : ".yyc",
             AddExtension = true,
             FileName = string.IsNullOrWhiteSpace(document.FilePath)
                 ? document.DisplayName
@@ -3227,6 +3218,17 @@ public partial class MainWindow : Window
 
         if (dialog.ShowDialog(this) != true)
         {
+            return false;
+        }
+
+        if ((isForm && !string.Equals(Path.GetExtension(dialog.FileName), ".yyx", StringComparison.OrdinalIgnoreCase)) ||
+            (!isForm && !string.Equals(Path.GetExtension(dialog.FileName), ".yyc", StringComparison.OrdinalIgnoreCase)))
+        {
+            MessageBox.Show(
+                isForm ? "窗体文件必须使用 .yyx 扩展名。" : "代码文件必须使用 .yyc 扩展名。",
+                "文件格式",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
             return false;
         }
 
@@ -3244,28 +3246,7 @@ public partial class MainWindow : Window
         try
         {
             var encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
-            var targetExtension = Path.GetExtension(path);
-            var sourceExtension = Path.GetExtension(document.FilePath ?? document.DisplayName);
-            var content = document.Text;
-            if (string.Equals(targetExtension, ".yyc", StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(sourceExtension, ".yyc", StringComparison.OrdinalIgnoreCase))
-            {
-                content = YyCodeSerializer.Serialize(
-                    YyCodeDocumentConverter.FromSource(document.Text, document.FilePath));
-            }
-            else if (string.Equals(targetExtension, ".ey", StringComparison.OrdinalIgnoreCase) &&
-                     string.Equals(sourceExtension, ".yyc", StringComparison.OrdinalIgnoreCase))
-            {
-                content = YyCodeDocumentConverter.ToSource(
-                    YyCodeSerializer.Deserialize(document.Text));
-            }
-
-            File.WriteAllText(path, content, encoding);
-            if (!string.Equals(document.Text, content, StringComparison.Ordinal))
-            {
-                document.Text = content;
-            }
-
+            File.WriteAllText(path, document.Text, encoding);
             document.MarkSaved(path);
             if (ReferenceEquals(document, _currentDocument))
             {

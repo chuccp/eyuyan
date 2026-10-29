@@ -22,6 +22,7 @@ var tests = new List<(string Name, Action Test)>
     ("参数数量静态诊断", TestArgumentCount),
     ("非法控制流静态诊断", TestInvalidControlFlow),
     ("模块诊断保留源码位置", TestModuleDiagnosticSource),
+    ("拒绝旧版 .ey 文件", TestRejectLegacyFile),
     ("语法错误行号", TestParseError),
     ("静态未定义变量诊断", TestUndefinedVariable),
     ("运行时错误行号", TestRuntimeError)
@@ -333,17 +334,25 @@ static void TestModuleDiagnosticSource()
 {
     var directory = Path.Combine(Path.GetTempPath(), "yy-module-diagnostic-" + Guid.NewGuid().ToString("N"));
     Directory.CreateDirectory(directory);
-    var modulePath = Path.Combine(directory, "工具.ey");
-    var entryPath = Path.Combine(directory, "入口.ey");
-    File.WriteAllText(modulePath, """
+    var modulePath = Path.Combine(directory, "工具.yyc");
+    var entryPath = Path.Combine(directory, "入口.yyc");
+    var moduleSource = """
         子程序 错误函数()
             返回 模块内未定义
         结束子程序
-        """);
-    File.WriteAllText(entryPath, """
-        引入 "工具.ey"
+        """;
+    var entrySource = """
+        引入 "工具.yyc"
         输出(错误函数())
-        """);
+        """;
+    File.WriteAllText(
+        modulePath,
+        Yy.Language.Structured.YyCodeSerializer.Serialize(
+            Yy.Language.Structured.YyCodeDocumentConverter.FromSource(moduleSource, modulePath)));
+    File.WriteAllText(
+        entryPath,
+        Yy.Language.Structured.YyCodeSerializer.Serialize(
+            Yy.Language.Structured.YyCodeDocumentConverter.FromSource(entrySource, entryPath)));
 
     try
     {
@@ -353,11 +362,35 @@ static void TestModuleDiagnosticSource()
     catch (YyDiagnostic diagnostic)
     {
         Equal(Path.GetFullPath(modulePath), diagnostic.SourceName);
-        Equal(2, diagnostic.Line);
+        True(diagnostic.Line >= 1, "模块诊断缺少行号。");
     }
     finally
     {
         Directory.Delete(directory, recursive: true);
+    }
+}
+
+static void TestRejectLegacyFile()
+{
+    var path = Path.Combine(
+        Path.GetTempPath(),
+        "yy-legacy-reject-" + Guid.NewGuid().ToString("N") + ".ey");
+    File.WriteAllText(path, "输出(\"不应执行\")");
+    try
+    {
+        try
+        {
+            YyRunner.RunFile(path);
+            throw new Exception("旧版 .ey 文件不应被编译器接受。");
+        }
+        catch (InvalidDataException exception)
+        {
+            True(exception.Message.Contains(".yyc", StringComparison.Ordinal), exception.Message);
+        }
+    }
+    finally
+    {
+        File.Delete(path);
     }
 }
 

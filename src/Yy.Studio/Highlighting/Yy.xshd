@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<SyntaxDefinition name="易语" extensions=".yyc;.ey"
+<SyntaxDefinition name="易语" extensions=".yyc"
                   xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
   <Color name="Comment" foreground="#6A9955" fontStyle="italic" />
   <Color name="String" foreground="#CE9178" />

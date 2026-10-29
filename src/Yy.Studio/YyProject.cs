@@ -108,10 +108,11 @@ public sealed class YyProject
         var fullProjectPath = Path.GetFullPath(projectFile);
         var baseDirectory = Path.GetDirectoryName(fullProjectPath) ?? directory;
         var entryPath = ResolveProjectFile(baseDirectory, manifest.Entry, "项目入口");
+        EnsureExtension(entryPath, ".yyc", "项目入口");
         var sourcePaths = ResolveOptionalFiles(
             baseDirectory,
             manifest.Sources,
-            ".ey",
+            ".yyc",
             "源码");
         var formPaths = ResolveOptionalFiles(
             baseDirectory,
@@ -147,6 +148,7 @@ public sealed class YyProject
                 var formDirectory = Path.GetDirectoryName(formPath)
                     ?? throw new InvalidDataException($"无法确定窗体目录：{formPath}");
                 codePath = ResolveProjectFile(formDirectory, form.CodeFile, "窗体代码后置文件");
+                EnsureExtension(codePath, ".yyc", "窗体代码后置文件");
                 if (!sourcePaths.Contains(codePath, StringComparer.OrdinalIgnoreCase))
                 {
                     sourcePaths.Add(codePath);
@@ -336,6 +338,7 @@ public sealed class YyProject
         }
 
         var entryPath = ResolveProjectFile(DirectoryPath, entryRelativePath, "项目入口");
+        EnsureExtension(entryPath, ".yyc", "项目入口");
         if (!string.IsNullOrWhiteSpace(startupForm) &&
             Forms.All(form => !string.Equals(form.Model.Name, startupForm, StringComparison.Ordinal)))
         {
@@ -386,20 +389,32 @@ public sealed class YyProject
     {
         if (explicitPaths is { Count: > 0 })
         {
-            return explicitPaths
+            var resolved = explicitPaths
                 .Select(path => ResolveProjectFile(baseDirectory, path, description))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
+            foreach (var path in resolved)
+            {
+                EnsureExtension(path, extension, description);
+            }
+
+            return resolved;
         }
 
-        var extensions = extension == ".ey" ? new[] { ".yyc", ".ey" } : new[] { extension };
-        return extensions
-            .SelectMany(value => Directory.EnumerateFiles(baseDirectory, "*" + value, SearchOption.AllDirectories))
+        return Directory.EnumerateFiles(baseDirectory, "*" + extension, SearchOption.AllDirectories)
             .Where(path => !path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                 .Any(part => part is "bin" or "obj" or ".git" or ".vs"))
             .Select(Path.GetFullPath)
             .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    private static void EnsureExtension(string path, string extension, string description)
+    {
+        if (!string.Equals(Path.GetExtension(path), extension, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException($"{description}必须使用 {extension} 扩展名：{path}");
+        }
     }
 
     private static void WriteStructuredSource(string path, string source)

@@ -76,39 +76,6 @@ Run("结构化代码往返", () =>
     Equal("你好，世界", string.Join("\n", lines));
 });
 
-Run("旧 .ey 二次解析与界面事件关联", () =>
-{
-    const string legacySource = """
-        .版本 3
-        .程序集 主窗体代码
-        子程序 保存按钮_被单击()
-            姓名输入框.文本 = "已保存"
-            标题标签.文本 = "完成"
-        结束子程序
-        """;
-    var document = YyCodeDocumentConverter.FromSource(legacySource, "主窗体.ey");
-    var structured = YyCodeSerializer.Deserialize(YyCodeSerializer.Serialize(document));
-    Equal(1, structured.Functions.Count);
-    Equal(2, structured.Functions[0].Statements.Count);
-
-    var form = new YyFormModel { Name = "主窗口", LoadEvent = "主窗口_载入" };
-    var button = YyControlTypes.Create(YyControlTypes.Button, 1);
-    button.Name = "保存按钮";
-    button.ClickEvent = "保存按钮_被单击";
-    form.Controls.Add(button);
-
-    var association = YyCodeAssociation.Build(form, structured);
-    Equal(2, association.EventCount);
-    True(
-        association.Controls.Single(item => item.ControlName == "保存按钮")
-            .Events.Single().IsImplemented,
-        "按钮单击事件没有关联到代码子程序。");
-    Equal(1, association.MissingEventCount);
-    True(
-        association.FormEvents.Single(item => item.EventName == "主窗口_载入").IsImplemented == false,
-        "缺失的窗体载入事件没有标记。");
-});
-
 Run("项目清单读取", () =>
 {
     var directory = Path.Combine(Directory.GetCurrentDirectory(), "examples");
@@ -119,24 +86,6 @@ Run("项目清单读取", () =>
     Equal("主窗口", project.StartupForm);
     Equal(1, project.Forms.Count);
     Equal("主窗体.yyc", Path.GetFileName(project.Forms[0].CodePath));
-});
-
-Run("旧版 .ey 完整项目读取", () =>
-{
-    var directory = Path.Combine(Directory.GetCurrentDirectory(), "examples", "旧版兼容示例");
-    var project = YyProject.LoadForDirectory(directory);
-    True(project is not null, "应找到旧版兼容项目清单。");
-    True(project!.EntryPath.EndsWith("Program.ey", StringComparison.OrdinalIgnoreCase), "旧版入口未保留。");
-    Equal(1, project.Forms.Count);
-    True(
-        project.Forms[0].CodePath?.EndsWith("MainForm.ey", StringComparison.OrdinalIgnoreCase) == true,
-        "旧版代码后置路径未保留。");
-    var code = YyCodeDocumentConverter.FromSource(
-        File.ReadAllText(project.Forms[0].CodePath!),
-        project.Forms[0].CodePath);
-    var association = YyCodeAssociation.Build(project.Forms[0].Model, code);
-    Equal(3, association.EventCount);
-    Equal(0, association.MissingEventCount);
 });
 
 Run("完整项目骨架", () =>
@@ -179,6 +128,47 @@ Run("完整项目骨架", () =>
         {
             Directory.Delete(temporaryRoot, recursive: true);
         }
+    }
+});
+
+Run("拒绝旧版项目源码", () =>
+{
+    var directory = Path.Combine(
+        Path.GetTempPath(),
+        "yy-legacy-project-" + Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(directory);
+    var entryPath = Path.Combine(directory, "Program.ey");
+    var projectPath = Path.Combine(directory, "Legacy.yyproj");
+    File.WriteAllText(entryPath, "输出(\"旧版\")");
+    File.WriteAllText(
+        projectPath,
+        """
+        {
+          "格式版本": 2,
+          "名称": "Legacy",
+          "入口": "Program.ey",
+          "输出": "Legacy.exe",
+          "源码": ["Program.ey"],
+          "窗体": [],
+          "资源": [],
+          "引用": []
+        }
+        """);
+    try
+    {
+        try
+        {
+            YyProject.LoadForDirectory(directory);
+            throw new Exception("旧版 .ey 项目不应被加载。");
+        }
+        catch (InvalidDataException exception)
+        {
+            True(exception.Message.Contains(".yyc", StringComparison.Ordinal), exception.Message);
+        }
+    }
+    finally
+    {
+        Directory.Delete(directory, recursive: true);
     }
 });
 

@@ -203,14 +203,14 @@ public sealed class ProjectCompiler
 
     private static YyProgram ReadProgram(string path)
     {
-        var content = File.ReadAllText(path, new UTF8Encoding(false, true));
-        if (string.Equals(Path.GetExtension(path), ".yyc", StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(Path.GetExtension(path), ".yyc", StringComparison.OrdinalIgnoreCase))
         {
-            var document = YyCodeSerializer.Deserialize(content);
-            return YyRunner.CompileSource(YyCodeDocumentConverter.ToSource(document), path);
+            throw new InvalidDataException($"项目源码必须使用 .yyc 格式：{path}");
         }
 
-        return YyRunner.CompileSource(content, path);
+        var content = File.ReadAllText(path, new UTF8Encoding(false, true));
+        var document = YyCodeSerializer.Deserialize(content);
+        return YyRunner.CompileSource(YyCodeDocumentConverter.ToSource(document), path);
     }
 
     private static string CreateGeneratedProject(string runtimeProject)

@@ -13,6 +13,11 @@ internal static class ModuleLoader
             throw new FileNotFoundException("找不到易语源码文件。", fullPath);
         }
 
+        if (!string.Equals(Path.GetExtension(fullPath), ".yyc", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException("易语源码必须使用 .yyc 结构化代码格式。");
+        }
+
         var source = ReadSource(
             fullPath,
             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true));
@@ -82,10 +87,20 @@ internal static class ModuleLoader
                     : Path.Combine(baseDirectory, rawPath);
                 if (string.IsNullOrWhiteSpace(Path.GetExtension(importPath)))
                 {
-                    importPath += ".ey";
+                    importPath += ".yyc";
                 }
 
                 importPath = Path.GetFullPath(importPath);
+                if (!string.Equals(Path.GetExtension(importPath), ".yyc", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new YyDiagnostic(
+                        "模块必须使用 .yyc 结构化代码格式",
+                        import.Line,
+                        import.Column,
+                        $"旧版源码格式已不再支持：{importPath}",
+                        modulePath);
+                }
+
                 if (!File.Exists(importPath))
                 {
                     throw new YyDiagnostic(
@@ -171,11 +186,6 @@ internal static class ModuleLoader
     private static string ReadSource(string path, Encoding encoding)
     {
         var content = File.ReadAllText(path, encoding);
-        if (!string.Equals(Path.GetExtension(path), ".yyc", StringComparison.OrdinalIgnoreCase))
-        {
-            return content;
-        }
-
         return YyCodeDocumentConverter.ToSource(YyCodeSerializer.Deserialize(content));
     }
 }

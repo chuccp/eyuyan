@@ -14,7 +14,6 @@ public partial class StructuredCodeEditor : UserControl
     private TreeEntry? _selectedEntry;
     private IReadOnlyList<YyControlModel> _controls = [];
     private YyFormModel? _associatedForm;
-    private bool _isLegacy;
     private bool _updating;
 
     public StructuredCodeEditor()
@@ -39,22 +38,17 @@ public partial class StructuredCodeEditor : UserControl
         ControlTargetBox.SelectedIndex = controls.Count > 0 ? 0 : -1;
     }
 
-    public void SetDesignContext(YyFormModel? form, bool isLegacy)
+    public void SetDesignContext(YyFormModel? form)
     {
         _associatedForm = form;
-        _isLegacy = isLegacy;
         SetControls(form?.Controls ?? []);
         AssociatedFormText.Text = form is null ? "未关联窗体" : $"{form.Name} · {form.Title}";
         OpenDesignerButton.IsEnabled = form is not null;
-        FormatTitle.Text = isLegacy ? "结构化代码 · 兼容导入" : "结构化代码";
-        SourceFormatText.Text = isLegacy ? "EY 导入" : "YYC";
-        SourceFormatBadge.Background = YyFormRenderer.Brush(isLegacy ? "#6B4B1C" : "#264F78");
-        SourceFormatBadge.ToolTip = isLegacy
-            ? "旧 .ey 文本已通过解析器转换成结构化命令；保存时仍写回兼容源码"
-            : ".yyc 是可直接编辑的结构化工程源码";
-        WorkflowHint.Text = isLegacy
-            ? "旧 .ey 已二次解析；事件与组件仍保持关联"
-            : "选择容器步骤后添加子步骤；F5 运行，Ctrl+B 编译";
+        FormatTitle.Text = "结构化代码";
+        SourceFormatText.Text = "YYC";
+        SourceFormatBadge.Background = YyFormRenderer.Brush("#264F78");
+        SourceFormatBadge.ToolTip = ".yyc 是可直接编辑的结构化工程源码";
+        WorkflowHint.Text = "选择容器步骤后添加子步骤；F5 运行，Ctrl+B 编译";
         RefreshAssociation();
     }
 

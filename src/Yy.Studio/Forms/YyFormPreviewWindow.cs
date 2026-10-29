@@ -170,12 +170,17 @@ public sealed class YyFormPreviewWindow : Window
                 return;
             }
 
+            if (!string.Equals(Path.GetExtension(codePath), ".yyc", StringComparison.OrdinalIgnoreCase))
+            {
+                _eventOutput.Text = "窗体代码后置必须使用 .yyc 格式。";
+                return;
+            }
+
             var codeText = File.ReadAllText(codePath, new UTF8Encoding(false, true));
-            code = string.Equals(Path.GetExtension(codePath), ".yyc", StringComparison.OrdinalIgnoreCase)
-                ? YyCodeDocumentConverter.ToSource(YyCodeSerializer.Deserialize(codeText))
-                : codeText;
+            code = YyCodeDocumentConverter.ToSource(YyCodeSerializer.Deserialize(codeText));
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or YyCodeFormatException)
         {
             _eventOutput.Text = $"读取代码后置文件失败：{exception.Message}";
             return;
