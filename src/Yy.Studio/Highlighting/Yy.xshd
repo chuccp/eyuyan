@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SyntaxDefinition name="易语" extensions=".ey"
+                  xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+  <Color name="Comment" foreground="#66788C" fontStyle="italic" />
+  <Color name="String" foreground="#D8BE84" />
+  <Color name="Number" foreground="#82B7FF" />
+  <Color name="Keyword" foreground="#60D9BA" fontWeight="bold" />
+  <Color name="Type" foreground="#C79BFF" />
+  <Color name="Builtin" foreground="#72C8FF" />
+  <Color name="Operator" foreground="#D5DEEB" />
+  <Color name="Directive" foreground="#E9A85D" />
+  <Color name="Punctuation" foreground="#9AA7B8" />
+
+  <RuleSet>
+    <Span color="Comment" begin="'" />
+    <Span color="Comment" begin="//" />
+    <Span color="Comment" begin="#" />
+    <Span color="Comment" begin="/\*" end="\*/" multiline="true" />
+    <Rule color="String">&quot;([^&quot;\\]|\\.)*&quot;</Rule>
+    <Rule color="String">“([^”\\]|\\.)*”</Rule>
+    <Span color="Directive" begin="^\s*\." />
+
+    <Keywords color="Keyword">
+      <Word>子程序</Word>
+      <Word>函数</Word>
+      <Word>引入</Word>
+      <Word>结束子程序</Word>
+      <Word>结束函数</Word>
+      <Word>变量</Word>
+      <Word>常量</Word>
+      <Word>定义</Word>
+      <Word>如果</Word>
+      <Word>否则如果</Word>
+      <Word>否则</Word>
+      <Word>结束如果</Word>
+      <Word>当</Word>
+      <Word>计次循环</Word>
+      <Word>遍历</Word>
+      <Word>结束循环</Word>
+      <Word>结束遍历</Word>
+      <Word>返回</Word>
+      <Word>跳出</Word>
+      <Word>继续</Word>
+      <Word>尝试</Word>
+      <Word>捕获</Word>
+      <Word>结束尝试</Word>
+      <Word>从</Word>
+      <Word>到</Word>
+      <Word>步长</Word>
+      <Word>于</Word>
+      <Word>则</Word>
+      <Word>循环</Word>
+      <Word>真</Word>
+      <Word>假</Word>
+      <Word>空</Word>
+      <Word>且</Word>
+      <Word>或</Word>
+      <Word>非</Word>
+      <Word>任意</Word>
+      <Word>数字</Word>
+      <Word>文本</Word>
+      <Word>逻辑</Word>
+      <Word>数组</Word>
+      <Word>对象</Word>
+      <Word>日期</Word>
+    </Keywords>
+
+    <Keywords color="Builtin">
+      <Word>输出</Word>
+      <Word>打印</Word>
+      <Word>提示</Word>
+      <Word>长度</Word>
+      <Word>类型</Word>
+      <Word>文本</Word>
+      <Word>数字</Word>
+      <Word>整数</Word>
+      <Word>小数</Word>
+      <Word>范围</Word>
+      <Word>遍历</Word>
+      <Word>追加</Word>
+      <Word>移除</Word>
+      <Word>排序</Word>
+      <Word>倒序</Word>
+      <Word>JSON解析</Word>
+      <Word>JSON生成</Word>
+      <Word>当前时间</Word>
+      <Word>记录</Word>
+    </Keywords>
+
+    <Rule color="Number">\b\d+(\.\d+)?\b</Rule>
+    <Rule color="Operator">\?\?|==|!=|&lt;=|&gt;=|&amp;&amp;|\|\||\+=|-=|\*=|/=|%=|[+\-*/%&lt;&gt;=!]</Rule>
+    <Rule color="Punctuation">[\(\)\[\]\{\},.:;]</Rule>
+  </RuleSet>
+</SyntaxDefinition>
+

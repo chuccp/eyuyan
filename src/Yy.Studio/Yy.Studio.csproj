@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>Yy.Studio</RootNamespace>
+    <AssemblyName>YyStudio</AssemblyName>
+    <ApplicationIcon>..\..\assets\YyStudio.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Yy.Language\Yy.Language.csproj" />
+    <PackageReference Include="AvalonEdit" Version="6.3.1.120" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Highlighting\Yy.xshd" />
+    <Resource Include="..\..\assets\YyStudio.ico">
+      <Link>Assets\YyStudio.ico</Link>
+    </Resource>
+  </ItemGroup>
+</Project>
+
