@@ -104,6 +104,9 @@
                           xmlns:local="clr-namespace:Yy.Studio">
                     <MenuItem.Icon><TextBlock Text="▱" /></MenuItem.Icon>
                 </MenuItem>
+                <MenuItem Header="项目属性…" Click="OnProjectPropertiesClick">
+                    <MenuItem.Icon><TextBlock Text="⚙" /></MenuItem.Icon>
+                </MenuItem>
                 <Separator />
                 <MenuItem Header="保存" InputGestureText="Ctrl+S"
                           Command="{x:Static local:MainWindow.SaveFileCommand}"

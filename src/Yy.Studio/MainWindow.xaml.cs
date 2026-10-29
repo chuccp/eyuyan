@@ -264,11 +264,55 @@ public partial class MainWindow : Window
 
     private void OnNewFile(object sender, ExecutedRoutedEventArgs e)
     {
+        if (_project is not null)
+        {
+            try
+            {
+                var sourcePath = _project.CreateSourceFile();
+                OpenWorkspace(_project.DirectoryPath);
+                OpenDocument(sourcePath);
+                SetStatus($"已添加项目源码：{Path.GetFileName(sourcePath)}", ReadyBrush);
+                return;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                MessageBox.Show(
+                    $"无法创建项目源码：\n{exception.Message}",
+                    "新建源码",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+        }
+
         AddNewDocument(StudioCatalog.StarterCode);
         OutputBox.Clear();
         VariableList.ItemsSource = null;
         RunInfoText.Text = string.Empty;
         SetStatus("已新建源码标签", ReadyBrush);
+    }
+
+    private void OnProjectPropertiesClick(object sender, RoutedEventArgs e)
+    {
+        if (_project is null)
+        {
+            MessageBox.Show(
+                "请先打开一个 .yyproj 项目。",
+                "项目属性",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var dialog = new ProjectPropertiesWindow(_project) { Owner = this };
+        if (dialog.ShowDialog() != true || dialog.UpdatedProject is null)
+        {
+            return;
+        }
+
+        _project = dialog.UpdatedProject;
+        OpenWorkspace(_project.DirectoryPath);
+        SetStatus($"项目属性已保存：{_project.Name}", ReadyBrush);
     }
 
     private void OnNewProject(object sender, ExecutedRoutedEventArgs e)
@@ -599,7 +643,7 @@ public partial class MainWindow : Window
         if (_designForm is null || string.IsNullOrWhiteSpace(_currentDocument?.FilePath))
         {
             MessageBox.Show(
-                "请先保存窗体，再双击按钮生成代码后置事件。",
+                "请先保存窗体，再双击控件生成代码后置事件。",
                 "生成事件代码",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);

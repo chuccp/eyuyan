@@ -49,10 +49,10 @@ public sealed class YyProject
     public string ProjectPath { get; }
     public int FormatVersion { get; }
     public string DirectoryPath => Path.GetDirectoryName(ProjectPath) ?? string.Empty;
-    public string Name { get; }
-    public string EntryPath { get; }
-    public string OutputName { get; }
-    public string StartupForm { get; }
+    public string Name { get; private set; }
+    public string EntryPath { get; private set; }
+    public string OutputName { get; private set; }
+    public string StartupForm { get; private set; }
     public IReadOnlyList<string> SourcePaths => _sourcePaths;
     public IReadOnlyList<string> FormPaths => _formPaths;
     public IReadOnlyList<string> Resources => _resources;
@@ -299,6 +299,67 @@ public sealed class YyProject
         AddRelativePath(_sourcePaths, codePath, DirectoryPath);
         WriteCurrentManifest();
         return new YyProjectForm(formPath, codePath, model);
+    }
+
+    public string CreateSourceFile()
+    {
+        var sequence = 1;
+        string path;
+        do
+        {
+            path = Path.Combine(DirectoryPath, $"Source{sequence++}.ey");
+        }
+        while (File.Exists(path));
+
+        File.WriteAllText(
+            path,
+            $"""
+            .版本 3
+            .程序集 {Name}
+
+            ' 新建源码文件
+            """,
+            new UTF8Encoding(false));
+        AddRelativePath(_sourcePaths, path, DirectoryPath);
+        WriteCurrentManifest();
+        return path;
+    }
+
+    public void UpdateSettings(
+        string name,
+        string entryRelativePath,
+        string outputName,
+        string startupForm)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException("项目名称不能为空。", nameof(name));
+        }
+
+        var entryPath = ResolveProjectFile(DirectoryPath, entryRelativePath, "项目入口");
+        if (!string.IsNullOrWhiteSpace(startupForm) &&
+            Forms.All(form => !string.Equals(form.Model.Name, startupForm, StringComparison.Ordinal)))
+        {
+            throw new InvalidDataException($"启动窗体“{startupForm}”不在项目窗体列表中。");
+        }
+
+        var normalizedOutput = Path.GetFileName(outputName.Trim());
+        if (string.IsNullOrWhiteSpace(normalizedOutput))
+        {
+            normalizedOutput = name + ".exe";
+        }
+
+        if (!string.Equals(Path.GetExtension(normalizedOutput), ".exe", StringComparison.OrdinalIgnoreCase))
+        {
+            normalizedOutput += ".exe";
+        }
+
+        Name = name.Trim();
+        EntryPath = entryPath;
+        OutputName = normalizedOutput;
+        StartupForm = startupForm.Trim();
+        AddRelativePath(_sourcePaths, entryPath, DirectoryPath);
+        WriteCurrentManifest();
     }
 
     private void WriteCurrentManifest()

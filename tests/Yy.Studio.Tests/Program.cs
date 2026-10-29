@@ -78,6 +78,16 @@ Run("完整项目骨架", () =>
         True(
             project.SourcePaths.Contains(project.Forms[0].CodePath!, StringComparer.OrdinalIgnoreCase),
             "源码列表应包含代码后置文件。");
+        var sourcePath = project.CreateSourceFile();
+        True(File.Exists(sourcePath), "项目内新建源码失败。");
+        project.UpdateSettings("DemoProjectRenamed", "Program.ey", "RenamedDemo", "MainForm");
+        var updated = YyProject.LoadForDirectory(projectRoot)
+            ?? throw new Exception("项目属性保存后无法重新加载。");
+        Equal("DemoProjectRenamed", updated.Name);
+        Equal("RenamedDemo.exe", updated.OutputName);
+        True(
+            updated.SourcePaths.Contains(sourcePath, StringComparer.OrdinalIgnoreCase),
+            "新建源码没有写入项目清单。");
     }
     finally
     {
