@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:avalon="http://icsharpcode.net/sharpdevelop/avalonedit"
+        xmlns:structured="clr-namespace:Yy.Studio.Structured"
         Title="易语 Studio"
         Icon="Assets/YyStudio.ico"
         Width="1380"
@@ -258,7 +259,7 @@
                 <ColumnDefinition Width="4" />
                 <ColumnDefinition Width="*" MinWidth="420" />
                 <ColumnDefinition Width="4" />
-                <ColumnDefinition Width="300" MinWidth="220" />
+                <ColumnDefinition x:Name="InspectorColumn" Width="300" MinWidth="220" />
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" MinHeight="300" />
@@ -334,7 +335,7 @@
                             CornerRadius="2">
                         <StackPanel>
                             <TextBlock Text="源码格式" FontSize="10" Foreground="{StaticResource MutedBrush}" />
-                            <TextBlock Text=".ey  ·  UTF-8" FontSize="12" Margin="0,3,0,0" />
+                            <TextBlock Text=".yyc XML · UTF-8" FontSize="12" Margin="0,3,0,0" />
                             <TextBlock Text="按 F5 直接运行，无需保存。"
                                        TextWrapping="Wrap"
                                        FontSize="10"
@@ -482,6 +483,12 @@
                                    VerticalScrollBarVisibility="Auto"
                                    Padding="8,10,8,16"
                                    TextChanged="OnEditorTextChanged" />
+
+                <structured:StructuredCodeEditor x:Name="StructuredEditor"
+                                                 Grid.Row="1"
+                                                 Grid.RowSpan="2"
+                                                 Visibility="Collapsed"
+                                                 ModelChanged="OnStructuredCodeChanged" />
 
                 <Border x:Name="ParameterHintBar"
                         Grid.Row="2"
@@ -738,7 +745,8 @@
                 </Grid>
             </Grid>
 
-            <GridSplitter Grid.Column="4"
+            <GridSplitter x:Name="InspectorSplitter"
+                          Grid.Column="4"
                           Grid.RowSpan="3"
                           Width="4"
                           HorizontalAlignment="Stretch"
@@ -747,7 +755,10 @@
                           ResizeDirection="Columns"
                           ShowsPreview="True" />
 
-            <Border Grid.Column="5" Grid.RowSpan="3" Background="{StaticResource PanelBrush}">
+            <Border x:Name="InspectorPanel"
+                    Grid.Column="5"
+                    Grid.RowSpan="3"
+                    Background="{StaticResource PanelBrush}">
                 <Grid>
                 <TabControl x:Name="InspectorTabs">
                     <TabItem Header="概要">

@@ -9,23 +9,23 @@
 ```text
 DemoProject/
 ├─ DemoProject.yyproj
-├─ Program.ey
+├─ Program.yyc
 ├─ Forms/
 │  ├─ MainForm.yyx
-│  └─ MainForm.ey
+│  └─ MainForm.yyc
 └─ Resources/
 ```
 
-- `Program.ey`：项目入口源码。
+- `Program.yyc`：项目入口结构化源码。
 - `Forms/MainForm.yyx`：窗体结构和设计属性，类似 WPF XAML。
-- `Forms/MainForm.ey`：窗体代码后置和事件函数，类似 C# code-behind。
+- `Forms/MainForm.yyc`：窗体代码后置和事件函数，类似 C# code-behind，但以结构化 XML 保存。
 - `Resources`：项目资源目录。
 
 在 IDE 中点击“新建项目”或按 `Ctrl+Alt+N` 创建。新建项目要求选择一个空目录，避免覆盖已有文件。
 
 打开项目后：
 
-- `Ctrl+N` 会在项目根目录新增真实 `.ey` 源码并写入项目清单。
+- `Ctrl+N` 会在项目根目录新增真实 `.yyc` 结构化源码并写入项目清单。
 - “文件 → 项目属性”可修改项目名称、入口源码、启动窗体和输出文件名。
 - 项目属性保存后会自动重新加载清单和解决方案资源管理器。
 
@@ -35,12 +35,12 @@ DemoProject/
 {
   "格式版本": 2,
   "名称": "DemoProject",
-  "入口": "Program.ey",
+  "入口": "Program.yyc",
   "输出": "DemoProject.exe",
   "启动窗体": "MainForm",
   "源码": [
-    "Program.ey",
-    "Forms/MainForm.ey"
+    "Program.yyc",
+    "Forms/MainForm.yyc"
   ],
   "窗体": [
     "Forms/MainForm.yyx"
@@ -73,7 +73,7 @@ DemoProject/
 ```xml
 <窗体 xmlns="urn:yy-studio:form:1"
       名称="主窗口"
-      代码="主窗体.ey"
+      代码="主窗体.yyc"
       标题="客户登记"
       宽="760"
       高="500">
@@ -142,7 +142,7 @@ DemoProject/
 - 在预览中点击绑定按钮：编译并执行对应代码后置事件。
 - 事件输出显示在预览窗口底部。
 
-编译产物不依赖源码目录，也不包含可被运行时重新解析的 `.ey/.yyx` 工程。技术细节见 [项目编译](compiler.md)。
+编译产物不依赖源码目录，也不包含可被运行时重新解析的 `.yyc/.yyx` 工程。技术细节见 [项目编译](compiler.md)。
 
 ## 当前边界
 

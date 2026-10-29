@@ -182,20 +182,20 @@ static void TestJson()
 
 static void TestBeginnerExample()
 {
-    var result = RunFile(Path.Combine(Directory.GetCurrentDirectory(), "examples", "入门.ey"));
+    var result = RunFile(Path.Combine(Directory.GetCurrentDirectory(), "examples", "入门.yyc"));
     True(result.Contains("平均分：91.5", StringComparison.Ordinal), "入门示例的平均分不正确。");
 }
 
 static void TestModernExample()
 {
-    var result = RunFile(Path.Combine(Directory.GetCurrentDirectory(), "examples", "现代特性.ey"));
+    var result = RunFile(Path.Combine(Directory.GetCurrentDirectory(), "examples", "现代特性.yyc"));
     True(result.Contains("异常保护捕获", StringComparison.Ordinal), "现代特性示例未捕获异常。");
     True(result.Contains("[1, 4, 9, 16, 25, 36, 49, 64]", StringComparison.Ordinal), "平方数结果不正确。");
 }
 
 static void TestModuleImport()
 {
-    var path = Path.Combine(Directory.GetCurrentDirectory(), "examples", "模块", "主程序.ey");
+    var path = Path.Combine(Directory.GetCurrentDirectory(), "examples", "模块", "主程序.yyc");
     var result = RunFile(path);
     True(result.Contains("欢迎，易语开发者！", StringComparison.Ordinal), "模块函数结果不正确。");
     True(result.Contains("折后价格：115.2", StringComparison.Ordinal), "模块默认参数结果不正确。");

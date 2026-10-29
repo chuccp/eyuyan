@@ -3,6 +3,7 @@ using System.IO;
 using System.Text;
 using Yy.Language;
 using Yy.Language.Syntax;
+using Yy.Language.Structured;
 
 namespace Yy.Studio;
 
@@ -132,8 +133,7 @@ public sealed class ProjectCompiler
 
     private static YyProgram BuildProgram(YyProject project)
     {
-        var entrySource = File.ReadAllText(project.EntryPath, new UTF8Encoding(false, true));
-        var entryProgram = YyRunner.CompileSource(entrySource, project.EntryPath);
+        var entryProgram = ReadProgram(project.EntryPath);
         var functions = entryProgram.Functions.ToList();
         var names = functions
             .Select(function => function.Name)
@@ -143,8 +143,7 @@ public sealed class ProjectCompiler
         {
             if (form.CodePath is not null)
             {
-                var codeSource = File.ReadAllText(form.CodePath, new UTF8Encoding(false, true));
-                var codeProgram = YyRunner.CompileSource(codeSource, form.CodePath);
+                var codeProgram = ReadProgram(form.CodePath);
                 foreach (var function in codeProgram.Functions)
                 {
                     if (!names.Add(function.Name))
@@ -200,6 +199,18 @@ public sealed class ProjectCompiler
             functions,
             [],
             entryProgram.Main);
+    }
+
+    private static YyProgram ReadProgram(string path)
+    {
+        var content = File.ReadAllText(path, new UTF8Encoding(false, true));
+        if (string.Equals(Path.GetExtension(path), ".yyc", StringComparison.OrdinalIgnoreCase))
+        {
+            var document = YyCodeSerializer.Deserialize(content);
+            return YyRunner.CompileSource(YyCodeDocumentConverter.ToSource(document), path);
+        }
+
+        return YyRunner.CompileSource(content, path);
     }
 
     private static string CreateGeneratedProject(string runtimeProject)

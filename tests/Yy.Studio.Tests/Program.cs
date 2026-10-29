@@ -1,7 +1,10 @@
 using System.IO;
 using System.Windows.Automation;
+using Yy.Language;
 using Yy.Studio;
 using Yy.Studio.Forms;
+using Yy.Language.Structured;
+using Yy.Studio.Structured;
 
 var failures = 0;
 
@@ -47,16 +50,93 @@ Run("示例窗体读取", () =>
         form.Controls.Single(control => control.Name == "姓名输入框").TextChangedEvent);
 });
 
+Run("结构化代码往返", () =>
+{
+    const string source = """
+        .版本 3
+        .程序集 测试程序
+        子程序 问候(名称: 文本 = "世界"): 文本
+            变量 前缀: 文本 = "你好，"
+            返回 前缀 + 名称
+        结束子程序
+        输出(问候())
+        """;
+    var document = YyCodeDocumentConverter.FromSource(source);
+    Equal(1, document.Functions.Count);
+    Equal(1, document.MainStatements.Count);
+    var xml = YyCodeSerializer.Serialize(document);
+    var restored = YyCodeSerializer.Deserialize(xml);
+    Equal("测试程序", restored.Name);
+    Equal("问候", restored.Functions[0].Name);
+    var lines = new List<string>();
+    YyRunner.RunSource(
+        YyCodeDocumentConverter.ToSource(restored),
+        null,
+        lines.Add);
+    Equal("你好，世界", string.Join("\n", lines));
+});
+
+Run("旧 .ey 二次解析与界面事件关联", () =>
+{
+    const string legacySource = """
+        .版本 3
+        .程序集 主窗体代码
+        子程序 保存按钮_被单击()
+            姓名输入框.文本 = "已保存"
+            标题标签.文本 = "完成"
+        结束子程序
+        """;
+    var document = YyCodeDocumentConverter.FromSource(legacySource, "主窗体.ey");
+    var structured = YyCodeSerializer.Deserialize(YyCodeSerializer.Serialize(document));
+    Equal(1, structured.Functions.Count);
+    Equal(2, structured.Functions[0].Statements.Count);
+
+    var form = new YyFormModel { Name = "主窗口", LoadEvent = "主窗口_载入" };
+    var button = YyControlTypes.Create(YyControlTypes.Button, 1);
+    button.Name = "保存按钮";
+    button.ClickEvent = "保存按钮_被单击";
+    form.Controls.Add(button);
+
+    var association = YyCodeAssociation.Build(form, structured);
+    Equal(2, association.EventCount);
+    True(
+        association.Controls.Single(item => item.ControlName == "保存按钮")
+            .Events.Single().IsImplemented,
+        "按钮单击事件没有关联到代码子程序。");
+    Equal(1, association.MissingEventCount);
+    True(
+        association.FormEvents.Single(item => item.EventName == "主窗口_载入").IsImplemented == false,
+        "缺失的窗体载入事件没有标记。");
+});
+
 Run("项目清单读取", () =>
 {
     var directory = Path.Combine(Directory.GetCurrentDirectory(), "examples");
     var project = YyProject.LoadForDirectory(directory);
     True(project is not null, "应找到示例项目清单。");
     Equal("易语示例工程", project!.Name);
-    True(project.EntryPath.EndsWith("入门.ey", StringComparison.OrdinalIgnoreCase), "项目入口不正确。");
+    True(project.EntryPath.EndsWith("入门.yyc", StringComparison.OrdinalIgnoreCase), "项目入口不正确。");
     Equal("主窗口", project.StartupForm);
     Equal(1, project.Forms.Count);
-    Equal("主窗体.ey", Path.GetFileName(project.Forms[0].CodePath));
+    Equal("主窗体.yyc", Path.GetFileName(project.Forms[0].CodePath));
+});
+
+Run("旧版 .ey 完整项目读取", () =>
+{
+    var directory = Path.Combine(Directory.GetCurrentDirectory(), "examples", "旧版兼容示例");
+    var project = YyProject.LoadForDirectory(directory);
+    True(project is not null, "应找到旧版兼容项目清单。");
+    True(project!.EntryPath.EndsWith("Program.ey", StringComparison.OrdinalIgnoreCase), "旧版入口未保留。");
+    Equal(1, project.Forms.Count);
+    True(
+        project.Forms[0].CodePath?.EndsWith("MainForm.ey", StringComparison.OrdinalIgnoreCase) == true,
+        "旧版代码后置路径未保留。");
+    var code = YyCodeDocumentConverter.FromSource(
+        File.ReadAllText(project.Forms[0].CodePath!),
+        project.Forms[0].CodePath);
+    var association = YyCodeAssociation.Build(project.Forms[0].Model, code);
+    Equal(3, association.EventCount);
+    Equal(0, association.MissingEventCount);
 });
 
 Run("完整项目骨架", () =>
@@ -71,8 +151,12 @@ Run("完整项目骨架", () =>
             Path.Combine(projectRoot, "DemoProject.yyproj"),
             "DemoProject");
         True(File.Exists(project.EntryPath), "项目入口没有创建。");
+        True(File.Exists(Path.Combine(projectRoot, "Program.yyc")), "结构化入口源码没有创建。");
         True(File.Exists(Path.Combine(projectRoot, "Forms", "MainForm.yyx")), "窗体没有创建。");
-        True(File.Exists(Path.Combine(projectRoot, "Forms", "MainForm.ey")), "代码后置没有创建。");
+        True(File.Exists(Path.Combine(projectRoot, "Forms", "MainForm.yyc")), "结构化代码后置没有创建。");
+        var entryDocument = YyCodeSerializer.Deserialize(
+            File.ReadAllText(Path.Combine(projectRoot, "Program.yyc")));
+        True(entryDocument.MainStatements.Count > 0, "结构化入口没有命令数据。");
         Equal(1, project.Forms.Count);
         Equal("MainForm", project.StartupForm);
         True(
@@ -80,7 +164,7 @@ Run("完整项目骨架", () =>
             "源码列表应包含代码后置文件。");
         var sourcePath = project.CreateSourceFile();
         True(File.Exists(sourcePath), "项目内新建源码失败。");
-        project.UpdateSettings("DemoProjectRenamed", "Program.ey", "RenamedDemo", "MainForm");
+        project.UpdateSettings("DemoProjectRenamed", "Program.yyc", "RenamedDemo", "MainForm");
         var updated = YyProject.LoadForDirectory(projectRoot)
             ?? throw new Exception("项目属性保存后无法重新加载。");
         Equal("DemoProjectRenamed", updated.Name);

@@ -91,6 +91,13 @@ public sealed class EditorDocument : INotifyPropertyChanged
         ".yyx",
         StringComparison.OrdinalIgnoreCase);
 
+    public bool IsStructuredCode =>
+        string.Equals(Path.GetExtension(FilePath ?? DisplayName), ".yyc", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(Path.GetExtension(FilePath ?? DisplayName), ".ey", StringComparison.OrdinalIgnoreCase);
+
+    public bool IsLegacyCode =>
+        string.Equals(Path.GetExtension(FilePath ?? DisplayName), ".ey", StringComparison.OrdinalIgnoreCase);
+
     public int CaretOffset { get; set; }
 
     public double VerticalOffset { get; set; }

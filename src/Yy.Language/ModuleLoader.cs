@@ -1,4 +1,5 @@
 using System.Text;
+using Yy.Language.Structured;
 using Yy.Language.Syntax;
 
 namespace Yy.Language;
@@ -12,7 +13,7 @@ internal static class ModuleLoader
             throw new FileNotFoundException("找不到易语源码文件。", fullPath);
         }
 
-        var source = File.ReadAllText(
+        var source = ReadSource(
             fullPath,
             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true));
         return CompileSource(source, fullPath);
@@ -115,9 +116,7 @@ internal static class ModuleLoader
                     string importedSource;
                     try
                     {
-                        importedSource = File.ReadAllText(
-                            importPath,
-                            new UTF8Encoding(false, true));
+                        importedSource = ReadSource(importPath, new UTF8Encoding(false, true));
                     }
                     catch (DecoderFallbackException)
                     {
@@ -167,5 +166,16 @@ internal static class ModuleLoader
                 functions.Add(function);
             }
         }
+    }
+
+    private static string ReadSource(string path, Encoding encoding)
+    {
+        var content = File.ReadAllText(path, encoding);
+        if (!string.Equals(Path.GetExtension(path), ".yyc", StringComparison.OrdinalIgnoreCase))
+        {
+            return content;
+        }
+
+        return YyCodeDocumentConverter.ToSource(YyCodeSerializer.Deserialize(content));
     }
 }

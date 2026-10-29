@@ -21,6 +21,8 @@ using System.Xml;
 using Yy.Language;
 using Yy.Language.Syntax;
 using Yy.Studio.Forms;
+using Yy.Language.Structured;
+using Yy.Studio.Structured;
 
 namespace Yy.Studio;
 
@@ -87,6 +89,7 @@ public partial class MainWindow : Window
     private bool _updatingDesignerProperties;
     private Point _toolboxDragStart;
     private GridLength _explorerWidth = new(240);
+    private GridLength _inspectorWidth = new(300);
     private string? _helpFunctionsSource;
     private Dictionary<string, FunctionDeclaration> _helpFunctions = new(StringComparer.Ordinal);
     private CancellationTokenSource? _runCancellation;
@@ -117,6 +120,7 @@ public partial class MainWindow : Window
 
         ConfigureEditor();
         StudioTrace.Write("ConfigureEditor complete");
+        StructuredEditor.DesignerActivationRequested += OnStructuredDesignerActivationRequested;
         BuiltinList.ItemsSource = StudioCatalog.Builtins;
         ControlToolbox.ItemsSource = YyControlTypes.All;
         DocumentTabs.ItemsSource = _documents;
@@ -380,6 +384,35 @@ public partial class MainWindow : Window
 
     private YyFormModel? GetAssociatedFormForCurrentDocument()
     {
+        var formPath = GetAssociatedFormPathForCurrentDocument();
+        if (formPath is null)
+        {
+            return null;
+        }
+
+        if (_project is not null)
+        {
+            var projectForm = _project.Forms.FirstOrDefault(form =>
+                string.Equals(form.FormPath, formPath, StringComparison.OrdinalIgnoreCase));
+            if (projectForm is not null)
+            {
+                return projectForm.Model;
+            }
+        }
+
+        try
+        {
+            return YyFormSerializer.Deserialize(File.ReadAllText(formPath));
+        }
+        catch (Exception exception) when (
+            exception is YyFormFormatException or IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private string? GetAssociatedFormPathForCurrentDocument()
+    {
         var path = _currentDocument?.FilePath;
         if (string.IsNullOrWhiteSpace(path))
         {
@@ -392,7 +425,7 @@ public partial class MainWindow : Window
                 string.Equals(form.CodePath, path, StringComparison.OrdinalIgnoreCase));
             if (projectForm is not null)
             {
-                return projectForm.Model;
+                return projectForm.FormPath;
             }
         }
 
@@ -403,20 +436,7 @@ public partial class MainWindow : Window
         }
 
         var candidate = Path.Combine(directory, Path.GetFileNameWithoutExtension(path) + ".yyx");
-        if (!File.Exists(candidate))
-        {
-            return null;
-        }
-
-        try
-        {
-            return YyFormSerializer.Deserialize(File.ReadAllText(candidate));
-        }
-        catch (Exception exception) when (
-            exception is YyFormFormatException or IOException or UnauthorizedAccessException)
-        {
-            return null;
-        }
+        return File.Exists(candidate) ? candidate : null;
     }
 
     private string? TryGetMemberOwnerName()
@@ -851,7 +871,7 @@ public partial class MainWindow : Window
         var dialog = new OpenFileDialog
         {
             Title = "打开易语源码",
-            Filter = "易语文件 (*.ey;*.yyx)|*.ey;*.yyx|易语源码 (*.ey)|*.ey|窗体设计 (*.yyx)|*.yyx|所有文件 (*.*)|*.*",
+            Filter = "易语文件 (*.yyc;*.ey;*.yyx)|*.yyc;*.ey;*.yyx|结构化代码 (*.yyc)|*.yyc|兼容源码 (*.ey)|*.ey|窗体设计 (*.yyx)|*.yyx|所有文件 (*.*)|*.*",
             CheckFileExists = true,
             Multiselect = false
         };
@@ -1108,11 +1128,23 @@ public partial class MainWindow : Window
         var formPath = _currentDocument.FilePath;
         var formDirectory = Path.GetDirectoryName(formPath)!;
         var codeFileName = string.IsNullOrWhiteSpace(_designForm.CodeFile)
-            ? Path.GetFileNameWithoutExtension(formPath) + ".ey"
+            ? Path.GetFileNameWithoutExtension(formPath) + ".yyc"
             : _designForm.CodeFile;
         var codePath = Path.GetFullPath(Path.Combine(formDirectory, codeFileName));
         var codeDocument = _documents.FirstOrDefault(document =>
             string.Equals(document.FilePath, codePath, StringComparison.OrdinalIgnoreCase));
+
+        if (string.Equals(Path.GetExtension(codePath), ".yyc", StringComparison.OrdinalIgnoreCase))
+        {
+            CreateStructuredEventHandler(
+                control,
+                eventKind,
+                codePath,
+                codeDocument,
+                formDirectory);
+            return;
+        }
+
         var source = codeDocument?.Text
             ?? (File.Exists(codePath)
                 ? File.ReadAllText(codePath, new UTF8Encoding(false, true))
@@ -1184,6 +1216,84 @@ public partial class MainWindow : Window
         }
 
         SetStatus($"已绑定 {GetEventDisplayName(eventKind)} 事件 {handlerName}()", ReadyBrush);
+    }
+
+    private void CreateStructuredEventHandler(
+        YyControlModel control,
+        ControlEventKind eventKind,
+        string codePath,
+        EditorDocument? codeDocument,
+        string formDirectory)
+    {
+        try
+        {
+            var existingText = codeDocument?.Text
+                ?? (File.Exists(codePath)
+                    ? File.ReadAllText(codePath, new UTF8Encoding(false, true))
+                    : null);
+            var model = string.IsNullOrWhiteSpace(existingText)
+                ? new YyCodeDocument { Name = _designForm?.Name + "代码" ?? "窗体代码" }
+                : YyCodeSerializer.Deserialize(existingText);
+            var handlerName = GetControlEvent(control, eventKind);
+            if (string.IsNullOrWhiteSpace(handlerName))
+            {
+                var suffix = eventKind switch
+                {
+                    ControlEventKind.TextChanged => "_文本改变",
+                    ControlEventKind.SelectionChanged => "_选择改变",
+                    ControlEventKind.CheckedChanged => "_选中改变",
+                    _ => "_被单击"
+                };
+                var baseName = control.Name + suffix;
+                handlerName = baseName;
+                var index = 2;
+                var existingNames = model.Functions
+                    .Select(function => function.Name)
+                    .ToHashSet(StringComparer.Ordinal);
+                while (existingNames.Contains(handlerName))
+                {
+                    handlerName = baseName + index++;
+                }
+            }
+
+            if (model.Functions.All(function =>
+                    !string.Equals(function.Name, handlerName, StringComparison.Ordinal)))
+            {
+                model.Functions.Add(new YyCodeFunction { Name = handlerName });
+            }
+
+            var serialized = YyCodeSerializer.Serialize(model);
+            var changed = !string.Equals(existingText, serialized, StringComparison.Ordinal);
+            if (codeDocument is null)
+            {
+                codeDocument = new EditorDocument(codePath, Path.GetFileName(codePath), serialized);
+                _documents.Add(codeDocument);
+                if (changed || !File.Exists(codePath))
+                {
+                    codeDocument.MarkModified();
+                }
+            }
+            else
+            {
+                codeDocument.Text = serialized;
+            }
+
+            SetControlEvent(control, eventKind, handlerName);
+            _designForm!.CodeFile = Path.GetRelativePath(formDirectory, codePath).Replace('\\', '/');
+            DesignerChanged();
+            DocumentTabs.SelectedItem = codeDocument;
+            StructuredEditor.SelectFunction(handlerName);
+            SetStatus($"已绑定 {GetEventDisplayName(eventKind)} 事件 {handlerName}()", ReadyBrush);
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or YyCodeFormatException)
+        {
+            MessageBox.Show(
+                $"无法创建事件代码：\n{exception.Message}",
+                "生成事件代码",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
     }
 
     private static string? GetControlEvent(YyControlModel control, ControlEventKind eventKind)
@@ -1277,7 +1387,9 @@ public partial class MainWindow : Window
             string.Equals(form.Model.Name, _project.StartupForm, StringComparison.Ordinal));
         var openPath = startupForm?.FormPath
             ?? _project?.EntryPath
-            ?? Directory.EnumerateFiles(path, "*.ey", SearchOption.AllDirectories)
+            ?? Directory.EnumerateFiles(path, "*.yy*", SearchOption.AllDirectories)
+            .Where(file => string.Equals(Path.GetExtension(file), ".yyc", StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals(Path.GetExtension(file), ".ey", StringComparison.OrdinalIgnoreCase))
             .Where(file => !IgnoredDirectories.Any(part =>
                 file.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                     .Contains(part, StringComparer.OrdinalIgnoreCase)))
@@ -1320,7 +1432,8 @@ public partial class MainWindow : Window
                 .OrderBy(directory => directory, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
             files = Directory.EnumerateFiles(path)
-                .Where(file => string.Equals(Path.GetExtension(file), ".ey", StringComparison.OrdinalIgnoreCase) ||
+                .Where(file => string.Equals(Path.GetExtension(file), ".yyc", StringComparison.OrdinalIgnoreCase) ||
+                               string.Equals(Path.GetExtension(file), ".ey", StringComparison.OrdinalIgnoreCase) ||
                                string.Equals(Path.GetExtension(file), ".yyx", StringComparison.OrdinalIgnoreCase) ||
                                string.Equals(Path.GetExtension(file), ".yyproj", StringComparison.OrdinalIgnoreCase))
                 .OrderBy(file => file, StringComparer.OrdinalIgnoreCase)
@@ -1410,7 +1523,8 @@ public partial class MainWindow : Window
             item.Items.Add(new TreeViewItem
             {
                 Header = MakeTreeHeader(
-                    (string.Equals(Path.GetExtension(file), ".ey", StringComparison.OrdinalIgnoreCase)
+                    (string.Equals(Path.GetExtension(file), ".yyc", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(Path.GetExtension(file), ".ey", StringComparison.OrdinalIgnoreCase)
                         ? "◈  "
                         : "◇  ") + Path.GetFileName(file),
                     isFolder: false),
@@ -1488,6 +1602,13 @@ public partial class MainWindow : Window
         }
 
         OpenDocument(link.CodePath);
+        if (_currentDocument?.IsStructuredCode == true)
+        {
+            StructuredEditor.SelectFunction(link.EventName);
+            SetStatus($"已打开事件：{link.EventName}", ReadyBrush);
+            return;
+        }
+
         var marker = "子程序 " + link.EventName;
         var offset = Editor.Text.IndexOf(marker, StringComparison.Ordinal);
         if (offset < 0)
@@ -1576,25 +1697,28 @@ public partial class MainWindow : Window
     private void AddNewDocument(string source)
     {
         var displayName = NextUntitledName();
-        var document = new EditorDocument(null, displayName, source);
+        var content = string.Equals(Path.GetExtension(displayName), ".yyc", StringComparison.OrdinalIgnoreCase)
+            ? YyCodeSerializer.Serialize(YyCodeDocumentConverter.FromSource(source))
+            : source;
+        var document = new EditorDocument(null, displayName, content);
         _documents.Add(document);
         DocumentTabs.SelectedItem = document;
     }
 
     private string NextUntitledName()
     {
-        if (_documents.All(document => document.DisplayName != "未命名.ey"))
+        if (_documents.All(document => document.DisplayName != "未命名.yyc"))
         {
-            return "未命名.ey";
+            return "未命名.yyc";
         }
 
         var index = 2;
-        while (_documents.Any(document => document.DisplayName == $"未命名 {index}.ey"))
+        while (_documents.Any(document => document.DisplayName == $"未命名 {index}.yyc"))
         {
             index++;
         }
 
-        return $"未命名 {index}.ey";
+        return $"未命名 {index}.yyc";
     }
 
     private string NextUntitledFormName()
@@ -1631,6 +1755,13 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (document.IsStructuredCode)
+        {
+            ShowStructuredCode(document);
+            UpdateDocumentIdentity();
+            return;
+        }
+
         ShowCodeEditor(document);
         _isLoadingDocument = true;
         try
@@ -1652,7 +1783,10 @@ public partial class MainWindow : Window
     private void ShowCodeEditor(EditorDocument document)
     {
         DesignerPanel.Visibility = Visibility.Collapsed;
+        StructuredEditor.Visibility = Visibility.Collapsed;
         Editor.Visibility = Visibility.Visible;
+        ParameterHintBar.Visibility = Visibility.Visible;
+        RestoreInspectorColumn();
         DesignerInspector.Visibility = Visibility.Collapsed;
         InspectorTabs.Visibility = Visibility.Visible;
         _designForm = null;
@@ -1678,7 +1812,10 @@ public partial class MainWindow : Window
             }
 
             Editor.Visibility = Visibility.Collapsed;
+            StructuredEditor.Visibility = Visibility.Collapsed;
             DesignerPanel.Visibility = Visibility.Visible;
+            ParameterHintBar.Visibility = Visibility.Collapsed;
+            RestoreInspectorColumn();
             InspectorTabs.Visibility = Visibility.Collapsed;
             DesignerInspector.Visibility = Visibility.Visible;
             RenderDesignerForm();
@@ -1704,6 +1841,129 @@ public partial class MainWindow : Window
             AppendOutput($"  {exception.Message}");
             SetStatus("窗体 XML 无法解析，已切换到文本编辑模式", ErrorBrush);
         }
+    }
+
+    private void ShowStructuredCode(EditorDocument document)
+    {
+        try
+        {
+            var model = string.Equals(
+                Path.GetExtension(document.FilePath ?? document.DisplayName),
+                ".yyc",
+                StringComparison.OrdinalIgnoreCase)
+                ? YyCodeSerializer.Deserialize(document.Text)
+                : YyCodeDocumentConverter.FromSource(document.Text, document.FilePath);
+            Editor.Visibility = Visibility.Collapsed;
+            DesignerPanel.Visibility = Visibility.Collapsed;
+            StructuredEditor.Visibility = Visibility.Visible;
+            ParameterHintBar.Visibility = Visibility.Collapsed;
+            HideInspectorColumn();
+            StructuredEditor.SetDesignContext(
+                GetAssociatedFormForCurrentDocument(),
+                document.IsLegacyCode);
+            StructuredEditor.LoadDocument(model);
+            SetStatus(
+                document.IsLegacyCode
+                    ? $"已解析旧版 .ey：{document.DisplayName} · 组件与事件已重建关联"
+                    : $"结构化代码：{document.DisplayName}",
+                ReadyBrush);
+        }
+        catch (Exception exception) when (
+            exception is YyCodeFormatException or YyDiagnostic or IOException or UnauthorizedAccessException)
+        {
+            ShowCodeEditor(document);
+            _isLoadingDocument = true;
+            try
+            {
+                Editor.Text = document.Text;
+            }
+            finally
+            {
+                _isLoadingDocument = false;
+            }
+
+            var line = exception switch
+            {
+                YyCodeFormatException codeError => codeError.Line,
+                YyDiagnostic diagnostic => diagnostic.Line,
+                _ => 1
+            };
+            var column = exception switch
+            {
+                YyCodeFormatException codeError => codeError.Column,
+                YyDiagnostic diagnostic => diagnostic.Column,
+                _ => 1
+            };
+            NavigateTo(line, column);
+            AppendOutput($"✕ 结构化代码解析失败 · {exception.Message}");
+            BottomTabs.SelectedIndex = 0;
+            SetStatus("代码文件无法结构化解析，已切换为文本修复模式", ErrorBrush);
+        }
+    }
+
+    private void OnStructuredDesignerActivationRequested(
+        object? sender,
+        DesignerActivationEventArgs e)
+    {
+        var formPath = GetAssociatedFormPathForCurrentDocument();
+        if (formPath is null)
+        {
+            MessageBox.Show(
+                "当前代码没有关联窗体。请在项目内打开代码后置，或放置同名的 .yyx 窗体文件。",
+                "关联窗体",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        OpenDocument(formPath);
+        if (!string.IsNullOrWhiteSpace(e.ControlName) && _designForm is not null)
+        {
+            var control = _designForm.Controls.FirstOrDefault(item =>
+                string.Equals(item.Name, e.ControlName, StringComparison.Ordinal));
+            if (control is not null)
+            {
+                SelectDesignerControl(control);
+                SetStatus($"已定位控件：{control.Name}", ReadyBrush);
+                return;
+            }
+        }
+
+        SetStatus($"已打开关联窗体：{_designForm?.Name ?? Path.GetFileName(formPath)}", ReadyBrush);
+    }
+
+    private void HideInspectorColumn()
+    {
+        _inspectorWidth = InspectorColumn.Width;
+        InspectorPanel.Visibility = Visibility.Collapsed;
+        InspectorSplitter.Visibility = Visibility.Collapsed;
+        InspectorColumn.MinWidth = 0;
+        InspectorColumn.Width = new GridLength(0);
+    }
+
+    private void RestoreInspectorColumn()
+    {
+        InspectorPanel.Visibility = Visibility.Visible;
+        InspectorSplitter.Visibility = Visibility.Visible;
+        InspectorColumn.MinWidth = 220;
+        InspectorColumn.Width = _inspectorWidth.Value > 0 ? _inspectorWidth : new GridLength(300);
+    }
+
+    private void OnStructuredCodeChanged(object? sender, EventArgs e)
+    {
+        if (_currentDocument?.IsStructuredCode != true || StructuredEditor.Document is null)
+        {
+            return;
+        }
+
+        _currentDocument.Text = string.Equals(
+            Path.GetExtension(_currentDocument.FilePath ?? _currentDocument.DisplayName),
+            ".yyc",
+            StringComparison.OrdinalIgnoreCase)
+            ? YyCodeSerializer.Serialize(StructuredEditor.Document)
+            : YyCodeDocumentConverter.ToSource(StructuredEditor.Document);
+        UpdateDocumentIdentity();
+        RefreshOutline(silent: true);
     }
 
     private void RenderDesignerForm()
@@ -2944,13 +3204,16 @@ public partial class MainWindow : Window
     private bool SaveDocumentAs(EditorDocument document)
     {
         var isForm = document.IsForm;
+        var isStructured = document.IsStructuredCode;
         var dialog = new SaveFileDialog
         {
-            Title = isForm ? "保存窗体设计" : "保存易语源码",
+            Title = isForm ? "保存窗体设计" : isStructured ? "保存结构化代码" : "保存易语源码",
             Filter = isForm
                 ? "窗体设计 (*.yyx)|*.yyx|所有文件 (*.*)|*.*"
+                : isStructured
+                    ? "结构化代码 (*.yyc)|*.yyc|兼容源码 (*.ey)|*.ey|所有文件 (*.*)|*.*"
                 : "易语源码 (*.ey)|*.ey|所有文件 (*.*)|*.*",
-            DefaultExt = isForm ? ".yyx" : ".ey",
+            DefaultExt = isForm ? ".yyx" : isStructured ? ".yyc" : ".ey",
             AddExtension = true,
             FileName = string.IsNullOrWhiteSpace(document.FilePath)
                 ? document.DisplayName
@@ -2981,7 +3244,28 @@ public partial class MainWindow : Window
         try
         {
             var encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
-            File.WriteAllText(path, document.Text, encoding);
+            var targetExtension = Path.GetExtension(path);
+            var sourceExtension = Path.GetExtension(document.FilePath ?? document.DisplayName);
+            var content = document.Text;
+            if (string.Equals(targetExtension, ".yyc", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(sourceExtension, ".yyc", StringComparison.OrdinalIgnoreCase))
+            {
+                content = YyCodeSerializer.Serialize(
+                    YyCodeDocumentConverter.FromSource(document.Text, document.FilePath));
+            }
+            else if (string.Equals(targetExtension, ".ey", StringComparison.OrdinalIgnoreCase) &&
+                     string.Equals(sourceExtension, ".yyc", StringComparison.OrdinalIgnoreCase))
+            {
+                content = YyCodeDocumentConverter.ToSource(
+                    YyCodeSerializer.Deserialize(document.Text));
+            }
+
+            File.WriteAllText(path, content, encoding);
+            if (!string.Equals(document.Text, content, StringComparison.Ordinal))
+            {
+                document.Text = content;
+            }
+
             document.MarkSaved(path);
             if (ReferenceEquals(document, _currentDocument))
             {
@@ -2996,7 +3280,8 @@ public partial class MainWindow : Window
             SetStatus($"已保存 {Path.GetFileName(path)}", ReadyBrush);
             return true;
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or YyCodeFormatException or YyDiagnostic)
         {
             MessageBox.Show(
                 $"保存失败：\n{exception.Message}",
@@ -3056,7 +3341,27 @@ public partial class MainWindow : Window
             return false;
         }
 
-        var source = _currentDocument?.Text ?? Editor.Text;
+        var document = _currentDocument;
+        var source = document?.Text ?? Editor.Text;
+        if (document?.IsStructuredCode == true &&
+            string.Equals(
+                Path.GetExtension(document.FilePath ?? document.DisplayName),
+                ".yyc",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                source = YyCodeDocumentConverter.ToSource(YyCodeSerializer.Deserialize(source));
+            }
+            catch (YyCodeFormatException exception)
+            {
+                AppendOutput($"✕ 结构化代码错误 · 第 {exception.Line} 行，第 {exception.Column} 列");
+                AppendOutput("  " + exception.Message);
+                SetStatus("结构化代码无法运行", ErrorBrush);
+                return false;
+            }
+        }
+
         var sourcePath = _currentDocument?.FilePath;
         var cancellation = new CancellationTokenSource();
         _runCancellation = cancellation;
@@ -3259,7 +3564,7 @@ public partial class MainWindow : Window
 
     private void UpdateDocumentIdentity()
     {
-        var fileName = _currentDocument?.DisplayName ?? "未命名.ey";
+        var fileName = _currentDocument?.DisplayName ?? "未命名.yyc";
         var dirty = _currentDocument?.IsDirty == true;
         Title = $"{(dirty ? "● " : string.Empty)}{fileName} — 易语 Studio";
     }
@@ -3302,7 +3607,7 @@ public partial class MainWindow : Window
 
             集合：[1, 2, 3]
             对象：{姓名: "林川", 年龄: 20}
-            模块：引入 "工具.ey"
+            模块：引入 "工具.yyc"
             """,
             "语法速查",
             MessageBoxButton.OK,

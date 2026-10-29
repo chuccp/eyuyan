@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using Yy.Language;
+using Yy.Language.Structured;
 
 namespace Yy.Studio.Forms;
 
@@ -169,7 +170,10 @@ public sealed class YyFormPreviewWindow : Window
                 return;
             }
 
-            code = File.ReadAllText(codePath, new UTF8Encoding(false, true));
+            var codeText = File.ReadAllText(codePath, new UTF8Encoding(false, true));
+            code = string.Equals(Path.GetExtension(codePath), ".yyc", StringComparison.OrdinalIgnoreCase)
+                ? YyCodeDocumentConverter.ToSource(YyCodeSerializer.Deserialize(codeText))
+                : codeText;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {

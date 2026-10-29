@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Yy.Language;
 using Yy.Studio.Forms;
+using Yy.Language.Structured;
 
 namespace Yy.Studio;
 
@@ -215,16 +216,16 @@ public sealed class YyProject
         Directory.CreateDirectory(formsDirectory);
         Directory.CreateDirectory(resourcesDirectory);
 
-        var entryPath = Path.Combine(root, "Program.ey");
+        var entryPath = Path.Combine(root, "Program.yyc");
         var formPath = Path.Combine(formsDirectory, "MainForm.yyx");
-        var codePath = Path.Combine(formsDirectory, "MainForm.ey");
+        var codePath = Path.Combine(formsDirectory, "MainForm.yyc");
 
-        File.WriteAllText(entryPath, CreateEntryTemplate(projectName), new UTF8Encoding(false));
-        File.WriteAllText(codePath, CreateCodeBehindTemplate(), new UTF8Encoding(false));
+        WriteStructuredSource(entryPath, CreateEntryTemplate(projectName));
+        WriteStructuredSource(codePath, CreateCodeBehindTemplate());
         var form = new YyFormModel
         {
             Name = "MainForm",
-            CodeFile = "MainForm.ey",
+            CodeFile = "MainForm.yyc",
             LoadEvent = "主窗口_载入",
             CloseEvent = "主窗口_关闭",
             Title = projectName,
@@ -239,10 +240,10 @@ public sealed class YyProject
         {
             FormatVersion = 2,
             Name = projectName,
-            Entry = "Program.ey",
+            Entry = "Program.yyc",
             Output = projectName + ".exe",
             StartupForm = "MainForm",
-            Sources = ["Program.ey", "Forms/MainForm.ey"],
+            Sources = ["Program.yyc", "Forms/MainForm.yyc"],
             Forms = ["Forms/MainForm.yyx"],
             Resources = [],
             References = []
@@ -267,11 +268,11 @@ public sealed class YyProject
         var formsDirectory = Path.Combine(DirectoryPath, "Forms");
         Directory.CreateDirectory(formsDirectory);
         var formPath = Path.Combine(formsDirectory, className + ".yyx");
-        var codePath = Path.Combine(formsDirectory, className + ".ey");
+        var codePath = Path.Combine(formsDirectory, className + ".yyc");
         var model = new YyFormModel
         {
             Name = className,
-            CodeFile = className + ".ey",
+            CodeFile = className + ".yyc",
             Title = title,
             Width = 720,
             Height = 480
@@ -283,7 +284,7 @@ public sealed class YyProject
         model.Controls.Add(button);
 
         File.WriteAllText(formPath, YyFormSerializer.Serialize(model), new UTF8Encoding(false));
-        File.WriteAllText(
+        WriteStructuredSource(
             codePath,
             $"""
             .版本 3
@@ -292,8 +293,7 @@ public sealed class YyProject
             子程序 确定按钮_被单击()
                 提示("窗体事件已经执行。")
             结束子程序
-            """,
-            new UTF8Encoding(false));
+            """);
 
         AddRelativePath(_formPaths, formPath, DirectoryPath);
         AddRelativePath(_sourcePaths, codePath, DirectoryPath);
@@ -307,19 +307,18 @@ public sealed class YyProject
         string path;
         do
         {
-            path = Path.Combine(DirectoryPath, $"Source{sequence++}.ey");
+            path = Path.Combine(DirectoryPath, $"Source{sequence++}.yyc");
         }
         while (File.Exists(path));
 
-        File.WriteAllText(
+        WriteStructuredSource(
             path,
             $"""
             .版本 3
             .程序集 {Name}
 
-            ' 新建源码文件
-            """,
-            new UTF8Encoding(false));
+            输出("新建源码文件")
+            """);
         AddRelativePath(_sourcePaths, path, DirectoryPath);
         WriteCurrentManifest();
         return path;
@@ -393,12 +392,20 @@ public sealed class YyProject
                 .ToList();
         }
 
-        return Directory.EnumerateFiles(baseDirectory, "*" + extension, SearchOption.AllDirectories)
+        var extensions = extension == ".ey" ? new[] { ".yyc", ".ey" } : new[] { extension };
+        return extensions
+            .SelectMany(value => Directory.EnumerateFiles(baseDirectory, "*" + value, SearchOption.AllDirectories))
             .Where(path => !path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                 .Any(part => part is "bin" or "obj" or ".git" or ".vs"))
             .Select(Path.GetFullPath)
             .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    private static void WriteStructuredSource(string path, string source)
+    {
+        var model = YyCodeDocumentConverter.FromSource(source, path);
+        File.WriteAllText(path, YyCodeSerializer.Serialize(model), new UTF8Encoding(false));
     }
 
     private static string ResolveProjectFile(string baseDirectory, string relativePath, string description)
