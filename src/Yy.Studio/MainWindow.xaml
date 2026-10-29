@@ -559,11 +559,11 @@
 
                     <Grid Grid.Row="1">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="154" />
-                            <ColumnDefinition Width="1" />
                             <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="1" />
+                            <ColumnDefinition Width="150" />
                         </Grid.ColumnDefinitions>
-                        <Border Background="#252526">
+                        <Border Grid.Column="2" Background="#252526">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
@@ -574,19 +574,87 @@
                                            Style="{StaticResource SectionTitle}" />
                                 <ListBox x:Name="ControlToolbox"
                                          Grid.Row="1"
-                                         Margin="8,0"
+                                         Margin="6,0"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                          MouseDoubleClick="OnToolboxDoubleClick"
                                          PreviewMouseLeftButtonDown="OnToolboxMouseDown"
                                          PreviewMouseMove="OnToolboxMouseMove">
+                                    <ListBox.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ListBox.ItemsPanel>
+                                    <ListBox.ItemContainerStyle>
+                                        <Style TargetType="ListBoxItem">
+                                            <Setter Property="Width" Value="64" />
+                                            <Setter Property="Height" Value="48" />
+                                            <Setter Property="Margin" Value="2" />
+                                            <Setter Property="Padding" Value="0" />
+                                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="ListBoxItem">
+                                                        <Border x:Name="ToolTile"
+                                                                Background="#2D2D30"
+                                                                BorderBrush="#3F3F46"
+                                                                BorderThickness="1"
+                                                                CornerRadius="2"
+                                                                Padding="4">
+                                                            <ContentPresenter HorizontalAlignment="Center"
+                                                                              VerticalAlignment="Center" />
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="ToolTile" Property="Background" Value="#3A3D41" />
+                                                                <Setter TargetName="ToolTile" Property="BorderBrush" Value="#5A5A5A" />
+                                                            </Trigger>
+                                                            <Trigger Property="IsSelected" Value="True">
+                                                                <Setter TargetName="ToolTile" Property="Background" Value="#094771" />
+                                                                <Setter TargetName="ToolTile" Property="BorderBrush" Value="#007ACC" />
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ListBox.ItemContainerStyle>
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
-                                            <Border Padding="9,7"
-                                                    Margin="0,1"
-                                                    Background="#1B222C"
-                                                    CornerRadius="5">
+                                            <StackPanel>
+                                                <TextBlock x:Name="ToolGlyph"
+                                                           Text="＋"
+                                                           FontSize="16"
+                                                           Foreground="#7CC7FF"
+                                                           HorizontalAlignment="Center" />
                                                 <TextBlock Text="{Binding}"
-                                                           FontSize="12" />
-                                            </Border>
+                                                           FontSize="10.5"
+                                                           HorizontalAlignment="Center"
+                                                           Margin="0,3,0,0" />
+                                            </StackPanel>
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding}" Value="按钮">
+                                                    <Setter TargetName="ToolGlyph" Property="Text" Value="▣" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding}" Value="文本">
+                                                    <Setter TargetName="ToolGlyph" Property="Text" Value="T" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding}" Value="输入框">
+                                                    <Setter TargetName="ToolGlyph" Property="Text" Value="⌨" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding}" Value="复选框">
+                                                    <Setter TargetName="ToolGlyph" Property="Text" Value="☑" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding}" Value="下拉框">
+                                                    <Setter TargetName="ToolGlyph" Property="Text" Value="⌄" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding}" Value="列表框">
+                                                    <Setter TargetName="ToolGlyph" Property="Text" Value="☷" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding}" Value="分组框">
+                                                    <Setter TargetName="ToolGlyph" Property="Text" Value="▤" />
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
                                 </ListBox>
@@ -595,13 +663,13 @@
                                            TextWrapping="Wrap"
                                            FontSize="10"
                                            Foreground="{StaticResource MutedBrush}"
-                                           Margin="12,8,12,12" />
+                                           Margin="10,8,10,12" />
                             </Grid>
                         </Border>
 
                         <Rectangle Grid.Column="1" Fill="#3F3F46" />
 
-                        <ScrollViewer Grid.Column="2"
+                        <ScrollViewer Grid.Column="0"
                                       Background="#1E1E1E"
                                       HorizontalScrollBarVisibility="Auto"
                                       VerticalScrollBarVisibility="Auto"
@@ -965,7 +1033,12 @@
                             BorderThickness="0,0,0,1">
                         <Grid Margin="11,0">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="运行输出" FontSize="11.5" FontWeight="SemiBold" />
+                                <Border BorderBrush="{StaticResource AccentBrush}"
+                                        BorderThickness="0,0,0,2"
+                                        Padding="8,5"
+                                        Margin="0,0,8,0">
+                                    <TextBlock Text="输出" FontSize="11.5" FontWeight="SemiBold" />
+                                </Border>
                                 <TextBlock x:Name="RunInfoText" Margin="10,0,0,0"
                                            FontSize="10" Foreground="{StaticResource MutedBrush}"
                                            VerticalAlignment="Center" />
