@@ -56,6 +56,16 @@ public partial class MainWindow : Window
     private static readonly Brush ErrorBrush = new SolidColorBrush(Color.FromRgb(255, 116, 116));
     private static readonly HashSet<string> IgnoredDirectories =
         new(StringComparer.OrdinalIgnoreCase) { ".git", ".vs", "bin", "obj", "node_modules" };
+    private static readonly IReadOnlyDictionary<string, CodeSnippet> CodeSnippets =
+        new Dictionary<string, CodeSnippet>(StringComparer.Ordinal)
+        {
+            ["子程序"] = new("子程序 名称(参数)\n    \n结束子程序", 4, 2),
+            ["变量"] = new("变量 名称 = 值", 3, 2),
+            ["如果"] = new("如果 条件 则\n    \n结束如果", 3, 2),
+            ["计次循环"] = new("计次循环 序号 从 1 到 10\n    \n结束循环", 5, 2),
+            ["遍历"] = new("遍历 项目 于 集合\n    \n结束遍历", 3, 2),
+            ["尝试"] = new("尝试\n    \n捕获 错误\n    \n结束尝试", 7, 0)
+        };
 
     private readonly DispatcherTimer _outlineTimer;
     private readonly ObservableCollection<EditorDocument> _documents = [];
@@ -77,6 +87,8 @@ public partial class MainWindow : Window
     private bool _updatingDesignerProperties;
     private Point _toolboxDragStart;
     private GridLength _explorerWidth = new(240);
+    private string? _helpFunctionsSource;
+    private Dictionary<string, FunctionDeclaration> _helpFunctions = new(StringComparer.Ordinal);
     private CancellationTokenSource? _runCancellation;
     private bool _isLoadingDocument;
 
@@ -202,6 +214,8 @@ public partial class MainWindow : Window
 
         _currentDocument.Text = Editor.Text;
         UpdateDocumentIdentity();
+        UpdateEditorHelp();
+        UpdateParameterHint();
 
         _outlineTimer.Stop();
         _outlineTimer.Start();
@@ -210,6 +224,8 @@ public partial class MainWindow : Window
     private void OnCaretPositionChanged(object? sender, EventArgs e)
     {
         CaretText.Text = $"行 {Editor.TextArea.Caret.Line}，列 {Editor.TextArea.Caret.Column}";
+        UpdateEditorHelp();
+        UpdateParameterHint();
     }
 
     private void OnEditorTextEntered(object? sender, TextCompositionEventArgs e)
@@ -220,7 +236,7 @@ public partial class MainWindow : Window
         }
 
         var character = e.Text[0];
-        if (char.IsLetter(character) || character == '_')
+        if (char.IsLetter(character) || character == '_' || character == '.')
         {
             ShowCompletion();
         }
@@ -228,6 +244,14 @@ public partial class MainWindow : Window
 
     private void OnEditorPreviewKeyDown(object? sender, KeyEventArgs e)
     {
+        if (e.Key == Key.F1)
+        {
+            BottomTabs.SelectedIndex = 1;
+            UpdateEditorHelp();
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key == Key.Space && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
         {
             ShowCompletion();
@@ -248,18 +272,449 @@ public partial class MainWindow : Window
             MaxHeight = 330
         };
         var data = _completionWindow.CompletionList.CompletionData;
+        var known = new HashSet<string>(StringComparer.Ordinal);
+        var form = GetAssociatedFormForCurrentDocument();
+        var memberOwner = TryGetMemberOwnerName();
+        if (form is not null && memberOwner is not null)
+        {
+            var control = form.Controls.FirstOrDefault(item =>
+                string.Equals(item.Name, memberOwner, StringComparison.Ordinal));
+            var properties = new (string Name, string Description)[]
+            {
+                ("文本", "控件的文本、标题或内容"),
+                ("名称", "控件名称"),
+                ("可见", "是否显示控件"),
+                ("启用", "是否允许用户操作"),
+                ("选中", "复选框是否选中"),
+                ("左", "控件的左侧坐标"),
+                ("上", "控件的顶部坐标"),
+                ("宽", "控件宽度"),
+                ("高", "控件高度")
+            };
+            foreach (var (name, description) in properties)
+            {
+                if (known.Add(name))
+                {
+                    data.Add(new CompletionData(
+                        name,
+                        control is null ? description : $"{description} · {control.Name}",
+                        CompletionKind.Property));
+                }
+            }
+
+            _completionWindow.Show();
+            _completionWindow.Closed += (_, _) => _completionWindow = null;
+            return;
+        }
+
+        if (form is not null)
+        {
+            foreach (var control in form.Controls)
+            {
+                if (known.Add(control.Name))
+                {
+                    data.Add(new CompletionData(
+                        control.Name,
+                        $"组件 · {control.Type}",
+                        CompletionKind.Component));
+                }
+            }
+        }
+
+        try
+        {
+            var program = YyRunner.CompileSource(Editor.Text, _currentDocument?.FilePath);
+            foreach (var function in program.Functions)
+            {
+                if (known.Add(function.Name))
+                {
+                    var parameters = string.Join(
+                        ", ",
+                        function.Parameters.Select(parameter =>
+                            parameter.TypeName is null
+                                ? parameter.Name
+                                : $"{parameter.Name}: {parameter.TypeName}"));
+                    data.Add(new CompletionData(
+                        function.Name,
+                        $"子程序 · {function.Name}({parameters})",
+                        CompletionKind.Snippet));
+                }
+            }
+        }
+        catch (YyDiagnostic)
+        {
+            // Completion still works while the document is temporarily incomplete.
+        }
+
         foreach (var (text, description) in StudioCatalog.Completions)
         {
+            if (!known.Add(text))
+            {
+                continue;
+            }
+
             var kind = text is "输出" or "长度" or "类型" or "数字" or "文本" or "范围" or "包含"
                 or "分割" or "连接" or "追加" or "移除" or "排序" or "JSON解析" or "JSON生成"
                 or "当前时间" or "格式化时间" or "断言"
                 ? CompletionKind.Builtin
                 : CompletionKind.Keyword;
-            data.Add(new CompletionData(text, description, kind));
+            if (CodeSnippets.TryGetValue(text, out var snippet))
+            {
+                data.Add(new CompletionData(
+                    text,
+                    description + " · 插入代码块",
+                    CompletionKind.Snippet,
+                    snippet.InsertText,
+                    snippet.CaretOffset,
+                    snippet.SelectionLength));
+            }
+            else
+            {
+                data.Add(new CompletionData(text, description, kind));
+            }
         }
 
         _completionWindow.Show();
         _completionWindow.Closed += (_, _) => _completionWindow = null;
+    }
+
+    private YyFormModel? GetAssociatedFormForCurrentDocument()
+    {
+        var path = _currentDocument?.FilePath;
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return null;
+        }
+
+        if (_project is not null)
+        {
+            var projectForm = _project.Forms.FirstOrDefault(form =>
+                string.Equals(form.CodePath, path, StringComparison.OrdinalIgnoreCase));
+            if (projectForm is not null)
+            {
+                return projectForm.Model;
+            }
+        }
+
+        var directory = Path.GetDirectoryName(path);
+        if (directory is null)
+        {
+            return null;
+        }
+
+        var candidate = Path.Combine(directory, Path.GetFileNameWithoutExtension(path) + ".yyx");
+        if (!File.Exists(candidate))
+        {
+            return null;
+        }
+
+        try
+        {
+            return YyFormSerializer.Deserialize(File.ReadAllText(candidate));
+        }
+        catch (Exception exception) when (
+            exception is YyFormFormatException or IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private string? TryGetMemberOwnerName()
+    {
+        var caret = Editor.CaretOffset;
+        if (caret <= 0)
+        {
+            return null;
+        }
+
+        var text = Editor.Text;
+        var cursor = caret - 1;
+        while (cursor >= 0 && (char.IsLetterOrDigit(text[cursor]) || text[cursor] == '_'))
+        {
+            cursor--;
+        }
+
+        while (cursor >= 0 && char.IsWhiteSpace(text[cursor]))
+        {
+            cursor--;
+        }
+
+        if (cursor < 0 || text[cursor] != '.')
+        {
+            return null;
+        }
+
+        var end = cursor - 1;
+        while (end >= 0 && char.IsWhiteSpace(text[end]))
+        {
+            end--;
+        }
+
+        var start = end;
+        while (start >= 0 && (char.IsLetterOrDigit(text[start]) || text[start] == '_'))
+        {
+            start--;
+        }
+
+        return end > start ? text[(start + 1)..(end + 1)] : null;
+    }
+
+    private void UpdateParameterHint()
+    {
+        if (_currentDocument?.IsForm == true)
+        {
+            ParameterHintBar.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var caret = Math.Clamp(Editor.CaretOffset, 0, Editor.Document.TextLength);
+        var line = Editor.Document.GetLineByOffset(caret);
+        var prefix = Editor.Document.GetText(line.Offset, caret - line.Offset);
+        var openIndex = FindActiveOpenParenthesis(prefix);
+        if (openIndex < 0)
+        {
+            ParameterHintBar.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var nameEnd = openIndex - 1;
+        while (nameEnd >= 0 && char.IsWhiteSpace(prefix[nameEnd]))
+        {
+            nameEnd--;
+        }
+
+        var nameStart = nameEnd;
+        while (nameStart >= 0 &&
+               (char.IsLetterOrDigit(prefix[nameStart]) || prefix[nameStart] == '_'))
+        {
+            nameStart--;
+        }
+
+        if (nameEnd <= nameStart)
+        {
+            ParameterHintBar.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var name = prefix[(nameStart + 1)..(nameEnd + 1)];
+        var callable = FindCallable(name);
+        if (callable is null)
+        {
+            ParameterHintBar.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var argumentIndex = CountTopLevelArguments(prefix[(openIndex + 1)..]) + 1;
+        ParameterHintText.Text =
+            $"{callable.Value.Signature}    当前参数 {argumentIndex}    {callable.Value.Description}";
+        ParameterHintBar.Visibility = Visibility.Visible;
+    }
+
+    private void UpdateEditorHelp()
+    {
+        if (_currentDocument?.IsForm == true)
+        {
+            EditorHelpBox.Text =
+                "窗体设计模式\n\n" +
+                "单击控件编辑属性；双击控件生成或打开默认事件代码；F5 预览窗体。";
+            return;
+        }
+
+        var caret = Math.Clamp(Editor.CaretOffset, 0, Editor.Document.TextLength);
+        var word = GetWordAtOffset(Editor.Text, caret);
+        var form = GetAssociatedFormForCurrentDocument();
+        var memberOwner = TryGetMemberOwnerName();
+        var ownerControl = form?.Controls.FirstOrDefault(item =>
+            string.Equals(item.Name, memberOwner, StringComparison.Ordinal));
+        if (ownerControl is not null && !string.IsNullOrWhiteSpace(word))
+        {
+            EditorHelpBox.Text =
+                $"{ownerControl.Name}.{word}\n\n" +
+                $"组件类型：{ownerControl.Type}\n" +
+                $"当前值：{GetControlPropertySummary(ownerControl, word)}\n\n" +
+                "可使用赋值语句直接修改属性，例如：\n" +
+                $"{ownerControl.Name}.{word} = 新值";
+            return;
+        }
+
+        var control = form?.Controls.FirstOrDefault(item =>
+            string.Equals(item.Name, word, StringComparison.Ordinal));
+        if (control is not null)
+        {
+            EditorHelpBox.Text =
+                $"组件：{control.Name}\n" +
+                $"类型：{control.Type}\n" +
+                $"位置：左 {control.X}，上 {control.Y}；尺寸：{control.Width} × {control.Height}\n\n" +
+                "可引用属性：文本、名称、可见、启用、选中、左、上、宽、高。\n" +
+                $"示例：{control.Name}.文本 = \"新值\"";
+            return;
+        }
+
+        var callable = FindCallable(word);
+        if (callable is not null)
+        {
+            EditorHelpBox.Text =
+                $"{callable.Value.Signature}\n\n{callable.Value.Description}\n\n" +
+                "F1：上下文帮助；Ctrl+Space：命令补全。";
+            return;
+        }
+
+        var keyword = StudioCatalog.Completions.FirstOrDefault(item =>
+            string.Equals(item.Text, word, StringComparison.Ordinal));
+        EditorHelpBox.Text = keyword.Text is null
+            ? "将光标移到命令、函数或组件名上查看帮助。按 F1 打开提示面板，按 Ctrl+Space 打开补全。"
+            : $"{keyword.Text}\n\n{keyword.Description}\n\nF1：上下文帮助；Ctrl+Space：命令补全。";
+    }
+
+    private static string GetControlPropertySummary(YyControlModel control, string property)
+    {
+        return property switch
+        {
+            "文本" => control.Text,
+            "名称" => control.Name,
+            "可见" => control.IsVisible ? "真" : "假",
+            "启用" => control.IsEnabled ? "真" : "假",
+            "选中" => control.IsChecked ? "真" : "假",
+            "左" => control.X.ToString(),
+            "上" => control.Y.ToString(),
+            "宽" => control.Width.ToString(),
+            "高" => control.Height.ToString(),
+            _ => "可通过“组件名.属性名”访问"
+        };
+    }
+
+    private (string Signature, string Description)? FindCallable(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return null;
+        }
+
+        var builtin = StudioCatalog.Builtins.FirstOrDefault(item =>
+            string.Equals(item.Name, name, StringComparison.Ordinal));
+        if (builtin is not null)
+        {
+            return (builtin.Signature, builtin.Description);
+        }
+
+        if (!string.Equals(_helpFunctionsSource, Editor.Text, StringComparison.Ordinal))
+        {
+            _helpFunctionsSource = Editor.Text;
+            _helpFunctions = new Dictionary<string, FunctionDeclaration>(StringComparer.Ordinal);
+            try
+            {
+                var program = YyRunner.CompileSource(Editor.Text, _currentDocument?.FilePath);
+                _helpFunctions = program.Functions.ToDictionary(
+                    function => function.Name,
+                    StringComparer.Ordinal);
+            }
+            catch (YyDiagnostic)
+            {
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+            }
+        }
+
+        if (_helpFunctions.TryGetValue(name, out var userFunction))
+        {
+            var parameters = string.Join(
+                ", ",
+                userFunction.Parameters.Select(parameter =>
+                    $"{parameter.Name}{(parameter.TypeName is null ? string.Empty : ": " + parameter.TypeName)}" +
+                    (parameter.DefaultValue is null ? string.Empty : " = 默认值")));
+            return (
+                $"{userFunction.Name}({parameters}): {userFunction.ReturnType ?? "任意"}",
+                "当前文件定义的子程序。");
+        }
+
+        return null;
+    }
+
+    private static string GetWordAtOffset(string text, int offset)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return string.Empty;
+        }
+
+        var position = Math.Clamp(offset, 0, text.Length);
+        if (position == text.Length ||
+            !(char.IsLetterOrDigit(text[position]) || text[position] == '_'))
+        {
+            position = Math.Max(0, position - 1);
+        }
+
+        if (position >= text.Length ||
+            !(char.IsLetterOrDigit(text[position]) || text[position] == '_'))
+        {
+            return string.Empty;
+        }
+
+        var start = position;
+        while (start > 0 && (char.IsLetterOrDigit(text[start - 1]) || text[start - 1] == '_'))
+        {
+            start--;
+        }
+
+        var end = position + 1;
+        while (end < text.Length && (char.IsLetterOrDigit(text[end]) || text[end] == '_'))
+        {
+            end++;
+        }
+
+        return text[start..end];
+    }
+
+    private static int FindActiveOpenParenthesis(string prefix)
+    {
+        var depth = 0;
+        for (var index = prefix.Length - 1; index >= 0; index--)
+        {
+            if (prefix[index] == ')')
+            {
+                depth++;
+            }
+            else if (prefix[index] == '(')
+            {
+                if (depth == 0)
+                {
+                    return index;
+                }
+
+                depth--;
+            }
+        }
+
+        return -1;
+    }
+
+    private static int CountTopLevelArguments(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return 0;
+        }
+
+        var depth = 0;
+        var commas = 0;
+        foreach (var character in text)
+        {
+            switch (character)
+            {
+                case '(' or '[' or '{':
+                    depth++;
+                    break;
+                case ')' or ']' or '}':
+                    depth = Math.Max(0, depth - 1);
+                    break;
+                case ',' when depth == 0:
+                    commas++;
+                    break;
+            }
+        }
+
+        return commas;
     }
 
     private void OnNewFile(object sender, ExecutedRoutedEventArgs e)
@@ -897,9 +1352,10 @@ public partial class MainWindow : Window
             try
             {
                 var form = YyFormSerializer.Deserialize(File.ReadAllText(formFile));
+                string? codePath = null;
                 if (!string.IsNullOrWhiteSpace(form.CodeFile))
                 {
-                    var codePath = Path.GetFullPath(
+                    codePath = Path.GetFullPath(
                         Path.Combine(Path.GetDirectoryName(formFile)!, form.CodeFile));
                     if (File.Exists(codePath))
                     {
@@ -912,6 +1368,32 @@ public partial class MainWindow : Window
                         });
                     }
                 }
+
+                var componentsItem = new TreeViewItem
+                {
+                    Header = MakeTreeHeader($"◆  组件 ({form.Controls.Count})", isFolder: true),
+                    IsExpanded = false
+                };
+                foreach (var control in form.Controls)
+                {
+                    var controlItem = new TreeViewItem
+                    {
+                        Header = MakeTreeHeader($"◇  {control.Name}  ·  {control.Type}", isFolder: false),
+                        Tag = new ProjectControlLink(formFile, control.Name)
+                    };
+                    foreach (var (eventName, description) in GetControlEvents(control))
+                    {
+                        controlItem.Items.Add(new TreeViewItem
+                        {
+                            Header = MakeTreeHeader($"ƒ  {description}  ·  {eventName}", isFolder: false),
+                            Tag = new ProjectEventLink(formFile, codePath, eventName, control.Name)
+                        });
+                    }
+
+                    componentsItem.Items.Add(controlItem);
+                }
+
+                formItem.Items.Add(componentsItem);
             }
             catch (Exception exception) when (exception is IOException or YyFormFormatException)
             {
@@ -954,6 +1436,28 @@ public partial class MainWindow : Window
 
     private void OnProjectTreeSelectionChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
+        if (e.NewValue is TreeViewItem { Tag: ProjectControlLink controlLink })
+        {
+            OpenDocument(controlLink.FormPath);
+            if (_designForm is not null)
+            {
+                var control = _designForm.Controls.FirstOrDefault(item =>
+                    string.Equals(item.Name, controlLink.ControlName, StringComparison.Ordinal));
+                if (control is not null)
+                {
+                    SelectDesignerControl(control);
+                }
+            }
+
+            return;
+        }
+
+        if (e.NewValue is TreeViewItem { Tag: ProjectEventLink eventLink })
+        {
+            OpenEventHandlerFromProject(eventLink);
+            return;
+        }
+
         if (e.NewValue is not TreeViewItem { Tag: string path } || !File.Exists(path))
         {
             return;
@@ -968,6 +1472,61 @@ public partial class MainWindow : Window
         if (!string.Equals(path, _currentDocument?.FilePath, StringComparison.OrdinalIgnoreCase))
         {
             OpenDocument(path);
+        }
+    }
+
+    private void OpenEventHandlerFromProject(ProjectEventLink link)
+    {
+        if (string.IsNullOrWhiteSpace(link.CodePath) || !File.Exists(link.CodePath))
+        {
+            MessageBox.Show(
+                $"控件“{link.ControlName}”绑定了事件“{link.EventName}”，但还没有代码后置文件。\n\n请在窗体设计器中双击该控件生成事件代码。",
+                "事件代码",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        OpenDocument(link.CodePath);
+        var marker = "子程序 " + link.EventName;
+        var offset = Editor.Text.IndexOf(marker, StringComparison.Ordinal);
+        if (offset < 0)
+        {
+            MessageBox.Show(
+                $"代码后置中还没有事件函数“{link.EventName}”。\n\n请在窗体设计器中双击控件生成它。",
+                "事件代码",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        Editor.CaretOffset = offset;
+        var line = Editor.Document.GetLineByOffset(offset);
+        Editor.Select(line.Offset, line.Length);
+        Editor.ScrollToLine(line.LineNumber);
+        Editor.Focus();
+    }
+
+    private static IEnumerable<(string Name, string Description)> GetControlEvents(YyControlModel control)
+    {
+        if (!string.IsNullOrWhiteSpace(control.ClickEvent))
+        {
+            yield return (control.ClickEvent, "单击");
+        }
+
+        if (!string.IsNullOrWhiteSpace(control.TextChangedEvent))
+        {
+            yield return (control.TextChangedEvent, "文本改变");
+        }
+
+        if (!string.IsNullOrWhiteSpace(control.SelectionChangedEvent))
+        {
+            yield return (control.SelectionChangedEvent, "选择改变");
+        }
+
+        if (!string.IsNullOrWhiteSpace(control.CheckedChangedEvent))
+        {
+            yield return (control.CheckedChangedEvent, "选中改变");
         }
     }
 
@@ -1063,6 +1622,8 @@ public partial class MainWindow : Window
         }
 
         _currentDocument = document;
+        _helpFunctionsSource = null;
+        _helpFunctions.Clear();
         if (document.IsForm)
         {
             ShowFormDesigner(document);
@@ -1970,6 +2531,14 @@ public partial class MainWindow : Window
 
     private void OnWindowPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (e.Key == Key.F1)
+        {
+            BottomTabs.SelectedIndex = 1;
+            UpdateEditorHelp();
+            e.Handled = true;
+            return;
+        }
+
         if (_currentDocument?.IsForm != true ||
             !Keyboard.Modifiers.HasFlag(ModifierKeys.Control) ||
             e.Key is not (Key.Z or Key.Y))
@@ -2800,7 +3369,20 @@ public partial class MainWindow : Window
 
     private sealed record VariableRow(string Key, string Value);
 
+    private sealed record CodeSnippet(
+        string InsertText,
+        int CaretOffset,
+        int SelectionLength);
+
     private sealed record ResizeHandleTag(ResizeDirection Direction);
+
+    private sealed record ProjectControlLink(string FormPath, string ControlName);
+
+    private sealed record ProjectEventLink(
+        string FormPath,
+        string? CodePath,
+        string EventName,
+        string ControlName);
 
     private enum DesignerDragMode
     {

@@ -359,6 +359,7 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="34" />
                     <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <Border Background="#2D2D30"
                         BorderBrush="{StaticResource BorderBrush}"
@@ -482,8 +483,23 @@
                                    Padding="8,10,8,16"
                                    TextChanged="OnEditorTextChanged" />
 
+                <Border x:Name="ParameterHintBar"
+                        Grid.Row="2"
+                        Background="#252526"
+                        BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="0,1,0,0"
+                        Padding="10,4"
+                        Visibility="Collapsed">
+                    <TextBlock x:Name="ParameterHintText"
+                               FontFamily="Cascadia Code, Consolas, Microsoft YaHei UI"
+                               FontSize="10.5"
+                               Foreground="#9CDCFE"
+                               TextTrimming="CharacterEllipsis" />
+                </Border>
+
                 <Grid x:Name="DesignerPanel"
                       Grid.Row="1"
+                      Grid.RowSpan="2"
                       Background="#1E1E1E"
                       Visibility="Collapsed">
                     <Grid.RowDefinitions>
@@ -1023,45 +1039,57 @@
                           ShowsPreview="True" />
 
             <Border Grid.Column="3" Grid.Row="2" Background="#1E1E1E">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="34" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <Border Background="#131820"
-                            BorderBrush="{StaticResource BorderBrush}"
-                            BorderThickness="0,0,0,1">
-                        <Grid Margin="11,0">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <Border BorderBrush="{StaticResource AccentBrush}"
-                                        BorderThickness="0,0,0,2"
-                                        Padding="8,5"
-                                        Margin="0,0,8,0">
-                                    <TextBlock Text="输出" FontSize="11.5" FontWeight="SemiBold" />
-                                </Border>
-                                <TextBlock x:Name="RunInfoText" Margin="10,0,0,0"
-                                           FontSize="10" Foreground="{StaticResource MutedBrush}"
-                                           VerticalAlignment="Center" />
-                            </StackPanel>
-                            <Button Content="清空" Style="{StaticResource ToolButton}"
-                                    Padding="8,2" HorizontalAlignment="Right"
-                                    VerticalAlignment="Center" Click="OnClearOutput" />
+                <TabControl x:Name="BottomTabs"
+                            Background="#1E1E1E"
+                            BorderThickness="0">
+                    <TabItem Header="输出">
+                        <Grid Background="#1E1E1E">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="30" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Border Background="#252526"
+                                    BorderBrush="{StaticResource BorderBrush}"
+                                    BorderThickness="0,0,0,1">
+                                <Grid Margin="9,0">
+                                    <TextBlock x:Name="RunInfoText"
+                                               FontSize="10"
+                                               Foreground="{StaticResource MutedBrush}"
+                                               VerticalAlignment="Center" />
+                                    <Button Content="清空" Style="{StaticResource ToolButton}"
+                                            Padding="8,2" HorizontalAlignment="Right"
+                                            VerticalAlignment="Center" Click="OnClearOutput" />
+                                </Grid>
+                            </Border>
+                            <TextBox x:Name="OutputBox"
+                                     Grid.Row="1"
+                                     Background="#1E1E1E"
+                                     Foreground="#B9C6D6"
+                                     BorderThickness="0"
+                                     FontFamily="Cascadia Code, Consolas, Microsoft YaHei UI"
+                                     FontSize="12"
+                                     IsReadOnly="True"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     Padding="12,8"
+                                     VerticalScrollBarVisibility="Auto"
+                                     HorizontalScrollBarVisibility="Disabled" />
                         </Grid>
-                    </Border>
-                    <TextBox x:Name="OutputBox"
-                             Grid.Row="1"
-                             Background="#1E1E1E"
-                             Foreground="#B9C6D6"
-                             BorderThickness="0"
-                             FontFamily="Cascadia Mono, Consolas, Microsoft YaHei UI"
-                             FontSize="12.5"
-                             IsReadOnly="True"
-                             AcceptsReturn="True"
-                             TextWrapping="Wrap"
-                             Padding="12,9"
-                             VerticalScrollBarVisibility="Auto"
-                             HorizontalScrollBarVisibility="Disabled" />
-                </Grid>
+                    </TabItem>
+                    <TabItem Header="提示">
+                        <TextBox x:Name="EditorHelpBox"
+                                 Background="#1E1E1E"
+                                 Foreground="#D4D4D4"
+                                 BorderThickness="0"
+                                 IsReadOnly="True"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 Padding="14,10"
+                                 FontFamily="Microsoft YaHei UI"
+                                 FontSize="12"
+                                 VerticalScrollBarVisibility="Auto" />
+                    </TabItem>
+                </TabControl>
             </Border>
         </Grid>
     </DockPanel>
