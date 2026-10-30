@@ -436,6 +436,30 @@ Run("完整项目骨架", () =>
                 "MainForm.Designer.yyc",
                 StringComparison.OrdinalIgnoreCase),
             "项目窗体没有关联自动关系文件。");
+
+        var consoleRoot = Path.Combine(temporaryRoot, "ConsoleProject");
+        var console = YyProject.CreateProject(
+            Path.Combine(consoleRoot, "ConsoleProject.yyproj"),
+            "ConsoleProject",
+            "demo.console",
+            YyProjectKind.Console);
+        Equal(0, console.Forms.Count);
+        True(
+            File.ReadAllText(Path.Combine(consoleRoot, "Sources", "Program.yyc"))
+                .Contains("输出(", StringComparison.Ordinal),
+            "控制台项目入口模板不正确。");
+
+        var moduleRoot = Path.Combine(temporaryRoot, "ModuleProject");
+        var module = YyProject.CreateProject(
+            Path.Combine(moduleRoot, "ModuleProject.yyproj"),
+            "ModuleProject",
+            "demo.module",
+            YyProjectKind.Module);
+        Equal(0, module.Forms.Count);
+        True(
+            File.ReadAllText(Path.Combine(moduleRoot, "Sources", "Program.yyc"))
+                .Contains("子程序 示例函数", StringComparison.Ordinal),
+            "模块项目入口模板不正确。");
     }
     finally
     {

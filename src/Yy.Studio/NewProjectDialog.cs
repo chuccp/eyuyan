@@ -16,8 +16,10 @@ public sealed class NewProjectDialog : Window
     private readonly TextBox _locationBox = new();
     private readonly TextBlock _pathPreview = new();
     private readonly TextBlock _validationText = new();
+    private readonly YyProjectKind _projectKind;
     private bool _packageEdited;
 
+    public YyProjectKind ProjectKind => _projectKind;
     public string ProjectName => _nameBox.Text.Trim();
     public string PackageName => _packageBox.Text.Trim();
     public string ProjectPath => Path.Combine(
@@ -25,9 +27,10 @@ public sealed class NewProjectDialog : Window
         ProjectName,
         ProjectName + ".yyproj");
 
-    public NewProjectDialog()
+    public NewProjectDialog(YyProjectKind projectKind = YyProjectKind.Window)
     {
-        Title = "新建易语项目";
+        _projectKind = projectKind;
+        Title = "新建易语项目 · " + KindName(projectKind);
         Width = 640;
         Height = 500;
         MinWidth = 580;
@@ -44,13 +47,13 @@ public sealed class NewProjectDialog : Window
         var heading = new StackPanel { Margin = new Thickness(0, 0, 0, 18) };
         heading.Children.Add(new TextBlock
         {
-            Text = "创建易语项目",
+            Text = "创建" + KindName(projectKind) + "项目",
             FontSize = 22,
             FontWeight = FontWeights.SemiBold
         });
         heading.Children.Add(new TextBlock
         {
-            Text = "项目名用于工程和应用；包名用于源码目录包的命名导入。",
+            Text = "先选择保存位置并填写项目名、包名，确定后才会创建工程。",
             Margin = new Thickness(0, 5, 0, 0),
             Foreground = (Brush)Application.Current.FindResource("MutedBrush")
         });
@@ -64,6 +67,7 @@ public sealed class NewProjectDialog : Window
         AddRow(form, 2, "项目位置", CreateLocationRow());
         AddDirectoryRow(form, 3, "源码目录", YyProject.SourceDirectoryName + "/");
         AddDirectoryRow(form, 4, "资源目录", YyProject.ResourceDirectoryName + "/");
+        form.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
         var structure = new Border
         {
@@ -92,7 +96,7 @@ public sealed class NewProjectDialog : Window
                 }
             }
         };
-        Grid.SetRow(structure, 4);
+        Grid.SetRow(structure, 5);
         Grid.SetColumn(structure, 1);
         form.Children.Add(structure);
         Grid.SetRow(form, 1);
@@ -300,4 +304,11 @@ public sealed class NewProjectDialog : Window
 
         return new string(characters);
     }
+
+    private static string KindName(YyProjectKind kind) => kind switch
+    {
+        YyProjectKind.Console => "控制台",
+        YyProjectKind.Module => "模块",
+        _ => "窗口"
+    };
 }

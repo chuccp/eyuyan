@@ -86,9 +86,12 @@ public partial class MainWindow : Window
         SetStatus($"项目属性已保存：{_project.Name}", ReadyBrush);
     }
 
-    private void OnNewProject(object sender, ExecutedRoutedEventArgs e)
+    private void OnNewProject(object sender, ExecutedRoutedEventArgs e) =>
+        ShowNewProjectDialog(YyProjectKind.Window);
+
+    private void ShowNewProjectDialog(YyProjectKind projectKind)
     {
-        var dialog = new NewProjectDialog { Owner = this };
+        var dialog = new NewProjectDialog(projectKind) { Owner = this };
         if (dialog.ShowDialog() != true)
         {
             return;
@@ -99,7 +102,8 @@ public partial class MainWindow : Window
             var project = YyProject.CreateProject(
                 dialog.ProjectPath,
                 dialog.ProjectName,
-                dialog.PackageName);
+                dialog.PackageName,
+                projectKind);
             OpenWorkspace(project.DirectoryPath);
             SetStatus($"已创建项目：{project.Name} · 包 {project.PackageName}", ReadyBrush);
         }
@@ -166,20 +170,16 @@ public partial class MainWindow : Window
         switch (dialog.SelectedKind)
         {
             case NewProgramDialog.ProgramKind.Window:
-                CreateBlankWindowProgram();
+                ShowNewProjectDialog(YyProjectKind.Window);
                 break;
             case NewProgramDialog.ProgramKind.Console:
-                AddNewDocument(
-                    ".程序集 控制台程序\n导入包 \"系统.基础\"\n\n' 控制台程序入口\n输出(\"你好，易语！\")\n");
-                SetStatus("已新建易语控制台程序", ReadyBrush);
+                ShowNewProjectDialog(YyProjectKind.Console);
                 break;
             case NewProgramDialog.ProgramKind.Module:
-                AddNewDocument(
-                    ".程序集 模块1\n\n' 易模块:在子程序表把“易包”设为“真”后可编译导出\n子程序 示例函数(参数: 文本): 文本\n    返回 参数\n结束子程序\n");
-                SetStatus("已新建易语模块", ReadyBrush);
+                ShowNewProjectDialog(YyProjectKind.Module);
                 break;
             case NewProgramDialog.ProgramKind.Project:
-                NewProjectCommand.Execute(null, this);
+                ShowNewProjectDialog(YyProjectKind.Window);
                 break;
             case NewProgramDialog.ProgramKind.OpenFile:
                 OpenFileCommand.Execute(null, this);

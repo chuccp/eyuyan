@@ -102,13 +102,10 @@ public sealed class NewProgramDialog : Window
         var tree = new TreeView { BorderThickness = new Thickness(1) };
         var windowsBlank = new TreeViewItem { Header = "Windows 空白程序", Tag = ProgramKind.Window, IsExpanded = true };
         windowsBlank.Items.Add(new TreeViewItem { Header = "易语窗口程序", Tag = ProgramKind.Window });
-        var linuxBlank = new TreeViewItem { Header = "Linux 空白程序", Tag = "linux" };
-        linuxBlank.Items.Add(new TreeViewItem { Header = "易语控制台程序(Linux)", Tag = "linux" });
         var wizards = new TreeViewItem { Header = "向导", Tag = "wizards", IsExpanded = true };
         wizards.Items.Add(new TreeViewItem { Header = "新建项目(项目向导)", Tag = ProgramKind.Project });
         wizards.Items.Add(new TreeViewItem { Header = "常用向导", Tag = "wizards" });
         tree.Items.Add(windowsBlank);
-        tree.Items.Add(linuxBlank);
         tree.Items.Add(wizards);
 
         var samples = new TreeViewItem { Header = "打开易语例程", Tag = "samples" };
@@ -147,10 +144,6 @@ public sealed class NewProgramDialog : Window
                     _samplePath = path;
                     _typeList.SelectedItem = null;
                     _okButton.Content = "打开(O)";
-                    break;
-                case "linux":
-                    _kind = ProgramKind.None;
-                    _okButton.Content = "确定(O)";
                     break;
             }
         };

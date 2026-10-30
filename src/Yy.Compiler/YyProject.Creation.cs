@@ -5,6 +5,13 @@ using Yy.Compiler.Forms;
 
 namespace Yy.Compiler;
 
+public enum YyProjectKind
+{
+    Window,
+    Console,
+    Module
+}
+
 /// <summary>
 /// 项目与窗体三件套的创建、清单写入和默认模板。
 /// </summary>
@@ -13,7 +20,8 @@ public sealed partial class YyProject
     public static YyProject CreateProject(
         string projectPath,
         string projectName,
-        string packageName)
+        string packageName,
+        YyProjectKind kind = YyProjectKind.Window)
     {
         if (string.IsNullOrWhiteSpace(projectName) ||
             !YyFormSerializer.IsIdentifier(projectName))
@@ -44,28 +52,46 @@ public sealed partial class YyProject
 
         Directory.CreateDirectory(root);
         var sourceDirectory = Path.Combine(root, SourceDirectoryName);
-        var formsDirectory = Path.Combine(sourceDirectory, "Forms");
-        Directory.CreateDirectory(formsDirectory);
+        Directory.CreateDirectory(sourceDirectory);
         YyResourceIndex.EnsureLayout(root);
 
         var entryPath = Path.Combine(sourceDirectory, "Program.yyc");
-        var formPath = Path.Combine(formsDirectory, "MainForm.yyx");
-        var codePath = Path.Combine(formsDirectory, "MainForm.yyc");
+        WriteStructuredSource(
+            entryPath,
+            CreateEntryTemplate(projectName, packageName, kind));
 
-        WriteStructuredSource(entryPath, CreateEntryTemplate(projectName, packageName));
-        var form = new YyFormModel
+        var sourceFiles = new List<string> { $"{SourceDirectoryName}/Program.yyc" };
+        var formFiles = new List<string>();
+        var projectForms = new List<YyProjectForm>();
+        string? startupForm = null;
+        if (kind == YyProjectKind.Window)
         {
-            Name = "_启动窗口",
-            CodeFile = "MainForm.yyc",
-            LoadEvent = "__启动窗口_创建完毕",
-            CloseEvent = "__启动窗口_将被销毁",
-            Title = projectName,
-            Width = 760,
-            Height = 500
-        };
-        form.Controls.Add(CreateWelcomeLabel());
-        form.Controls.Add(CreateWelcomeButton());
-        WriteFormSet(formPath, codePath, form);
+            var formsDirectory = Path.Combine(sourceDirectory, "Forms");
+            Directory.CreateDirectory(formsDirectory);
+            var formPath = Path.Combine(formsDirectory, "MainForm.yyx");
+            var codePath = Path.Combine(formsDirectory, "MainForm.yyc");
+            var form = new YyFormModel
+            {
+                Name = "_启动窗口",
+                CodeFile = "MainForm.yyc",
+                LoadEvent = "__启动窗口_创建完毕",
+                CloseEvent = "__启动窗口_将被销毁",
+                Title = projectName,
+                Width = 760,
+                Height = 500
+            };
+            form.Controls.Add(CreateWelcomeLabel());
+            form.Controls.Add(CreateWelcomeButton());
+            WriteFormSet(formPath, codePath, form);
+            sourceFiles.Add($"{SourceDirectoryName}/Forms/MainForm.yyc");
+            formFiles.Add($"{SourceDirectoryName}/Forms/MainForm.yyx");
+            projectForms.Add(new YyProjectForm(
+                formPath,
+                YyFormCompanionFiles.BindingPath(formPath),
+                codePath,
+                form));
+            startupForm = form.Name;
+        }
 
         var manifest = new YyProjectManifest
         {
@@ -76,28 +102,15 @@ public sealed partial class YyProject
             ResourceDirectory = ResourceDirectoryName,
             Entry = $"{SourceDirectoryName}/Program.yyc",
             Output = projectName + ".exe",
-            StartupForm = "_启动窗口",
-            Sources =
-            [
-                $"{SourceDirectoryName}/Program.yyc",
-                $"{SourceDirectoryName}/Forms/MainForm.yyc"
-            ],
-            Forms = [$"{SourceDirectoryName}/Forms/MainForm.yyx"],
+            StartupForm = startupForm,
+            Sources = sourceFiles,
+            Forms = formFiles,
             Resources = [],
             ResourceIdFile = ResourceDirectoryName + "/" + YyResourceIndex.FileName,
             References = []
         };
         WriteManifest(fullProjectPath, manifest);
-        YyResourceIndex.Write(
-            root,
-            [
-                new YyProjectForm(
-                    formPath,
-                    YyFormCompanionFiles.BindingPath(formPath),
-                    codePath,
-                    form)
-            ],
-            []);
+        YyResourceIndex.Write(root, projectForms, []);
         return LoadForDirectory(root)
             ?? throw new InvalidDataException("新项目已创建，但项目清单无法重新读取。");
     }
@@ -179,15 +192,33 @@ public sealed partial class YyProject
     }
 
 
-    private static string CreateEntryTemplate(string projectName, string packageName) =>
-        $"""
-        .程序集 {projectName}
-        导入包 "系统.基础"
+    private static string CreateEntryTemplate(
+        string projectName,
+        string packageName,
+        YyProjectKind kind)
+    {
+        if (kind == YyProjectKind.Module)
+        {
+            return $"""
+                .程序集 {projectName}
 
-        ' 项目包：{packageName}
-        ' 项目入口。窗体代码位于 Sources/Forms 目录。
-        输出("{projectName} 已启动。")
-        """;
+                ' 项目包：{packageName}
+                ' 易模块入口。库函数可在后续扩展为公开/易包成员。
+                子程序 示例函数(参数: 文本): 文本
+                    返回 参数
+                结束子程序
+                """;
+        }
+
+        return $"""
+            .程序集 {projectName}
+            导入包 "系统.基础"
+
+            ' 项目包：{packageName}
+            ' {kind switch { YyProjectKind.Console => "控制台", _ => "窗口" }}项目入口。
+            输出("{projectName} 已启动。")
+            """;
+    }
 
     private static void WriteFormSet(
         string formPath,

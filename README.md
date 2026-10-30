@@ -82,7 +82,7 @@ dotnet run --project .\src\Yy.Studio\Yy.Studio.csproj
 
 代码窗口右上角可切换“易语言代码”和“纯代码”。
 
-新建项目请按 `Ctrl+Alt+N`，填写项目名、包名和项目位置。Studio 会分别创建 `Sources/` 与 `Resources/`，项目清单和界面三文件关系分别见 [项目结构](docs/projects.md) 和 [界面架构](docs/architecture.md)。
+新建项目请按 `Ctrl+Alt+N`，或在“程序 → 新建”选择窗口/控制台/模块。确认类型后必须先填写项目位置、项目名和包名；Studio 创建磁盘工程后才进入 IDE。源码与资源分别写入 `Sources/`、`Resources/`，详见 [项目结构](docs/projects.md) 和 [界面架构](docs/architecture.md)。
 
 ## 命令行工具
 
