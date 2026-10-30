@@ -409,13 +409,15 @@ public partial class MainWindow : Window
     {
         var fullPath = Path.GetFullPath(path);
         var extension = Path.GetExtension(fullPath);
+        var isResourceIndex = YyResourceIndex.IsIndexPath(fullPath);
         if (!string.Equals(extension, ".yyc", StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(extension, ".yyx", StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(extension, ".yyproj", StringComparison.OrdinalIgnoreCase))
+            !string.Equals(extension, ".yyproj", StringComparison.OrdinalIgnoreCase) &&
+            !isResourceIndex)
         {
             MessageBox.Show(
-                "旧版源码格式不再受支持。\n\n请使用 .yyc 结构化代码、.yyx 窗体或 .yyproj 项目。",
-                "不支持的旧格式",
+                "无法打开此文件。\n\n当前支持 .yyc 代码、.yyx 窗体、.yyproj 工程和 Resources/ids.xml 资源标识。",
+                "不支持的文件",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
             return;
@@ -439,8 +441,8 @@ public partial class MainWindow : Window
             DocumentTabs.SelectedItem = document;
             _settings.AddRecent(fullPath);
             SetStatus(
-                document.IsGeneratedBinding
-                    ? $"自动生成的界面关系（只读）：{Path.GetFileName(fullPath)}"
+                document.IsReadOnlyGenerated
+                    ? $"自动生成的关联文件（只读）：{Path.GetFileName(fullPath)}"
                     : $"已打开 {Path.GetFileName(fullPath)}",
                 ReadyBrush);
         }
@@ -560,7 +562,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (document.IsGeneratedBinding)
+        if (document.IsReadOnlyGenerated)
         {
             ShowCodeEditor(document);
             _isLoadingDocument = true;
@@ -575,7 +577,11 @@ public partial class MainWindow : Window
             }
 
             UpdateDocumentIdentity();
-            SetStatus("自动生成的界面关系文件（只读）", ReadyBrush);
+            SetStatus(
+                document.IsResourceIndex
+                    ? "自动生成的资源标识文件（只读）"
+                    : "自动生成的界面关系文件（只读）",
+                ReadyBrush);
             return;
         }
 
@@ -610,7 +616,7 @@ public partial class MainWindow : Window
         _startPageView.Visibility = Visibility.Collapsed;
         Editor.Visibility = Visibility.Visible;
         EasyLanguageEditor.Visibility = Visibility.Collapsed;
-        Editor.IsReadOnly = document.IsGeneratedBinding;
+        Editor.IsReadOnly = document.IsReadOnlyGenerated;
         InspectorPanel.Visibility = Visibility.Collapsed;
         RightToolsPanel.Margin = new Thickness(0);
         CodeWindowBar.Visibility =

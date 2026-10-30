@@ -110,7 +110,7 @@ public sealed class EasyLanguageCodeEditor : UserControl
             try
             {
                 var body = YyCodeDocumentConverter.FromSource(
-                    ".版本 3\n.程序集 _方法体\n子程序 _方法体()\n" +
+                    ".版本 1\n.程序集 _方法体\n子程序 _方法体()\n" +
                     pair.Editor.Text +
                     "\n结束子程序\n",
                     "_方法体");

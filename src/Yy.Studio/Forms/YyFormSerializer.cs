@@ -19,6 +19,7 @@ public static class YyFormSerializer
         var root = new XElement(
             Namespace + "窗体",
             new XAttribute(XNamespace.Xmlns + "yy", Namespace),
+            new XAttribute("标识", YyResourceIndex.FormId(form.Name)),
             new XAttribute("名称", form.Name),
             new XAttribute("标题", form.Title),
             new XAttribute("宽", Format(form.Width)),
@@ -27,6 +28,11 @@ public static class YyFormSerializer
         if (!string.IsNullOrWhiteSpace(form.Remark))
         {
             root.SetAttributeValue("备注", form.Remark);
+        }
+
+        if (!string.IsNullOrWhiteSpace(form.Icon))
+        {
+            root.SetAttributeValue("图标", form.Icon);
         }
 
         root.SetAttributeValue("边框", form.BorderStyle);
@@ -52,7 +58,7 @@ public static class YyFormSerializer
 
         foreach (var control in form.Controls)
         {
-            root.Add(SerializeControl(control));
+            root.Add(SerializeControl(form.Name, control));
         }
 
         return new XDocument(new XDeclaration("1.0", "utf-8", null), root)
@@ -84,6 +90,7 @@ public static class YyFormSerializer
             Width = NumberAttribute(root, "宽", 800, 320, 3840),
             Height = NumberAttribute(root, "高", 520, 240, 2160),
             Background = Attribute(root, "背景", "#F4F7FB"),
+            Icon = Attribute(root, "图标", string.Empty),
             Remark = Attribute(root, "备注", string.Empty),
             BorderStyle = Attribute(root, "边框", "可调边框"),
             Movable = BooleanAttribute(root, "可否移动", true),
@@ -92,6 +99,7 @@ public static class YyFormSerializer
             MaximizeBox = BooleanAttribute(root, "最大化按钮", true)
         };
         RejectInterfaceLogicAttributes(root);
+        ValidateIdentifier(root, YyResourceIndex.FormId(form.Name), "窗体");
         var names = new HashSet<string>(StringComparer.Ordinal);
         foreach (var element in root.Elements())
         {
@@ -136,6 +144,10 @@ public static class YyFormSerializer
                 throw Error(element, $"控件名称“{control.Name}”重复。");
             }
 
+            ValidateIdentifier(
+                element,
+                YyResourceIndex.ControlId(form.Name, control.Name),
+                "控件");
             form.Controls.Add(control);
         }
 
@@ -147,10 +159,11 @@ public static class YyFormSerializer
         return form;
     }
 
-    private static XElement SerializeControl(YyControlModel control)
+    private static XElement SerializeControl(string formName, YyControlModel control)
     {
         var element = new XElement(
             Namespace + control.Type,
+            new XAttribute("标识", YyResourceIndex.ControlId(formName, control.Name)),
             new XAttribute("名称", control.Name),
             new XAttribute("文本", control.Text),
             new XAttribute("左", Format(control.X)),
@@ -204,6 +217,20 @@ public static class YyFormSerializer
         }
 
         return element;
+    }
+
+    private static void ValidateIdentifier(
+        XElement element,
+        string expected,
+        string description)
+    {
+        var actual = RequiredAttribute(element, "标识");
+        if (!string.Equals(actual, expected, StringComparison.Ordinal))
+        {
+            throw Error(
+                element,
+                $"{description}标识“{actual}”与当前名称不匹配，应为“{expected}”。");
+        }
     }
 
     private static void RejectInterfaceLogicAttributes(XElement root)

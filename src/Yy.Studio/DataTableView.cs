@@ -121,7 +121,7 @@ public sealed class DataTableView : UserControl
                 Define("备注", 220);
                 _items = project.ResourceTable;
                 _factory = () => new YyResourceEntry();
-                _remover = item => project.ResourceTable.Remove((YyResourceEntry)item);
+                _remover = item => project.RemoveResource((YyResourceEntry)item);
                 _binders.Add((item, box) => Bind(box, ((YyResourceEntry)item).Name, text => ((YyResourceEntry)item).Name = text));
                 _binders.Add((item, box) => Bind(box, ((YyResourceEntry)item).TypeName, text => ((YyResourceEntry)item).TypeName = text));
                 _binders.Add((item, box) => Bind(box, ((YyResourceEntry)item).File, text => ((YyResourceEntry)item).File = text));

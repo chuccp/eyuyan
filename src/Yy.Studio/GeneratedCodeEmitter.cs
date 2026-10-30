@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO;
 using System.Text;
 using Yy.Language.Syntax;
 using Yy.Studio.Forms;
@@ -22,6 +23,7 @@ public sealed class GeneratedCodeEmitter
     private readonly YyProgram _program;
     private FunctionDeclaration? _currentFunction;
     private string _currentEnvironment = "__env";
+    private string _projectDirectory = string.Empty;
     private int _indent;
     private int _temporary;
 
@@ -44,6 +46,7 @@ public sealed class GeneratedCodeEmitter
 
     private void Emit(YyProject project)
     {
+        _projectDirectory = project.DirectoryPath;
         Line("using System;");
         Line("using System.Collections.Generic;");
         Line("using System.IO;");
@@ -51,6 +54,7 @@ public sealed class GeneratedCodeEmitter
         Line("using System.Windows;");
         Line("using System.Windows.Controls;");
         Line("using System.Windows.Media;");
+        Line("using System.Windows.Media.Imaging;");
         Line("using Yy.Compiler.Runtime;");
         Line();
         Line("namespace YyCompiledApplication;");
@@ -110,13 +114,28 @@ public sealed class GeneratedCodeEmitter
             EmitFunction(function);
         }
 
+        EmitImageLoader();
         _indent--;
         Line("}");
         Line();
         for (var index = 0; index < project.Forms.Count; index++)
         {
-            EmitForm(project.Forms[index].Model, index);
+            EmitForm(project, project.Forms[index], index);
         }
+    }
+
+    private void EmitImageLoader()
+    {
+        Line();
+        Line("internal static ImageSource? LoadImage(string encoded)");
+        Line("{");
+        _indent++;
+        Line("using var stream = new MemoryStream(Convert.FromBase64String(encoded));");
+        Line("var image = BitmapFrame.Create(stream, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);");
+        Line("image.Freeze();");
+        Line("return image;");
+        _indent--;
+        Line("}");
     }
 
     private void EmitEntry()
@@ -269,8 +288,9 @@ public sealed class GeneratedCodeEmitter
         return $"throw new ScriptRuntimeException({Quote("不支持的函数调用")})";
     }
 
-    private void EmitForm(YyFormModel form, int index)
+    private void EmitForm(YyProject project, YyProjectForm projectForm, int index)
     {
+        var form = projectForm.Model;
         Line($"internal sealed class YyForm_{index} : Window, IYyFormHost");
         Line("{");
         _indent++;
@@ -287,6 +307,15 @@ public sealed class GeneratedCodeEmitter
         Line($"MinWidth = {Number(Math.Min(form.Width, 320))};");
         Line($"MinHeight = {Number(Math.Min(form.Height, 240))};");
         Line($"Background = ScriptRuntime.Brush({Quote(form.Background)});");
+        var iconPath = YyResourceIndex.ResolveResourcePath(
+            project.DirectoryPath,
+            form.Icon);
+        if (iconPath is not null)
+        {
+            var iconData = Convert.ToBase64String(File.ReadAllBytes(iconPath));
+            Line($"Icon = CompiledProgram.LoadImage({Quote(iconData)});");
+        }
+
         Line("FontFamily = new FontFamily(\"Microsoft YaHei UI\");");
         Line("var canvas = new Canvas");
         Line("{");
@@ -356,6 +385,12 @@ public sealed class GeneratedCodeEmitter
 
     private void EmitControl(YyControlModel control)
     {
+        if (control.Type == YyControlTypes.PictureBox)
+        {
+            EmitPictureBox(control);
+            return;
+        }
+
         var variable = Next("__control");
         var type = control.Type switch
         {
@@ -448,6 +483,32 @@ public sealed class GeneratedCodeEmitter
         {
             Line($"{variable}.SelectionChanged += (_, _) => InvokeEvent({Quote(control.SelectionChangedEvent)});");
         }
+    }
+
+    private void EmitPictureBox(YyControlModel control)
+    {
+        var host = Next("__picture");
+        var image = Next("__image");
+        Line($"var {host} = new Grid();");
+        Line($"{host}.Name = {Quote(control.Name)};");
+        Line($"{host}.Width = {Number(control.Width)};");
+        Line($"{host}.Height = {Number(control.Height)};");
+        Line($"{host}.IsEnabled = {(control.IsEnabled ? "true" : "false")};");
+        Line($"{host}.Visibility = {(control.IsVisible ? "Visibility.Visible" : "Visibility.Hidden")};");
+        Line($"{host}.Background = ScriptRuntime.Brush({Quote(control.Background)});");
+        Line($"var {image} = new Image {{ Stretch = Stretch.Uniform, Margin = new Thickness(1) }};");
+        var imagePath = YyResourceIndex.ResolveResourcePath(_projectDirectory, control.Picture);
+        if (imagePath is not null)
+        {
+            var imageData = Convert.ToBase64String(File.ReadAllBytes(imagePath));
+            Line($"{image}.Source = CompiledProgram.LoadImage({Quote(imageData)});");
+        }
+
+        Line($"{host}.Children.Add({image});");
+        Line($"Canvas.SetLeft({host}, {Number(control.X)});");
+        Line($"Canvas.SetTop({host}, {Number(control.Y)});");
+        Line($"canvas.Children.Add({host});");
+        Line($"_yyControls.Add({Quote(control.Name)}, {host});");
     }
 
     private void EmitStatements(IReadOnlyList<Statement> statements, string environment)

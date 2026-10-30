@@ -1,0 +1,38 @@
+{
+  "格式版本": 1,
+  "名称": "MCP资源演示",
+  "入口": "Program.yyc",
+  "输出": "MCP资源演示.exe",
+  "启动窗体": "_启动窗口",
+  "源码": [
+    "Program.yyc",
+    "Forms/MainForm.yyc"
+  ],
+  "窗体": [
+    "Forms/MainForm.yyx"
+  ],
+  "资源": [
+    "Resources/images/应用图标.ico",
+    "Resources/images/客户图标.png"
+  ],
+  "资源标识": "Resources/ids.xml",
+  "引用": [],
+  "全局变量": null,
+  "常量表": null,
+  "资源表": [
+    {
+      "名称": "应用图标",
+      "类型": "图片",
+      "文件": "Resources/images/应用图标.ico",
+      "备注": ""
+    },
+    {
+      "名称": "客户图标",
+      "类型": "图片",
+      "文件": "Resources/images/客户图标.png",
+      "备注": ""
+    }
+  ],
+  "Dll命令": null,
+  "数据库": null
+}

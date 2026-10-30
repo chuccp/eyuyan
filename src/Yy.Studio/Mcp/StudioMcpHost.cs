@@ -57,11 +57,20 @@ public partial class MainWindow
                 McpEnsureIdle();
                 CreateBlankWindowProgram();
                 return McpState();
+            case "create_project":
+                return McpCreateProject(
+                    ArgOr("path", string.Empty),
+                    ArgOr("name", string.Empty));
             case "open_file":
                 OpenDocument(Path.GetFullPath(ArgOr("path", string.Empty)));
                 return McpState();
             case "save_program":
                 return McpSave(Arg("path"));
+            case "add_resource":
+                return McpAddResource(
+                    ArgOr("source", string.Empty),
+                    ArgOr("type", string.Empty),
+                    Arg("name"));
             case "add_control":
                 return McpAddControl(
                     ArgOr("type", string.Empty),
@@ -83,6 +92,8 @@ public partial class MainWindow
                 return McpGetCode();
             case "set_subprogram":
                 return McpSetSubprogram(ArgOr("name", string.Empty), ArgOr("body", string.Empty));
+            case "delete_subprogram":
+                return McpDeleteSubprogram(ArgOr("name", string.Empty));
             case "run_preview":
                 McpEnsureDesigner();
                 PreviewCurrentForm();
@@ -114,12 +125,14 @@ public partial class MainWindow
             {
                 name = designForm.Name,
                 title = designForm.Title,
+                icon = designForm.Icon,
                 width = designForm.Width,
                 height = designForm.Height,
                 codeFile = designForm.CodeFile,
                 bindingFile = _designerDocument?.FilePath is { } formPath
                     ? Path.GetFileName(YyFormCompanionFiles.BindingPath(formPath))
                     : null,
+                xml = _designerDocument?.Text,
                 loadEvent = designForm.LoadEvent,
                 closeEvent = designForm.CloseEvent,
                 controls = designForm.Controls.Select(control => new
@@ -146,7 +159,14 @@ public partial class MainWindow
                 {
                     name = project.Name,
                     path = project.ProjectPath,
-                    forms = project.Forms.Count
+                    forms = project.Forms.Count,
+                    resources = project.ResourceTable.Select(item => new
+                    {
+                        name = item.Name,
+                        type = item.TypeName,
+                        file = item.File,
+                        id = YyResourceIndex.ResourceId(item)
+                    }).ToArray()
                 }
                 : null,
             documents = _documents.Select(document => new
@@ -155,7 +175,7 @@ public partial class MainWindow
                 path = document.FilePath,
                 dirty = document.IsDirty,
                 isForm = document.IsForm,
-                generated = document.IsGeneratedBinding,
+                generated = document.IsReadOnlyGenerated,
                 plainCode = document.UsePlainCodeEditor,
                 easyLanguagePresentation = document.UseEasyLanguagePresentation
             }).ToArray(),
@@ -316,6 +336,44 @@ public partial class MainWindow
         return new { name = control.Name };
     }
 
+    private object McpCreateProject(string path, string name)
+    {
+        if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(name))
+        {
+            throw new InvalidOperationException("create_project 需要 path 和 name。");
+        }
+
+        var directory = Path.GetFullPath(path);
+        var project = YyProject.CreateProject(
+            Path.Combine(directory, name + ".yyproj"),
+            name);
+        OpenWorkspace(project.DirectoryPath);
+        return McpState();
+    }
+
+    private object McpAddResource(string source, string type, string? name)
+    {
+        if (_project is null)
+        {
+            throw new InvalidOperationException("请先创建或打开工程。");
+        }
+
+        var entry = _project.AddResource(
+            Path.GetFullPath(source),
+            type,
+            name);
+        _project = YyProject.LoadForDirectory(_project.DirectoryPath)
+            ?? throw new InvalidOperationException("资源保存后无法重新加载工程。");
+        PopulateProjectTree();
+        return new
+        {
+            name = entry.Name,
+            type = entry.TypeName,
+            file = entry.File,
+            id = YyResourceIndex.ResourceId(entry)
+        };
+    }
+
     private object McpSetProperty(string target, string name, string value)
     {
         McpEnsureDesigner();
@@ -349,9 +407,10 @@ public partial class MainWindow
         _designForm!.Controls.Remove(control);
         _selectedControl = null;
         _selectedControls.Clear();
-        var formDocument = McpFormDocument()!;
+        ClearSelectionVisuals();
         DesignerChanged();
-        ActivateDocument(formDocument);
+        RenderDesignerForm();
+        PopulateDesignerProperties();
         return McpState();
     }
 
@@ -420,13 +479,37 @@ public partial class MainWindow
 
         function.Statements.Clear();
         function.Statements.AddRange(stubFunction.Statements);
+        var source = YyCodeDocumentConverter.ToSource(model);
         codeDocument.Text = YyCodeSerializer.Serialize(model);
+        codeDocument.BeginPlainCodeEditing(source);
         if (ReferenceEquals(_currentDocument, codeDocument))
         {
             ActivateDocument(codeDocument);
         }
 
         return new { name, statements = function.Statements.Count };
+    }
+
+    private object McpDeleteSubprogram(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new InvalidOperationException("缺少子程序名称。");
+        }
+
+        McpEnsureDesigner();
+        var codeDocument = McpResolveCodeDocument(createIfMissing: true)!;
+        var model = YyCodeSerializer.Deserialize(codeDocument.Text);
+        var removed = model.Functions.RemoveAll(function =>
+            string.Equals(function.Name, name, StringComparison.Ordinal));
+        if (removed == 0)
+        {
+            throw new InvalidOperationException("用户代码中没有子程序“" + name + "”。");
+        }
+
+        codeDocument.Text = YyCodeSerializer.Serialize(model);
+        codeDocument.BeginPlainCodeEditing(YyCodeDocumentConverter.ToSource(model));
+        return new { name, removed };
     }
 
     private object McpPreviewClick(string controlName)
@@ -468,7 +551,19 @@ public partial class MainWindow
 
         var formDocument = McpFormDocument()
             ?? throw new InvalidOperationException("请先新建或打开窗体(new_program / open_file)。");
-        ActivateDocument(formDocument);
+        if (ReferenceEquals(_currentDocument, formDocument))
+        {
+            ShowFormDesigner(formDocument);
+        }
+        else
+        {
+            ActivateDocument(formDocument);
+        }
+
+        if (_designForm is null)
+        {
+            throw new InvalidOperationException("无法进入窗体设计器。");
+        }
     }
 
     /// <summary>新建前若已有窗体,先激活到窗体页(避免旧内存文档混淆)。</summary>
@@ -477,7 +572,11 @@ public partial class MainWindow
     }
 
     private EditorDocument? McpFormDocument() =>
-        _documents.FirstOrDefault(document => document.IsForm);
+        _designerDocument is { IsForm: true }
+            ? _designerDocument
+            : _currentDocument is { IsForm: true }
+                ? _currentDocument
+                : _documents.LastOrDefault(document => document.IsForm);
 
     private YyControlModel McpFindControl(string name) =>
         _designForm?.Controls.FirstOrDefault(control =>
@@ -513,8 +612,20 @@ public partial class MainWindow
                     StringComparison.OrdinalIgnoreCase));
         if (codeDocument is null && createIfMissing)
         {
-            var model = new YyCodeDocument { Name = (_designForm?.Name ?? "窗体") + "代码" };
-            codeDocument = new EditorDocument(null, codeFileName, YyCodeSerializer.Serialize(model));
+            string? codePath = null;
+            if (_designerDocument?.FilePath is { } formPath)
+            {
+                codePath = YyFormCompanionFiles.UserCodePath(formPath);
+            }
+
+            var text = codePath is not null && File.Exists(codePath)
+                ? File.ReadAllText(codePath)
+                : YyCodeSerializer.Serialize(
+                    new YyCodeDocument { Name = (_designForm?.Name ?? "窗体") + "代码" });
+            codeDocument = new EditorDocument(
+                codePath,
+                Path.GetFileName(codeFileName),
+                text);
             _documents.Add(codeDocument);
         }
 

@@ -35,10 +35,12 @@ public partial class MainWindow : Window
 {
     private bool SaveDocument(EditorDocument document)
     {
-        if (document.IsGeneratedBinding)
+        if (document.IsReadOnlyGenerated)
         {
             MessageBox.Show(
-                "关系文件由窗体设计器自动生成，不能手工保存。请修改界面或事件后保存窗体。",
+                document.IsResourceIndex
+                    ? "资源标识文件由 Studio 自动生成，不能手工保存。保存工程或资源表后会重新生成。"
+                    : "关系文件由窗体设计器自动生成，不能手工保存。请修改界面或事件后保存窗体。",
                 "自动生成文件",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
@@ -55,7 +57,7 @@ public partial class MainWindow : Window
 
     private bool SaveDocumentAs(EditorDocument document)
     {
-        if (document.IsGeneratedBinding)
+        if (document.IsReadOnlyGenerated)
         {
             return SaveDocument(document);
         }
@@ -163,6 +165,7 @@ public partial class MainWindow : Window
                 }
 
                 YyFormCompanionFiles.WriteGeneratedBinding(path, form, userCodePath);
+                _project?.RefreshResourceIndex();
                 RefreshGeneratedBindingDocument(path);
                 document.MarkSaved(path);
                 if (ReferenceEquals(document, _currentDocument))

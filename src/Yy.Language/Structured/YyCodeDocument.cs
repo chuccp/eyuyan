@@ -130,7 +130,7 @@ public static class YyCodeDocumentConverter
     public static string ToSource(YyCodeDocument document, IDictionary<YyCodeStatement, int>? lineMap)
     {
         var builder = new StringBuilder();
-        builder.AppendLine(".版本 3");
+        builder.AppendLine(".版本 1");
         builder.Append(".程序集 ").AppendLine(document.Name);
         foreach (var import in document.Imports.Where(value => !string.IsNullOrWhiteSpace(value)))
         {
@@ -237,7 +237,7 @@ public static class YyCodeDocumentConverter
             var t when t.StartsWith("尝试", StringComparison.Ordinal) => "\n结束尝试",
             _ => string.Empty
         };
-        var wrapped = ".版本 3\n.程序集 _行\n子程序 _行()\n" + trimmed + closer + "\n结束子程序\n";
+        var wrapped = ".版本 1\n.程序集 _行\n子程序 _行()\n" + trimmed + closer + "\n结束子程序\n";
         var document = FromSource(wrapped, "_行");
         if (document.Functions.Count != 1 || document.Functions[0].Statements.Count != 1)
         {

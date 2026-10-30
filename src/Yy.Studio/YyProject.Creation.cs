@@ -34,9 +34,8 @@ public sealed partial class YyProject
 
         Directory.CreateDirectory(root);
         var formsDirectory = Path.Combine(root, "Forms");
-        var resourcesDirectory = Path.Combine(root, "Resources");
         Directory.CreateDirectory(formsDirectory);
-        Directory.CreateDirectory(resourcesDirectory);
+        YyResourceIndex.EnsureLayout(root);
 
         var entryPath = Path.Combine(root, "Program.yyc");
         var formPath = Path.Combine(formsDirectory, "MainForm.yyx");
@@ -59,7 +58,7 @@ public sealed partial class YyProject
 
         var manifest = new YyProjectManifest
         {
-            FormatVersion = 3,
+            FormatVersion = CurrentFormatVersion,
             Name = projectName,
             Entry = "Program.yyc",
             Output = projectName + ".exe",
@@ -67,9 +66,20 @@ public sealed partial class YyProject
             Sources = ["Program.yyc", "Forms/MainForm.yyc"],
             Forms = ["Forms/MainForm.yyx"],
             Resources = [],
+            ResourceIdFile = YyResourceIndex.RelativePath,
             References = []
         };
         WriteManifest(fullProjectPath, manifest);
+        YyResourceIndex.Write(
+            root,
+            [
+                new YyProjectForm(
+                    formPath,
+                    YyFormCompanionFiles.BindingPath(formPath),
+                    codePath,
+                    form)
+            ],
+            []);
         return LoadForDirectory(root)
             ?? throw new InvalidDataException("新项目已创建，但项目清单无法重新读取。");
     }
@@ -136,7 +146,7 @@ public sealed partial class YyProject
         WriteStructuredSource(
             path,
             $"""
-            .版本 3
+            .版本 1
             .程序集 {Name}
 
             输出("新建源码文件")
@@ -149,7 +159,7 @@ public sealed partial class YyProject
 
     private static string CreateEntryTemplate(string projectName) =>
         $"""
-        .版本 3
+        .版本 1
         .程序集 {projectName}
 
         ' 项目入口。窗体代码位于 Forms 目录。

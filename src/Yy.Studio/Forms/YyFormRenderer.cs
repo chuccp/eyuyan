@@ -2,12 +2,15 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 namespace Yy.Studio.Forms;
 
 public static class YyFormRenderer
 {
-    public static FrameworkElement Create(YyControlModel model)
+    public static FrameworkElement Create(
+        YyControlModel model,
+        string? projectDirectory = null)
     {
         FrameworkElement element = model.Type switch
         {
@@ -21,7 +24,7 @@ public static class YyFormRenderer
             YyControlTypes.ComboBox => CreateComboBox(model.Text),
             YyControlTypes.ListBox => CreateListBox(model.Text),
             YyControlTypes.GroupBox => new GroupBox { Header = model.Text },
-            YyControlTypes.PictureBox => CreatePictureBox(model),
+            YyControlTypes.PictureBox => CreatePictureBox(model, projectDirectory),
             _ => throw new ArgumentOutOfRangeException(nameof(model), model.Type, "不支持的控件类型。")
         };
 
@@ -73,7 +76,9 @@ public static class YyFormRenderer
     }
 
     /// <summary>图片框:等比缩放显示图片;未载入图片时显示浅色占位。</summary>
-    public static FrameworkElement CreatePictureBox(YyControlModel model)
+    public static FrameworkElement CreatePictureBox(
+        YyControlModel model,
+        string? projectDirectory = null)
     {
         var host = new Grid();
         host.Children.Add(new Border
@@ -94,12 +99,15 @@ public static class YyFormRenderer
             Margin = new Thickness(1)
         };
         host.Children.Add(image);
-        SetElementPicture(host, model.Picture);
+        SetElementPicture(host, model.Picture, projectDirectory);
         return host;
     }
 
     /// <summary>按路径为图片框/元素载入图片(空路径=清空)。</summary>
-    public static void SetElementPicture(FrameworkElement element, string? path)
+    public static void SetElementPicture(
+        FrameworkElement element,
+        string? path,
+        string? projectDirectory = null)
     {
         if (element is not Grid { Children.Count: > 0 } host)
         {
@@ -112,26 +120,33 @@ public static class YyFormRenderer
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(path) || !System.IO.File.Exists(path))
+        image.Source = LoadImageSource(path, projectDirectory);
+    }
+
+    public static ImageSource? LoadImageSource(
+        string? reference,
+        string? projectDirectory = null)
+    {
+        var path = YyResourceIndex.ResolveResourcePath(projectDirectory, reference);
+        if (path is null)
         {
-            image.Source = null;
-            return;
+            return null;
         }
 
         try
         {
-            var bitmap = new System.Windows.Media.Imaging.BitmapImage();
+            var bitmap = new BitmapImage();
             bitmap.BeginInit();
-            bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
             bitmap.UriSource = new Uri(path, UriKind.RelativeOrAbsolute);
             bitmap.EndInit();
             bitmap.Freeze();
-            image.Source = bitmap;
+            return bitmap;
         }
         catch (Exception exception) when (
             exception is IOException or System.IO.FileFormatException or NotSupportedException or UriFormatException)
         {
-            image.Source = null;
+            return null;
         }
     }
 

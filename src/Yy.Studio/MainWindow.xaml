@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:avalon="http://icsharpcode.net/sharpdevelop/avalonedit"
         xmlns:props="clr-namespace:Yy.Studio.Properties"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:studio="clr-namespace:Yy.Studio"
         xmlns:local="clr-namespace:Yy.Studio"
         xmlns:structured="clr-namespace:Yy.Studio.Structured"
@@ -12,13 +13,26 @@
         Height="860"
         MinWidth="980"
         MinHeight="620"
+        WindowStyle="None"
+        ResizeMode="CanResize"
         WindowStartupLocation="CenterScreen"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display"
         Background="{StaticResource WindowBrush}"
         Foreground="{StaticResource TextBrush}"
         AllowDrop="True"
         Drop="OnWindowDrop"
         PreviewKeyDown="OnWindowPreviewKeyDown"
-        Closing="OnWindowClosing">
+        Closing="OnWindowClosing"
+        StateChanged="OnMainWindowStateChanged">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="38"
+                            ResizeBorderThickness="6"
+                            GlassFrameThickness="0"
+                            CornerRadius="0"
+                            UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
     <Window.Resources>
         <!-- 图标工具按钮(对齐官方 26x24 小按钮 + 字形图标) -->
         <Style x:Key="IconButton" TargetType="Button">
@@ -50,6 +64,65 @@
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.4" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="CaptionButton" TargetType="Button">
+            <Setter Property="Width" Value="46" />
+            <Setter Property="Height" Value="38" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Chrome"
+                                Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#E5E9EE" />
+                                <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#D5DBE2" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="CloseCaptionButton"
+               TargetType="Button"
+               BasedOn="{StaticResource CaptionButton}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Chrome"
+                                Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#C42B1C" />
+                                <Setter Property="Foreground" Value="White" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#A52618" />
+                                <Setter Property="Foreground" Value="White" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -134,14 +207,41 @@
     </Window.CommandBindings>
 
     <DockPanel LastChildFill="True">
-        <!-- ================= 菜单栏(对齐官方:程序/编辑/查看/插入/数据库/调试/运行/工具/窗口/帮助) ================= -->
-        <Menu DockPanel.Dock="Top"
-              Height="26"
-              Background="{StaticResource PanelRaisedBrush}"
-              Foreground="{StaticResource TextBrush}"
-              BorderBrush="{StaticResource BorderBrush}"
-              BorderThickness="0,0,0,1"
-              Padding="4,0">
+        <!-- ================= 自定义顶栏：窗口标题、菜单和窗口按钮共用一条操作栏 ================= -->
+        <Border x:Name="WindowTitleBar"
+                DockPanel.Dock="Top"
+                Height="38"
+                Background="#F6F8FA"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,0,0,1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0"
+                        Width="40"
+                        Height="38"
+                        Background="Transparent"
+                        SnapsToDevicePixels="True">
+                    <Image Width="16"
+                           Height="16"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           Source="Assets/YyStudio.ico" />
+                </Border>
+                <Menu x:Name="MainMenu"
+                      Grid.Column="1"
+                      Height="38"
+                      Background="Transparent"
+                      Foreground="{StaticResource TextBrush}"
+                      BorderThickness="0"
+                      Padding="0"
+                      VerticalAlignment="Center"
+                      shell:WindowChrome.IsHitTestVisibleInChrome="True">
             <MenuItem Header="_F程序" Style="{StaticResource TopMenuItem}">
                 <MenuItem Header="新建" InputGestureText="Ctrl+N" Click="OnNewProgramClick" />
                 <MenuItem Header="新建源码" InputGestureText="Ctrl+Shift+Alt+N"
@@ -296,7 +396,79 @@
                 <MenuItem Header="语法速查" Click="OnSyntaxClick" />
                 <MenuItem Header="关于易语 Studio" Click="OnAboutClick" />
             </MenuItem>
-        </Menu>
+                </Menu>
+                <TextBlock Grid.Column="2"
+                           Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}"
+                           Foreground="{StaticResource MutedBrush}"
+                           FontSize="11.5"
+                           Margin="18,0"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+                <StackPanel Grid.Column="3"
+                            Orientation="Horizontal"
+                            shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button x:Name="CaptionMinimizeButton"
+                            Style="{StaticResource CaptionButton}"
+                            AutomationProperties.Name="最小化窗口"
+                            ToolTip="最小化"
+                            Click="OnMinimizeWindowClick">
+                        <Rectangle Width="10"
+                                   Height="1"
+                                   Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                    </Button>
+                    <Button x:Name="CaptionMaximizeButton"
+                            Style="{StaticResource CaptionButton}"
+                            AutomationProperties.Name="最大化窗口"
+                            ToolTip="最大化"
+                            Click="OnMaximizeRestoreWindowClick">
+                        <Grid Width="12" Height="12">
+                            <Rectangle x:Name="CaptionMaximizeIcon"
+                                       Width="10"
+                                       Height="10"
+                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                       StrokeThickness="1"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center" />
+                            <Canvas x:Name="CaptionRestoreIcon"
+                                    Width="12"
+                                    Height="12"
+                                    Visibility="Collapsed">
+                                <Rectangle Canvas.Left="3"
+                                           Canvas.Top="0"
+                                           Width="8"
+                                           Height="8"
+                                           Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                           StrokeThickness="1" />
+                                <Rectangle Canvas.Left="0"
+                                           Canvas.Top="3"
+                                           Width="8"
+                                           Height="8"
+                                           Fill="#F6F8FA"
+                                           Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                           StrokeThickness="1" />
+                            </Canvas>
+                        </Grid>
+                    </Button>
+                    <Button x:Name="CaptionCloseButton"
+                            Style="{StaticResource CloseCaptionButton}"
+                            AutomationProperties.Name="关闭窗口"
+                            ToolTip="关闭"
+                            Click="OnCloseWindowClick">
+                        <Path Width="10"
+                              Height="10"
+                              Data="M 1,1 L 9,9 M 9,1 L 1,9"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                              StrokeThickness="1.2"
+                              Stretch="Uniform"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
 
         <!-- ================= 标准工具条(图标按钮,对齐官方) ================= -->
         <Border x:Name="StandardToolbarRow"

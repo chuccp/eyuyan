@@ -11,6 +11,8 @@ namespace Yy.Studio;
 
 public sealed partial class YyProject
 {
+    public const int CurrentFormatVersion = 1;
+
     private readonly List<string> _formPaths;
     private readonly List<string> _sourcePaths;
     private readonly List<string> _resources;
@@ -104,10 +106,10 @@ public sealed partial class YyProject
                 exception);
         }
 
-        if (manifest.FormatVersion != 3)
+        if (manifest.FormatVersion != CurrentFormatVersion)
         {
             throw new InvalidDataException(
-                $"项目格式版本 {manifest.FormatVersion} 不受支持，当前工程规则只接受版本 3。");
+                "不是有效的易语工程清单格式，请新建工程或使用当前格式。");
         }
 
         if (string.IsNullOrWhiteSpace(manifest.Name))
@@ -122,6 +124,25 @@ public sealed partial class YyProject
 
         var fullProjectPath = Path.GetFullPath(projectFile);
         var baseDirectory = Path.GetDirectoryName(fullProjectPath) ?? directory;
+        if (!string.Equals(
+                manifest.ResourceIdFile,
+                YyResourceIndex.RelativePath,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException(
+                $"项目清单的“资源标识”必须指向 {YyResourceIndex.RelativePath}。");
+        }
+
+        var resourceIdsPath = Path.Combine(
+            baseDirectory,
+            YyResourceIndex.DirectoryName,
+            YyResourceIndex.FileName);
+        if (!File.Exists(resourceIdsPath))
+        {
+            throw new InvalidDataException(
+                $"项目缺少资源标识文件：{YyResourceIndex.RelativePath}");
+        }
+
         var entryPath = ResolveProjectFile(baseDirectory, manifest.Entry, "项目入口");
         EnsureExtension(entryPath, ".yyc", "项目入口");
         var sourcePaths = ResolveOptionalFiles(
@@ -137,6 +158,16 @@ public sealed partial class YyProject
         var resources = (manifest.Resources ?? [])
             .Select(path => ResolveProjectFile(baseDirectory, path, "资源"))
             .ToList();
+        var resourceRoot = Path.Combine(baseDirectory, YyResourceIndex.DirectoryName);
+        foreach (var resource in resources)
+        {
+            if (!IsWithin(resource, resourceRoot))
+            {
+                throw new InvalidDataException(
+                    $"资源文件必须位于 {YyResourceIndex.DirectoryName} 目录：{resource}");
+            }
+        }
+
         var references = (manifest.References ?? [])
             .Select(path => ResolveProjectFile(baseDirectory, path, "引用"))
             .ToList();
@@ -217,6 +248,10 @@ public sealed partial class YyProject
         var outputName = string.IsNullOrWhiteSpace(manifest.Output)
             ? manifest.Name + ".exe"
             : Path.GetFileName(manifest.Output);
+        var resourceTable = manifest.ResourceTable ?? [];
+        ValidateResourceEntries(baseDirectory, resourceTable);
+        YyResourceIndex.Write(baseDirectory, forms, resourceTable);
+        ValidateFormResourceReferences(baseDirectory, forms);
         return new YyProject(
             fullProjectPath,
             manifest.FormatVersion,
@@ -230,7 +265,7 @@ public sealed partial class YyProject
             references,
             manifest.Globals ?? [],
             manifest.Constants ?? [],
-            manifest.ResourceTable ?? [],
+            resourceTable,
             manifest.DllCommands ?? [],
             manifest.DatabaseTables ?? [],
             forms);
@@ -277,18 +312,42 @@ public sealed partial class YyProject
     /// <summary>将数据表(全局变量/常量表/资源表/Dll命令)等清单内容写回 .yyproj。</summary>
     public void SaveManifest() => WriteCurrentManifest();
 
+    /// <summary>窗体保存后重新读取磁盘界面，刷新 Resources/ids.xml。</summary>
+    public void RefreshResourceIndex()
+    {
+        var forms = _formPaths
+            .Where(File.Exists)
+            .Select(path => new YyProjectForm(
+                path,
+                YyFormCompanionFiles.BindingPath(path),
+                YyFormCompanionFiles.UserCodePath(path),
+                YyFormSerializer.Deserialize(File.ReadAllText(path))))
+            .ToList();
+        YyResourceIndex.Write(DirectoryPath, forms, _resourceTable);
+    }
+
     private void WriteCurrentManifest()
     {
+        var indexedResources = _resources
+            .Concat(_resourceTable
+                .Where(YyResourceIndex.IsIndexable)
+                .Select(item => item.File))
+            .Select(path => ResolveResourceFile(DirectoryPath, path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
         var manifest = new YyProjectManifest
         {
-            FormatVersion = 3,
+            FormatVersion = CurrentFormatVersion,
             Name = Name,
             Entry = ToRelativePath(EntryPath, DirectoryPath),
             Output = OutputName,
             StartupForm = StartupForm,
             Sources = _sourcePaths.Select(path => ToRelativePath(path, DirectoryPath)).ToList(),
             Forms = _formPaths.Select(path => ToRelativePath(path, DirectoryPath)).ToList(),
-            Resources = _resources.Select(path => ToRelativePath(path, DirectoryPath)).ToList(),
+            Resources = indexedResources
+                .Select(path => ToRelativePath(path, DirectoryPath))
+                .ToList(),
+            ResourceIdFile = YyResourceIndex.RelativePath,
             References = _references.Select(path => ToRelativePath(path, DirectoryPath)).ToList(),
             Globals = _globals.Count > 0 ? _globals : null,
             Constants = _constants.Count > 0 ? _constants : null,
@@ -297,6 +356,7 @@ public sealed partial class YyProject
             DatabaseTables = _databaseTables.Count > 0 ? _databaseTables : null
         };
         WriteManifest(ProjectPath, manifest);
+        RefreshResourceIndex();
     }
 
     private static List<string> ResolveOptionalFiles(
@@ -403,7 +463,7 @@ public sealed partial class YyProject
     private sealed class YyProjectManifest
     {
         [JsonPropertyName("格式版本")]
-        public int FormatVersion { get; init; } = 3;
+        public int FormatVersion { get; init; } = CurrentFormatVersion;
 
         [JsonPropertyName("名称")]
         public string Name { get; init; } = string.Empty;
@@ -425,6 +485,9 @@ public sealed partial class YyProject
 
         [JsonPropertyName("资源")]
         public List<string>? Resources { get; init; }
+
+        [JsonPropertyName("资源标识")]
+        public string? ResourceIdFile { get; init; }
 
         [JsonPropertyName("引用")]
         public List<string>? References { get; init; }

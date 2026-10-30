@@ -13,6 +13,7 @@ public sealed class YyFormPreviewWindow : Window
 {
     private readonly YyFormModel _form;
     private readonly string? _formPath;
+    private readonly string? _projectDirectory;
     private readonly string? _inlineCode;
     private readonly Dictionary<YyControlModel, FrameworkElement> _elements = [];
     private readonly Dictionary<string, string> _controlTextBaseline = [];
@@ -22,10 +23,15 @@ public sealed class YyFormPreviewWindow : Window
     private bool _allowClose;
     private bool _updatingControls;
 
-    public YyFormPreviewWindow(YyFormModel form, string? formPath = null, string? inlineCode = null)
+    public YyFormPreviewWindow(
+        YyFormModel sourceForm,
+        string? formPath = null,
+        string? inlineCode = null)
     {
+        var form = sourceForm.Clone();
         _form = form;
         _formPath = formPath;
+        _projectDirectory = YyResourceIndex.FindProjectDirectory(formPath);
         _inlineCode = inlineCode;
         Title = form.Title;
         Width = form.Width;
@@ -33,6 +39,7 @@ public sealed class YyFormPreviewWindow : Window
         MinWidth = Math.Min(form.Width, 320);
         MinHeight = Math.Min(form.Height, 240);
         Background = YyFormRenderer.Brush(form.Background);
+        Icon = YyFormRenderer.LoadImageSource(form.Icon, _projectDirectory);
         WindowStartupLocation = form.StartPosition == "居中显示"
             ? WindowStartupLocation.CenterOwner
             : WindowStartupLocation.Manual;
@@ -86,7 +93,7 @@ public sealed class YyFormPreviewWindow : Window
 
         foreach (var control in form.Controls)
         {
-            var element = YyFormRenderer.Create(control);
+            var element = YyFormRenderer.Create(control, _projectDirectory);
             Canvas.SetLeft(element, control.X);
             Canvas.SetTop(element, control.Y);
             canvas.Children.Add(element);
@@ -353,7 +360,10 @@ public sealed class YyFormPreviewWindow : Window
                     if (!string.Equals(picture, control.Picture, StringComparison.Ordinal))
                     {
                         control.Picture = picture;
-                        YyFormRenderer.SetElementPicture(_elements[control], picture);
+                        YyFormRenderer.SetElementPicture(
+                            _elements[control],
+                            picture,
+                            _projectDirectory);
                     }
                 }
 

@@ -186,12 +186,12 @@ public partial class MainWindow : Window
                 break;
             case NewProgramDialog.ProgramKind.Console:
                 AddNewDocument(
-                    ".版本 3\n.程序集 控制台程序\n\n' 控制台程序入口\n输出(\"你好，易语！\")\n");
+                    ".版本 1\n.程序集 控制台程序\n\n' 控制台程序入口\n输出(\"你好，易语！\")\n");
                 SetStatus("已新建易语控制台程序", ReadyBrush);
                 break;
             case NewProgramDialog.ProgramKind.Module:
                 AddNewDocument(
-                    ".版本 3\n.程序集 模块1\n\n' 易模块:在子程序表把“易包”设为“真”后可编译导出\n子程序 示例函数(参数: 文本): 文本\n    返回 参数\n结束子程序\n");
+                    ".版本 1\n.程序集 模块1\n\n' 易模块:在子程序表把“易包”设为“真”后可编译导出\n子程序 示例函数(参数: 文本): 文本\n    返回 参数\n结束子程序\n");
                 SetStatus("已新建易语模块", ReadyBrush);
                 break;
             case NewProgramDialog.ProgramKind.Project:

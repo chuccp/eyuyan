@@ -102,7 +102,7 @@ public partial class MainWindow : Window
             ?? (codePath is not null && File.Exists(codePath)
                 ? File.ReadAllText(codePath, new UTF8Encoding(false, true))
                 : $"""
-                   .版本 3
+                   .版本 1
                    .程序集 {_designForm.Name}代码
 
                    ' 在这里编写窗体事件代码。

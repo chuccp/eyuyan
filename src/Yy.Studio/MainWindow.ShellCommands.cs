@@ -304,25 +304,24 @@ public partial class MainWindow : Window
             return;
         }
 
-        var name = Path.GetFileNameWithoutExtension(dialog.FileName);
-        var existing = _project.ResourceTable
-            .Select(item => item.Name)
-            .ToHashSet(StringComparer.Ordinal);
-        var unique = name;
-        while (existing.Contains(unique))
+        try
         {
-            unique += "_";
+            var entry = _project.AddResource(dialog.FileName, kind);
+            ShowDataTableView("资源表");
+            SetStatus(
+                $"已复制{kind}资源“{entry.Name}”到 {entry.File}",
+                ReadyBrush);
         }
-
-        _project.ResourceTable.Add(new YyResourceEntry
+        catch (Exception exception) when (
+            exception is IOException or InvalidDataException or ArgumentException)
         {
-            Name = unique,
-            TypeName = kind,
-            File = dialog.FileName
-        });
-        _project.SaveManifest();
-        ShowDataTableView("资源表");
-        SetStatus($"已添加{kind}资源“{unique}”", ReadyBrush);
+            MessageBox.Show(
+                this,
+                $"无法添加资源：\n{exception.Message}",
+                "添加资源",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
     }
 
     private void ApplySettings()

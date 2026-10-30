@@ -18,7 +18,8 @@ Run("界面 XML 与生成关系分离", () =>
         Title = "客户登记",
         Width = 640,
         Height = 420,
-        Background = "#F4F7FB"
+        Background = "#F4F7FB",
+        Icon = "@资源/图片/测试图标"
     };
     form.Controls.Add(YyControlTypes.Create(YyControlTypes.Button, 1));
     form.Controls.Add(YyControlTypes.Create(YyControlTypes.TextBox, 2));
@@ -28,8 +29,17 @@ Run("界面 XML 与生成关系分离", () =>
     var restored = YyFormSerializer.Deserialize(xml);
     Equal("测试窗口", restored.Name);
     Equal("客户登记", restored.Title);
+    Equal("@资源/图片/测试图标", restored.Icon);
     Equal(2, restored.Controls.Count);
     Equal("按钮1", restored.Controls[0].Name);
+    var previewCopy = restored.Clone();
+    previewCopy.Icon = "@资源/图片/预览图标";
+    previewCopy.Controls[0].Name = "预览按钮";
+    Equal("@资源/图片/测试图标", restored.Icon);
+    Equal("按钮1", restored.Controls[0].Name);
+    True(
+        xml.Contains("标识=\"@id/测试窗口/按钮1\"", StringComparison.Ordinal),
+        "界面控件没有生成稳定标识。");
     True(!xml.Contains("载入=", StringComparison.Ordinal), "界面 XML 不应保存事件。");
     True(!xml.Contains("文本改变=", StringComparison.Ordinal), "界面 XML 不应保存控件事件。");
 
@@ -59,7 +69,11 @@ Run("示例窗体读取", () =>
     Equal("客户登记", form.Title);
     Equal("_主窗口_创建完毕", form.LoadEvent);
     Equal("_主窗口_将被销毁", form.CloseEvent);
-    Equal(8, form.Controls.Count);
+    Equal(9, form.Controls.Count);
+    Equal("@资源/图片/应用图标", form.Icon);
+    Equal(
+        "@资源/图片/客户图标",
+        form.Controls.Single(control => control.Name == "图标预览").Picture);
     Equal("_保存按钮_被单击", form.Controls.Single(control => control.Name == "保存按钮").ClickEvent);
     Equal(
         "_姓名输入框_内容被改变",
@@ -98,7 +112,7 @@ Run("补齐事件入口不覆盖用户逻辑", () =>
 Run("结构化代码往返", () =>
 {
     const string source = """
-        .版本 3
+        .版本 1
         .程序集 测试程序
         子程序 问候(名称: 文本 = "世界"): 文本
             变量 前缀: 文本 = "你好，"
@@ -125,7 +139,7 @@ Run("用户代码默认进入VB式代码窗口", () =>
 {
     var source = YyCodeSerializer.Serialize(
         YyCodeDocumentConverter.FromSource(
-            ".版本 3\n.程序集 测试\n子程序 示例()\n    输出(\"你好\")\n结束子程序\n",
+            ".版本 1\n.程序集 测试\n子程序 示例()\n    输出(\"你好\")\n结束子程序\n",
             "Sample.yyc"));
     var document = new EditorDocument("Sample.yyc", "Sample.yyc", source);
     True(document.UsePlainCodeEditor, "用户代码应默认进入连续代码窗口。");
@@ -163,6 +177,20 @@ Run("项目清单读取", () =>
     Equal("主窗口", project.StartupForm);
     Equal(1, project.Forms.Count);
     Equal("主窗体.yyc", Path.GetFileName(project.Forms[0].CodePath));
+    Equal(2, project.ResourceTable.Count);
+    True(
+        YyResourceIndex.ResolveResourcePath(
+            directory,
+            project.Forms[0].Model.Icon) is not null,
+        "窗体图标没有关联到实际资源文件。");
+    True(
+        File.ReadAllText(Path.Combine(directory, "Resources", "ids.xml"))
+            .Contains("@资源/图片/客户图标", StringComparison.Ordinal),
+        "示例工程的资源没有写入资源标识。");
+    True(
+        File.ReadAllText(Path.Combine(directory, "Resources", "ids.xml"))
+            .Contains("@资源/图片/应用图标", StringComparison.Ordinal),
+        "窗体图标没有写入资源标识。");
 });
 
 Run("完整项目骨架", () =>
@@ -183,6 +211,40 @@ Run("完整项目骨架", () =>
         True(
             File.Exists(Path.Combine(projectRoot, "Forms", "MainForm.Designer.yyc")),
             "自动生成的界面关系文件没有创建。");
+        True(
+            File.Exists(Path.Combine(projectRoot, "Resources", "ids.xml")),
+            "自动生成的资源标识文件没有创建。");
+        True(
+            Directory.Exists(Path.Combine(projectRoot, "Resources", "images")) &&
+            Directory.Exists(Path.Combine(projectRoot, "Resources", "sounds")) &&
+            Directory.Exists(Path.Combine(projectRoot, "Resources", "files")),
+            "资源分类目录没有创建。");
+        var resourceIds = File.ReadAllText(
+            Path.Combine(projectRoot, "Resources", "ids.xml"));
+        True(
+            resourceIds.Contains("@id/_启动窗口/欢迎按钮", StringComparison.Ordinal),
+            "资源标识文件没有关联窗体控件。");
+        var manifestText = File.ReadAllText(
+            Path.Combine(projectRoot, "DemoProject.yyproj"));
+        True(
+            manifestText.Contains("\"资源标识\": \"Resources/ids.xml\"", StringComparison.Ordinal),
+            "工程清单没有声明资源标识文件。");
+        var sourceImage = Path.Combine(temporaryRoot, "客户图标.png");
+        File.WriteAllBytes(sourceImage, [1, 2, 3, 4]);
+        var resource = project.AddResource(sourceImage, "图片", "客户图标");
+        True(
+            File.Exists(Path.Combine(projectRoot, resource.File)),
+            "资源没有复制到工程目录。");
+        True(
+            resource.File.EndsWith(
+                "Resources/images/客户图标.png",
+                StringComparison.OrdinalIgnoreCase),
+            "图片没有保存到 Resources/images。");
+        resourceIds = File.ReadAllText(
+            Path.Combine(projectRoot, "Resources", "ids.xml"));
+        True(
+            resourceIds.Contains("@资源/图片/客户图标", StringComparison.Ordinal),
+            "资源标识文件没有关联图片资源。");
         var entryDocument = YyCodeSerializer.Deserialize(
             File.ReadAllText(Path.Combine(projectRoot, "Program.yyc")));
         True(entryDocument.MainStatements.Count > 0, "结构化入口没有命令数据。");
@@ -228,7 +290,9 @@ Run("数据表清单往返", () =>
             "Tables");
         project.Globals.Add(new YyGlobalVarEntry { Name = "计数", TypeName = "整数型", Remark = "全局计数" });
         project.Constants.Add(new YyConstantEntry { Name = "最大值", Value = "100", Remark = "上限" });
-        project.ResourceTable.Add(new YyResourceEntry { Name = "测试图片", TypeName = "图片", File = "a.png" });
+        var resourceSource = Path.Combine(temporaryRoot, "测试图片.png");
+        File.WriteAllBytes(resourceSource, [4, 3, 2, 1]);
+        project.AddResource(resourceSource, "图片", "测试图片");
         project.DllCommands.Add(new YyDllCommandEntry { Name = "取系统目录", DllFile = "kernel32", CommandName = "GetSystemDirectory" });
         project.SaveManifest();
 
@@ -238,6 +302,9 @@ Run("数据表清单往返", () =>
         Equal("整数型", reloaded.Globals.Single().TypeName);
         Equal("100", reloaded.Constants.Single().Value);
         Equal("测试图片", reloaded.ResourceTable.Single().Name);
+        True(
+            File.Exists(Path.Combine(temporaryRoot, reloaded.ResourceTable.Single().File)),
+            "资源文件没有随工程保存。");
         Equal("kernel32", reloaded.DllCommands.Single().DllFile);
     }
     finally
@@ -259,20 +326,30 @@ Run("纯代码工程不需要窗体", () =>
     {
         var source = YyCodeSerializer.Serialize(
             YyCodeDocumentConverter.FromSource(
-                ".版本 3\n.程序集 算法\n输出(\"纯代码\")\n",
+                ".版本 1\n.程序集 算法\n输出(\"纯代码\")\n",
                 "Main.yyc"));
         File.WriteAllText(Path.Combine(directory, "Main.yyc"), source);
+        Directory.CreateDirectory(Path.Combine(directory, "Resources", "images"));
+        Directory.CreateDirectory(Path.Combine(directory, "Resources", "sounds"));
+        Directory.CreateDirectory(Path.Combine(directory, "Resources", "files"));
+        File.WriteAllText(
+            Path.Combine(directory, "Resources", "ids.xml"),
+            """
+            <?xml version="1.0" encoding="utf-8"?>
+            <yy:资源标识 xmlns:yy="urn:yy-studio:resource-ids:1" 格式版本="1" />
+            """);
         File.WriteAllText(
             Path.Combine(directory, "CodeOnly.yyproj"),
             """
             {
-              "格式版本": 3,
+              "格式版本": 1,
               "名称": "CodeOnly",
               "入口": "Main.yyc",
               "输出": "CodeOnly.exe",
               "源码": ["Main.yyc"],
               "窗体": [],
               "资源": [],
+              "资源标识": "Resources/ids.xml",
               "引用": []
             }
             """);
@@ -319,6 +396,38 @@ Run("缺少自动关系文件时拒绝项目", () =>
     }
 });
 
+Run("缺少资源标识文件时拒绝项目", () =>
+{
+    var root = Path.Combine(
+        Path.GetTempPath(),
+        "yy-missing-resource-ids-" + Guid.NewGuid().ToString("N"));
+    try
+    {
+        YyProject.CreateProject(
+            Path.Combine(root, "MissingResourceIds.yyproj"),
+            "MissingResourceIds");
+        File.Delete(Path.Combine(root, "Resources", "ids.xml"));
+        try
+        {
+            YyProject.LoadForDirectory(root);
+            throw new Exception("缺少资源标识文件的项目不应加载。");
+        }
+        catch (InvalidDataException exception)
+        {
+            True(
+                exception.Message.Contains("ids.xml", StringComparison.Ordinal),
+                exception.Message);
+        }
+    }
+    finally
+    {
+        if (Directory.Exists(root))
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+});
+
 Run("只接受三文件工程规则", () =>
 {
     var directory = Path.Combine(
@@ -351,7 +460,7 @@ Run("只接受三文件工程规则", () =>
         }
         catch (InvalidDataException exception)
         {
-            True(exception.Message.Contains("版本 3", StringComparison.Ordinal), exception.Message);
+            True(exception.Message.Contains("有效的易语工程", StringComparison.Ordinal), exception.Message);
         }
     }
     finally
@@ -363,9 +472,9 @@ Run("只接受三文件工程规则", () =>
 Run("重复控件名诊断", () =>
 {
     const string xml = """
-        <窗体 名称="主窗口" 标题="测试" 宽="640" 高="420">
-          <按钮 名称="重复" 文本="一" 左="10" 上="10" 宽="100" 高="40" />
-          <按钮 名称="重复" 文本="二" 左="20" 上="60" 宽="100" 高="40" />
+        <窗体 标识="@id/主窗口" 名称="主窗口" 标题="测试" 宽="640" 高="420">
+          <按钮 标识="@id/主窗口/重复" 名称="重复" 文本="一" 左="10" 上="10" 宽="100" 高="40" />
+          <按钮 标识="@id/主窗口/重复" 名称="重复" 文本="二" 左="20" 上="60" 宽="100" 高="40" />
         </窗体>
         """;
     try

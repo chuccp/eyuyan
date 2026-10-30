@@ -115,7 +115,7 @@ public sealed class EditorDocument : INotifyPropertyChanged
         ? "⌂"
         : IsForm
             ? "▣"
-            : IsGeneratedBinding
+            : IsReadOnlyGenerated
                 ? "⚙"
                 : "‹›";
 
@@ -125,6 +125,11 @@ public sealed class EditorDocument : INotifyPropertyChanged
     public bool IsGeneratedBinding =>
         IsStructuredCode &&
         Yy.Studio.Forms.YyFormCompanionFiles.IsGeneratedBindingPath(FilePath ?? DisplayName);
+
+    public bool IsResourceIndex =>
+        YyResourceIndex.IsIndexPath(FilePath ?? DisplayName);
+
+    public bool IsReadOnlyGenerated => IsGeneratedBinding || IsResourceIndex;
 
     /// <summary>当前 .yyc 以纯源码视图编辑；磁盘仍保存结构化 XML。</summary>
     public bool UsePlainCodeEditor

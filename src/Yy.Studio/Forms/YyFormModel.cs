@@ -10,6 +10,7 @@ public sealed class YyFormModel
     public double Width { get; set; } = 800;
     public double Height { get; set; } = 520;
     public string Background { get; set; } = "#F4F7FB";
+    public string Icon { get; set; } = string.Empty;
     public string Remark { get; set; } = string.Empty;
 
     /// <summary>边框:可调边框/对话框边框/无边框(官方属性)。</summary>
@@ -28,6 +29,34 @@ public sealed class YyFormModel
     public bool MaximizeBox { get; set; } = true;
 
     public List<YyControlModel> Controls { get; } = [];
+
+    public YyFormModel Clone()
+    {
+        var clone = new YyFormModel
+        {
+            Name = Name,
+            CodeFile = CodeFile,
+            LoadEvent = LoadEvent,
+            CloseEvent = CloseEvent,
+            Title = Title,
+            Width = Width,
+            Height = Height,
+            Background = Background,
+            Icon = Icon,
+            Remark = Remark,
+            BorderStyle = BorderStyle,
+            Movable = Movable,
+            StartPosition = StartPosition,
+            MinimizeBox = MinimizeBox,
+            MaximizeBox = MaximizeBox
+        };
+        foreach (var control in Controls)
+        {
+            clone.Controls.Add(control.Clone());
+        }
+
+        return clone;
+    }
 }
 
 public sealed class YyControlModel

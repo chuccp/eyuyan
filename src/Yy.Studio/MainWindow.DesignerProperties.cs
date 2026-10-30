@@ -61,6 +61,7 @@ public partial class MainWindow : Window
                 rows.Add(new PropertyRow("名称", _designForm.Name, PropertyCellKind.Identifier, PropertyRowCatalog.HintName));
                 rows.Add(new PropertyRow("备注", _designForm.Remark, PropertyCellKind.Text, PropertyRowCatalog.HintRemark));
                 rows.Add(new PropertyRow("标题", _designForm.Title, PropertyCellKind.Text, PropertyRowCatalog.HintTitle));
+                rows.Add(new PropertyRow("图标", _designForm.Icon, PropertyCellKind.Text, "资源标识，例如 @资源/图片/应用图标"));
                 rows.Add(new PropertyRow("宽度", PropertyRowCatalog.FormatNumber(_designForm.Width), PropertyCellKind.Integer, PropertyRowCatalog.HintWidth));
                 rows.Add(new PropertyRow("高度", PropertyRowCatalog.FormatNumber(_designForm.Height), PropertyCellKind.Integer, PropertyRowCatalog.HintHeight));
                 rows.Add(new PropertyRow("背景", _designForm.Background, PropertyCellKind.Color, PropertyRowCatalog.HintBackground));
@@ -370,6 +371,21 @@ public partial class MainWindow : Window
                 DesignerTitleText.Text = string.IsNullOrWhiteSpace(_designForm.Title)
                     ? _designForm.Name
                     : _designForm.Title;
+                break;
+            case "图标":
+                var icon = row.ValueText.Trim();
+                var projectDirectory = _project?.DirectoryPath ??
+                    YyResourceIndex.FindProjectDirectory(
+                        _designerDocument?.FilePath ?? _currentDocument?.FilePath);
+                if (!string.IsNullOrWhiteSpace(icon) &&
+                    YyResourceIndex.ResolveResourcePath(projectDirectory, icon) is null)
+                {
+                    row.ValueText = _designForm!.Icon;
+                    ShowHint("图标必须引用 Resources/ids.xml 中已登记的图片资源。");
+                    return;
+                }
+
+                _designForm!.Icon = icon;
                 break;
             case "宽度":
                 if (TryDesignerNumber(row.ValueText, 320, 3840, out var width))

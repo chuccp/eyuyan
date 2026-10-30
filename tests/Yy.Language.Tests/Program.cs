@@ -67,7 +67,7 @@ return failures == 0 ? 0 : 1;
 static void TestOutput()
 {
     var output = Run("""
-        .版本 3
+        .版本 1
         .程序集 示例
         变量 名字 = "易语"
         输出("你好，" + 名字)
@@ -619,7 +619,7 @@ static void TestDebugBreakpoint()
     };
     var lines = new List<string>();
     YyRunner.Run("""
-        .版本 3
+        .版本 1
         .程序集 断点示例
         输出("一")
         输出("二")

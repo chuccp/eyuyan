@@ -90,7 +90,9 @@ public partial class MainWindow : Window
 
     private void AddControlVisual(YyControlModel model)
     {
-        var element = YyFormRenderer.Create(model);
+        var projectDirectory = _project?.DirectoryPath ??
+            YyResourceIndex.FindProjectDirectory(_designerDocument?.FilePath);
+        var element = YyFormRenderer.Create(model, projectDirectory);
         element.Visibility = Visibility.Visible;
         element.Opacity = model.IsVisible ? 1 : 0.35;
         Canvas.SetLeft(element, model.X);

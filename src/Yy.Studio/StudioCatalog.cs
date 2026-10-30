@@ -191,7 +191,7 @@ public static class StudioCatalog
     ];
 
     public const string StarterCode = """
-        .版本 3
+        .版本 1
         .程序集 我的第一个易语程序
 
         ' 函数、数组、对象和中文语法都已支持

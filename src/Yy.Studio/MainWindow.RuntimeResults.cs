@@ -41,9 +41,9 @@ public partial class MainWindow : Window
         }
 
         var document = _currentDocument;
-        if (document?.IsGeneratedBinding == true)
+        if (document?.IsReadOnlyGenerated == true)
         {
-            SetStatus("自动关系文件不能直接运行，请运行关联窗体或用户代码。", WarningBrush);
+            SetStatus("自动生成的关联文件不能直接运行。", WarningBrush);
             return false;
         }
 
