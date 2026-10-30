@@ -25,7 +25,16 @@ var tests = new List<(string Name, Action Test)>
     ("拒绝旧版 .ey 文件", TestRejectLegacyFile),
     ("语法错误行号", TestParseError),
     ("静态未定义变量诊断", TestUndefinedVariable),
-    ("运行时错误行号", TestRuntimeError)
+    ("运行时错误行号", TestRuntimeError),
+    ("结构化模型扩展字段往返", TestStructuredModelExtensions),
+    ("语句行解析与全角输入", TestParseStatementText),
+    ("官方文本命令", TestOfficialTextCommands),
+    ("文本处理组合", TestTextProcessing),
+    ("文件读写与磁盘操作", TestFileCommands),
+    ("目录文件列举", TestListDirectory),
+    ("环境与时间命令", TestEnvironmentCommands),
+    ("交换变量场景", TestSwapVariables),
+    ("调试断点暂停", TestDebugBreakpoint)
 };
 
 var failures = 0;
@@ -431,6 +440,195 @@ static void TestRuntimeError()
     {
         Equal(3, error.Line);
     }
+}
+
+static void TestStructuredModelExtensions()
+{
+    const string legacy = """
+        <yy:代码 xmlns:yy="urn:yy-studio:code:1" 格式版本="1" 名称="旧程序集">
+          <yy:子程序 名称="问候" 返回类型="文本">
+            <yy:参数 名称="名称" 类型="文本" />
+            <yy:变量 名称="前缀" 类型="文本" 值="&quot;你好&quot;" />
+            <yy:返回 值="前缀" />
+          </yy:子程序>
+        </yy:代码>
+        """;
+    var document = Yy.Language.Structured.YyCodeSerializer.Deserialize(legacy);
+    Equal(string.Empty, document.Remark);
+    True(!document.Functions[0].IsPublic, "子程序默认不公开。");
+    Equal(string.Empty, document.Functions[0].Remark);
+    var parameter = document.Functions[0].Parameters[0];
+    True(!parameter.ByRef && !parameter.Nullable && !parameter.IsArray, "参数标志默认关闭。");
+    True(!document.Functions[0].Statements[0].IsStatic, "变量默认非静态。");
+
+    document.Remark = "程序集备注";
+    document.Functions[0].IsPublic = true;
+    document.Functions[0].Remark = "子程序备注";
+    parameter.ByRef = true;
+    parameter.Nullable = true;
+    parameter.IsArray = true;
+    parameter.Remark = "参数备注";
+    document.Functions[0].Statements[0].IsStatic = true;
+
+    var xml = Yy.Language.Structured.YyCodeSerializer.Serialize(document);
+    True(xml.Contains("公开", StringComparison.Ordinal) &&
+         xml.Contains("静态", StringComparison.Ordinal) &&
+         xml.Contains("参考", StringComparison.Ordinal),
+        "新字段应写入 XML。");
+
+    var restored = Yy.Language.Structured.YyCodeSerializer.Deserialize(xml);
+    Equal("程序集备注", restored.Remark);
+    True(restored.Functions[0].IsPublic, "公开标志应往返。");
+    Equal("子程序备注", restored.Functions[0].Remark);
+    var restoredParameter = restored.Functions[0].Parameters[0];
+    True(restoredParameter.ByRef && restoredParameter.Nullable && restoredParameter.IsArray,
+        "参数标志应往返。");
+    Equal("参数备注", restoredParameter.Remark);
+    True(restored.Functions[0].Statements[0].IsStatic, "静态标志应往返。");
+}
+
+static void TestParseStatementText()
+{
+    var assign = Yy.Language.Structured.YyCodeDocumentConverter.ParseStatementText(
+        "标签1.标题 ＝ \"我爱易语言！\"");
+    Equal(Yy.Language.Structured.YyCodeStatementKinds.Assign, assign.Kind);
+    Equal("标签1.标题", assign.Target);
+    Equal("=", assign.Operator);
+
+    var call = Yy.Language.Structured.YyCodeDocumentConverter.ParseStatementText("输出(\"你好\")");
+    Equal(Yy.Language.Structured.YyCodeStatementKinds.Call, call.Kind);
+
+    var conditional = Yy.Language.Structured.YyCodeDocumentConverter.ParseStatementText("如果 (真) 则");
+    Equal(Yy.Language.Structured.YyCodeStatementKinds.If, conditional.Kind);
+
+    try
+    {
+        Yy.Language.Structured.YyCodeDocumentConverter.ParseStatementText("如果 真 则 多行\n内容");
+        throw new Exception("预期出现语句行解析诊断。");
+    }
+    catch (Yy.Language.Structured.YyCodeFormatException)
+    {
+    }
+}
+
+static void TestOfficialTextCommands()
+{
+    var output = Run("""
+        输出(取文本左边("易语言真好用", 3))
+        输出(取文本右边("易语言真好用", 2))
+        输出(取文本中间("易语言真好用", 2, 2))
+        输出(取文本中间("易语言真好用", 4))
+        输出(取文本左边("短", 99))
+        """);
+    Equal("易语言\n好用\n语言\n真好用\n短", output.Output);
+}
+
+static void TestTextProcessing()
+{
+    var output = Run("""
+        输出(替换("一,二,三", ",", "、"))
+        输出(修剪("  空格  "))
+        输出(转大写("abc") + "/" + 转小写("ABC"))
+        输出(取子文本("易语言真好用", 1, 2))
+        输出(长度("易语") + "/" + 包含("易语言", "语言"))
+        """);
+    Equal("一、二、三\n空格\nABC/abc\n语言\n2/真", output.Output);
+}
+
+static void TestFileCommands()
+{
+    var directory = Path.Combine(Path.GetTempPath(), "yy-test-" + Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var path = Path.Combine(directory, "数据.txt");
+        var output = Run($"""
+            写文件("{path.Replace("\\", "\\\\")}", "内容123")
+            输出(文件存在("{path.Replace("\\", "\\\\")}"))
+            输出(长度(读文件("{path.Replace("\\", "\\\\")}")))
+            删除文件("{path.Replace("\\", "\\\\")}")
+            输出(文件存在("{path.Replace("\\", "\\\\")}"))
+            """);
+        Equal("真\n5\n假", output.Output);
+    }
+    finally
+    {
+        Directory.Delete(directory, recursive: true);
+    }
+}
+
+static void TestListDirectory()
+{
+    var directory = Path.Combine(Path.GetTempPath(), "yy-test-" + Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(directory);
+    try
+    {
+        File.WriteAllText(Path.Combine(directory, "b.png"), "x");
+        File.WriteAllText(Path.Combine(directory, "a.png"), "x");
+        File.WriteAllText(Path.Combine(directory, "c.txt"), "x");
+        var output = Run($"""
+            变量 文件列表 = 取目录文件("{directory.Replace("\\", "\\\\")}", "*.png")
+            输出(长度(文件列表))
+            输出(包含(连接(文件列表, ";"), "a.png"))
+            输出(长度(取目录文件("{directory.Replace("\\", "\\\\")}")))
+            输出(长度(取目录文件("Z:\\不存在的目录")))
+            """);
+        Equal("2\n真\n3\n0", output.Output);
+    }
+    finally
+    {
+        Directory.Delete(directory, recursive: true);
+    }
+}
+
+static void TestEnvironmentCommands()
+{
+    var output = Run("""
+        变量 起点 = 取启动时间()
+        延时(30)
+        输出(取启动时间() - 起点 >= 20)
+        输出(长度(取运行目录()) > 0)
+        输出(类型(取环境变量("PATH")))
+        """);
+    Equal("真\n真\n文本", output.Output);
+}
+
+static void TestSwapVariables()
+{
+    // 对应官方示例“交换变量.e”的经典场景。
+    var output = Run("""
+        变量 甲 = 1
+        变量 乙 = 2
+        变量 临时 = 甲
+        甲 = 乙
+        乙 = 临时
+        输出(甲, 乙)
+        """);
+    Equal("2 1", output.Output);
+}
+
+static void TestDebugBreakpoint()
+{
+    var pausedLines = new List<int>();
+    var probe = new YyDebugProbe(YyDebugMode.Run);
+    probe.IsBreakpoint = line => line == 5;
+    probe.Paused += pause =>
+    {
+        pausedLines.Add(pause.Line);
+        probe.Continue();
+    };
+    var lines = new List<string>();
+    YyRunner.Run("""
+        .版本 3
+        .程序集 断点示例
+        输出("一")
+        输出("二")
+        输出("三")
+        输出("四")
+        """, lines.Add, CancellationToken.None, probe);
+    Equal("一\n二\n三\n四", string.Join("\n", lines));
+    Equal(1, pausedLines.Count);
+    Equal(5, pausedLines[0]);
 }
 
 static (string Output, YyRunResult Result) Run(string source)

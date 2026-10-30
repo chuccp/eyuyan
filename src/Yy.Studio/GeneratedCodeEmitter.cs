@@ -363,6 +363,7 @@ public sealed class GeneratedCodeEmitter
             YyControlTypes.Label => "TextBlock",
             YyControlTypes.TextBox => "TextBox",
             YyControlTypes.CheckBox => "CheckBox",
+            YyControlTypes.RadioButton => "RadioButton",
             YyControlTypes.ComboBox => "ComboBox",
             YyControlTypes.ListBox => "ListBox",
             YyControlTypes.GroupBox => "GroupBox",
@@ -374,12 +375,12 @@ public sealed class GeneratedCodeEmitter
         Line($"{variable}.Height = {Number(control.Height)};");
         Line($"{variable}.IsEnabled = {(control.IsEnabled ? "true" : "false")};");
         Line($"{variable}.Visibility = {(control.IsVisible ? "Visibility.Visible" : "Visibility.Hidden")};");
-        if (control.Type == YyControlTypes.CheckBox)
+        if (control.Type is YyControlTypes.CheckBox or YyControlTypes.RadioButton)
         {
             Line($"{variable}.IsChecked = {(control.IsChecked ? "true" : "false")};");
         }
         if (control.Type is YyControlTypes.Button or YyControlTypes.Label or YyControlTypes.TextBox
-            or YyControlTypes.CheckBox or YyControlTypes.GroupBox)
+            or YyControlTypes.CheckBox or YyControlTypes.RadioButton or YyControlTypes.GroupBox)
         {
             var property = control.Type switch
             {
@@ -435,7 +436,8 @@ public sealed class GeneratedCodeEmitter
             Line($"{variable}.TextChanged += (_, _) => InvokeEvent({Quote(control.TextChangedEvent)});");
         }
 
-        if (control.Type == YyControlTypes.CheckBox && !string.IsNullOrWhiteSpace(control.CheckedChangedEvent))
+        if (control.Type is YyControlTypes.CheckBox or YyControlTypes.RadioButton &&
+            !string.IsNullOrWhiteSpace(control.CheckedChangedEvent))
         {
             Line($"{variable}.Checked += (_, _) => InvokeEvent({Quote(control.CheckedChangedEvent)});");
             Line($"{variable}.Unchecked += (_, _) => InvokeEvent({Quote(control.CheckedChangedEvent)});");

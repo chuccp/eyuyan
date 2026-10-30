@@ -25,6 +25,10 @@ public static class YyFormSerializer
             new XAttribute("宽", Format(form.Width)),
             new XAttribute("高", Format(form.Height)),
             new XAttribute("背景", form.Background));
+        if (!string.IsNullOrWhiteSpace(form.Remark))
+        {
+            root.SetAttributeValue("备注", form.Remark);
+        }
 
         if (!string.IsNullOrWhiteSpace(form.LoadEvent))
         {
@@ -34,6 +38,27 @@ public static class YyFormSerializer
         if (!string.IsNullOrWhiteSpace(form.CloseEvent))
         {
             root.SetAttributeValue("关闭", form.CloseEvent);
+        }
+
+        root.SetAttributeValue("边框", form.BorderStyle);
+        if (!form.Movable)
+        {
+            root.SetAttributeValue("可否移动", "假");
+        }
+
+        if (!string.Equals(form.StartPosition, "默认", StringComparison.Ordinal))
+        {
+            root.SetAttributeValue("初始位置", form.StartPosition);
+        }
+
+        if (!form.MinimizeBox)
+        {
+            root.SetAttributeValue("最小化按钮", "假");
+        }
+
+        if (!form.MaximizeBox)
+        {
+            root.SetAttributeValue("最大化按钮", "假");
         }
 
         foreach (var control in form.Controls)
@@ -72,7 +97,13 @@ public static class YyFormSerializer
             Title = Attribute(root, "标题", "易语窗体"),
             Width = NumberAttribute(root, "宽", 800, 320, 3840),
             Height = NumberAttribute(root, "高", 520, 240, 2160),
-            Background = Attribute(root, "背景", "#F4F7FB")
+            Background = Attribute(root, "背景", "#F4F7FB"),
+            Remark = Attribute(root, "备注", string.Empty),
+            BorderStyle = Attribute(root, "边框", "可调边框"),
+            Movable = BooleanAttribute(root, "可否移动", true),
+            StartPosition = Attribute(root, "初始位置", "默认"),
+            MinimizeBox = BooleanAttribute(root, "最小化按钮", true),
+            MaximizeBox = BooleanAttribute(root, "最大化按钮", true)
         };
         var names = new HashSet<string>(StringComparer.Ordinal);
         foreach (var element in root.Elements())
@@ -88,6 +119,7 @@ public static class YyFormSerializer
                 Type = type,
                 Name = RequiredAttribute(element, "名称"),
                 Text = Attribute(element, "文本", string.Empty),
+                Remark = Attribute(element, "备注", string.Empty),
                 ClickEvent = NullIfEmpty(Attribute(element, "单击", string.Empty)),
                 TextChangedEvent = NullIfEmpty(Attribute(element, "文本改变", string.Empty)),
                 SelectionChangedEvent = NullIfEmpty(Attribute(element, "选择改变", string.Empty)),
@@ -101,7 +133,14 @@ public static class YyFormSerializer
                 Background = Attribute(element, "背景", "#FFFFFF"),
                 IsEnabled = BooleanAttribute(element, "启用", true),
                 IsVisible = BooleanAttribute(element, "可见", true),
-                IsChecked = BooleanAttribute(element, "选中", false)
+                IsChecked = BooleanAttribute(element, "选中", false),
+                ReadOnly = BooleanAttribute(element, "只读", false),
+                MultiLine = BooleanAttribute(element, "多行", false),
+                PasswordChar = Attribute(element, "密码", string.Empty),
+                MaxLength = (int)NumberAttribute(element, "最大长度", 0, 0, 100_000),
+                Picture = Attribute(element, "图片", string.Empty),
+                DataBindingTable = NullIfEmpty(Attribute(element, "数据表", string.Empty)),
+                DataBindingColumn = NullIfEmpty(Attribute(element, "数据列", string.Empty))
             };
 
             if (!IsIdentifier(control.Name))
@@ -178,6 +217,10 @@ public static class YyFormSerializer
             new XAttribute("启用", control.IsEnabled),
             new XAttribute("可见", control.IsVisible),
             new XAttribute("选中", control.IsChecked));
+        if (!string.IsNullOrWhiteSpace(control.Remark))
+        {
+            element.SetAttributeValue("备注", control.Remark);
+        }
 
         if (!string.IsNullOrWhiteSpace(control.ClickEvent))
         {
@@ -197,6 +240,41 @@ public static class YyFormSerializer
         if (!string.IsNullOrWhiteSpace(control.CheckedChangedEvent))
         {
             element.SetAttributeValue("选中改变", control.CheckedChangedEvent);
+        }
+
+        if (control.ReadOnly)
+        {
+            element.SetAttributeValue("只读", true);
+        }
+
+        if (control.MultiLine)
+        {
+            element.SetAttributeValue("多行", true);
+        }
+
+        if (!string.IsNullOrEmpty(control.PasswordChar))
+        {
+            element.SetAttributeValue("密码", control.PasswordChar);
+        }
+
+        if (control.MaxLength > 0)
+        {
+            element.SetAttributeValue("最大长度", control.MaxLength);
+        }
+
+        if (!string.IsNullOrWhiteSpace(control.Picture))
+        {
+            element.SetAttributeValue("图片", control.Picture);
+        }
+
+        if (!string.IsNullOrWhiteSpace(control.DataBindingTable))
+        {
+            element.SetAttributeValue("数据表", control.DataBindingTable);
+        }
+
+        if (!string.IsNullOrWhiteSpace(control.DataBindingColumn))
+        {
+            element.SetAttributeValue("数据列", control.DataBindingColumn);
         }
 
         return element;

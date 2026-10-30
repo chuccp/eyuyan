@@ -1,4 +1,7 @@
+using System;
 using System.Windows;
+using System.Windows.Interop;
+using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace Yy.Studio;
@@ -10,11 +13,19 @@ public partial class App : Application
         StudioTrace.Write("App.OnStartup begin");
         base.OnStartup(e);
         StudioTrace.Write("App.OnStartup base complete");
+        if (string.Equals(Environment.GetEnvironmentVariable("YYSTUDIO_SOFTWARE_RENDER"), "1", StringComparison.Ordinal))
+        {
+            // 图形驱动/DComp 异常导致窗口上屏空白时,可用 YYSTUDIO_SOFTWARE_RENDER=1 强制软件渲染。
+            RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
+            StudioTrace.Write("Software rendering forced");
+        }
+
         DispatcherUnhandledException += OnUnhandledException;
         var window = new MainWindow();
         MainWindow = window;
         window.Show();
-        if (e.Args.Length > 0)
+        window.McpAttach(e.Args);
+        if (e.Args.Length > 0 && !e.Args[0].StartsWith("--", StringComparison.Ordinal))
         {
             window.OpenStartupPath(e.Args[0]);
         }

@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -12,11 +13,15 @@ public static class YyFormRenderer
         {
             YyControlTypes.Button => new Button { Content = model.Text },
             YyControlTypes.Label => new TextBlock { Text = model.Text },
+            YyControlTypes.TextBox when !string.IsNullOrEmpty(model.PasswordChar) =>
+                new PasswordBox { Password = model.Text, PasswordChar = model.PasswordChar[0] },
             YyControlTypes.TextBox => new TextBox { Text = model.Text },
             YyControlTypes.CheckBox => new CheckBox { Content = model.Text },
+            YyControlTypes.RadioButton => new RadioButton { Content = model.Text },
             YyControlTypes.ComboBox => CreateComboBox(model.Text),
             YyControlTypes.ListBox => CreateListBox(model.Text),
             YyControlTypes.GroupBox => new GroupBox { Header = model.Text },
+            YyControlTypes.PictureBox => CreatePictureBox(model),
             _ => throw new ArgumentOutOfRangeException(nameof(model), model.Type, "不支持的控件类型。")
         };
 
@@ -41,12 +46,93 @@ public static class YyFormRenderer
             textBlock.TextWrapping = TextWrapping.Wrap;
         }
 
-        if (element is CheckBox checkbox)
+        if (element is System.Windows.Controls.Primitives.ToggleButton toggle)
         {
-            checkbox.IsChecked = model.IsChecked;
+            toggle.IsChecked = model.IsChecked;
+        }
+
+        if (element is TextBox textBox)
+        {
+            textBox.IsReadOnly = model.ReadOnly;
+            textBox.AcceptsReturn = model.MultiLine;
+            textBox.TextWrapping = model.MultiLine ? TextWrapping.Wrap : TextWrapping.NoWrap;
+            textBox.VerticalScrollBarVisibility = model.MultiLine
+                ? ScrollBarVisibility.Auto
+                : ScrollBarVisibility.Disabled;
+            if (model.MaxLength > 0)
+            {
+                textBox.MaxLength = model.MaxLength;
+            }
+        }
+        else if (element is PasswordBox passwordBox && model.MaxLength > 0)
+        {
+            passwordBox.MaxLength = model.MaxLength;
         }
 
         return element;
+    }
+
+    /// <summary>图片框:等比缩放显示图片;未载入图片时显示浅色占位。</summary>
+    public static FrameworkElement CreatePictureBox(YyControlModel model)
+    {
+        var host = new Grid();
+        host.Children.Add(new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(245, 245, 245)),
+            Child = new TextBlock
+            {
+                Text = "图片框",
+                Foreground = new SolidColorBrush(Color.FromRgb(150, 150, 150)),
+                FontSize = 11,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            }
+        });
+        var image = new Image
+        {
+            Stretch = Stretch.Uniform,
+            Margin = new Thickness(1)
+        };
+        host.Children.Add(image);
+        SetElementPicture(host, model.Picture);
+        return host;
+    }
+
+    /// <summary>按路径为图片框/元素载入图片(空路径=清空)。</summary>
+    public static void SetElementPicture(FrameworkElement element, string? path)
+    {
+        if (element is not Grid { Children.Count: > 0 } host)
+        {
+            return;
+        }
+
+        var image = host.Children.OfType<Image>().FirstOrDefault();
+        if (image is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(path) || !System.IO.File.Exists(path))
+        {
+            image.Source = null;
+            return;
+        }
+
+        try
+        {
+            var bitmap = new System.Windows.Media.Imaging.BitmapImage();
+            bitmap.BeginInit();
+            bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+            bitmap.UriSource = new Uri(path, UriKind.RelativeOrAbsolute);
+            bitmap.EndInit();
+            bitmap.Freeze();
+            image.Source = bitmap;
+        }
+        catch (Exception exception) when (
+            exception is IOException or System.IO.FileFormatException or NotSupportedException or UriFormatException)
+        {
+            image.Source = null;
+        }
     }
 
     public static Brush Brush(string value)

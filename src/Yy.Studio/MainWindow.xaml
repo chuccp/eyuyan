@@ -3,6 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:avalon="http://icsharpcode.net/sharpdevelop/avalonedit"
         xmlns:structured="clr-namespace:Yy.Studio.Structured"
+        xmlns:props="clr-namespace:Yy.Studio.Properties"
+        xmlns:studio="clr-namespace:Yy.Studio"
         Title="易语 Studio"
         Icon="Assets/YyStudio.ico"
         Width="1380"
@@ -16,6 +18,44 @@
         Drop="OnWindowDrop"
         PreviewKeyDown="OnWindowPreviewKeyDown"
         Closing="OnWindowClosing">
+    <Window.Resources>
+        <!-- 图标工具按钮(对齐官方 26x24 小按钮 + 字形图标) -->
+        <Style x:Key="IconButton" TargetType="Button">
+            <Setter Property="Width" Value="26" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="1" />
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets, Segoe UI Symbol" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="2">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#FFE8F0FE" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#FF99BBDD" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#FFCCDDF0" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.4" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
     <Window.InputBindings>
         <KeyBinding Key="N" Modifiers="Control" Command="{x:Static local:MainWindow.NewFileCommand}"
                     xmlns:local="clr-namespace:Yy.Studio" />
@@ -35,11 +75,23 @@
                     xmlns:local="clr-namespace:Yy.Studio" />
         <KeyBinding Key="B" Modifiers="Control" Command="{x:Static local:MainWindow.CompileProjectCommand}"
                     xmlns:local="clr-namespace:Yy.Studio" />
+        <KeyBinding Key="F7" Command="{x:Static local:MainWindow.CompileProjectCommand}"
+                    xmlns:local="clr-namespace:Yy.Studio" />
         <KeyBinding Key="F5" Command="{x:Static local:MainWindow.RunCommand}"
                     xmlns:local="clr-namespace:Yy.Studio" />
         <KeyBinding Key="F5" Modifiers="Control" Command="{x:Static local:MainWindow.RunProjectCommand}"
                     xmlns:local="clr-namespace:Yy.Studio" />
         <KeyBinding Key="F5" Modifiers="Shift" Command="{x:Static local:MainWindow.StopCommand}"
+                    xmlns:local="clr-namespace:Yy.Studio" />
+        <KeyBinding Key="F8" Command="{x:Static local:MainWindow.DebugStepCommand}"
+                    xmlns:local="clr-namespace:Yy.Studio" />
+        <KeyBinding Key="F10" Command="{x:Static local:MainWindow.DebugStepOverCommand}"
+                    xmlns:local="clr-namespace:Yy.Studio" />
+        <KeyBinding Key="F8" Modifiers="Shift" Command="{x:Static local:MainWindow.DebugStepOutCommand}"
+                    xmlns:local="clr-namespace:Yy.Studio" />
+        <KeyBinding Key="F4" Command="{x:Static local:MainWindow.DebugRunToCursorCommand}"
+                    xmlns:local="clr-namespace:Yy.Studio" />
+        <KeyBinding Key="F9" Command="{x:Static local:MainWindow.DebugToggleBreakpointCommand}"
                     xmlns:local="clr-namespace:Yy.Studio" />
     </Window.InputBindings>
 
@@ -68,168 +120,461 @@
                         xmlns:local="clr-namespace:Yy.Studio" />
         <CommandBinding Command="{x:Static local:MainWindow.StopCommand}" Executed="OnStop"
                         xmlns:local="clr-namespace:Yy.Studio" />
+        <CommandBinding Command="{x:Static local:MainWindow.DebugStepCommand}" Executed="OnDebugStep"
+                        xmlns:local="clr-namespace:Yy.Studio" />
+        <CommandBinding Command="{x:Static local:MainWindow.DebugStepOverCommand}" Executed="OnDebugStepOver"
+                        xmlns:local="clr-namespace:Yy.Studio" />
+        <CommandBinding Command="{x:Static local:MainWindow.DebugStepOutCommand}" Executed="OnDebugStepOut"
+                        xmlns:local="clr-namespace:Yy.Studio" />
+        <CommandBinding Command="{x:Static local:MainWindow.DebugRunToCursorCommand}" Executed="OnDebugRunToCursor"
+                        xmlns:local="clr-namespace:Yy.Studio" />
+        <CommandBinding Command="{x:Static local:MainWindow.DebugToggleBreakpointCommand}" Executed="OnDebugToggleBreakpoint"
+                        xmlns:local="clr-namespace:Yy.Studio" />
     </Window.CommandBindings>
 
     <DockPanel LastChildFill="True">
+        <!-- ================= 菜单栏(对齐官方:程序/编辑/查看/插入/数据库/调试/运行/工具/窗口/帮助) ================= -->
         <Menu DockPanel.Dock="Top"
-              Height="28"
+              Height="26"
               Background="{StaticResource PanelRaisedBrush}"
               Foreground="{StaticResource TextBrush}"
               BorderBrush="{StaticResource BorderBrush}"
               BorderThickness="0,0,0,1"
-              Padding="6,1">
-            <MenuItem Header="文件" Style="{StaticResource TopMenuItem}">
-                <MenuItem Header="新建项目…"
-                          InputGestureText="Ctrl+Alt+N"
-                          Command="{x:Static local:MainWindow.NewProjectCommand}"
-                          xmlns:local="clr-namespace:Yy.Studio">
-                    <MenuItem.Icon><TextBlock Text="＋" /></MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="新建源码" InputGestureText="Ctrl+N"
+              Padding="4,0">
+            <MenuItem Header="_F程序" Style="{StaticResource TopMenuItem}">
+                <MenuItem Header="新建" InputGestureText="Ctrl+N" Click="OnNewProgramClick" />
+                <MenuItem Header="新建源码" InputGestureText="Ctrl+Shift+Alt+N"
                           Command="{x:Static local:MainWindow.NewFileCommand}"
-                          xmlns:local="clr-namespace:Yy.Studio">
-                    <MenuItem.Icon><TextBlock Text="◇" /></MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="新建窗体" InputGestureText="Ctrl+Shift+N"
+                          xmlns:local="clr-namespace:Yy.Studio" />
+                <MenuItem Header="新建窗口" InputGestureText="Ctrl+Shift+N"
                           Command="{x:Static local:MainWindow.NewFormCommand}"
-                          xmlns:local="clr-namespace:Yy.Studio">
-                    <MenuItem.Icon><TextBlock Text="▣" /></MenuItem.Icon>
+                          xmlns:local="clr-namespace:Yy.Studio" />
+                <MenuItem Header="打开">
+                    <MenuItem Header="打开文件…" InputGestureText="Ctrl+O"
+                              Command="{x:Static local:MainWindow.OpenFileCommand}"
+                              xmlns:local="clr-namespace:Yy.Studio" />
+                    <MenuItem Header="打开文件夹…" InputGestureText="Ctrl+Shift+O"
+                              Command="{x:Static local:MainWindow.OpenFolderCommand}"
+                              xmlns:local="clr-namespace:Yy.Studio" />
                 </MenuItem>
-                <MenuItem Header="打开文件…" InputGestureText="Ctrl+O"
-                          Command="{x:Static local:MainWindow.OpenFileCommand}"
-                          xmlns:local="clr-namespace:Yy.Studio">
-                    <MenuItem.Icon><TextBlock Text="↗" /></MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="打开文件夹…" InputGestureText="Ctrl+Shift+O"
-                          Command="{x:Static local:MainWindow.OpenFolderCommand}"
-                          xmlns:local="clr-namespace:Yy.Studio">
-                    <MenuItem.Icon><TextBlock Text="▱" /></MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="项目属性…" Click="OnProjectPropertiesClick">
-                    <MenuItem.Icon><TextBlock Text="⚙" /></MenuItem.Icon>
-                </MenuItem>
-                <Separator />
+                <MenuItem Header="关闭" InputGestureText="Ctrl+W"
+                          Command="{x:Static local:MainWindow.CloseTabCommand}"
+                          xmlns:local="clr-namespace:Yy.Studio" />
                 <MenuItem Header="保存" InputGestureText="Ctrl+S"
                           Command="{x:Static local:MainWindow.SaveFileCommand}"
-                          xmlns:local="clr-namespace:Yy.Studio">
-                    <MenuItem.Icon><TextBlock Text="↓" /></MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="另存为…" InputGestureText="Ctrl+Shift+S"
+                          xmlns:local="clr-namespace:Yy.Studio" />
+                <MenuItem Header="另存为" InputGestureText="Ctrl+Shift+S"
                           Command="{x:Static local:MainWindow.SaveAsCommand}"
-                          xmlns:local="clr-namespace:Yy.Studio">
-                    <MenuItem.Icon><TextBlock Text="⇩" /></MenuItem.Icon>
+                          xmlns:local="clr-namespace:Yy.Studio" />
+                <Separator />
+                <MenuItem Header="打印" InputGestureText="Ctrl+P" Click="OnPrintClick" />
+                <MenuItem Header="系统配置" Click="OnSystemConfigClick" />
+                <MenuItem Header="支持库配置" Click="OnSupportConfigClick" />
+                <MenuItem Header="易模块管理" Click="OnModuleManagerClick" />
+                <MenuItem Header="程序配置" Click="OnProjectPropertiesClick" />
+                <Separator />
+                <MenuItem Header="退出" InputGestureText="Alt+F4" Click="OnExitClick" />
+            </MenuItem>
+
+            <MenuItem Header="_E编辑" Style="{StaticResource TopMenuItem}">
+                <MenuItem Header="撤销" InputGestureText="Ctrl+Z" Command="ApplicationCommands.Undo" />
+                <MenuItem Header="重做" InputGestureText="Ctrl+Y" Command="ApplicationCommands.Redo" />
+                <Separator />
+                <MenuItem Header="剪切" InputGestureText="Ctrl+X" Command="ApplicationCommands.Cut" />
+                <MenuItem Header="复制" InputGestureText="Ctrl+C" Command="ApplicationCommands.Copy" />
+                <MenuItem Header="粘贴" InputGestureText="Ctrl+V" Command="ApplicationCommands.Paste" />
+                <MenuItem Header="全选" InputGestureText="Ctrl+A" Command="ApplicationCommands.SelectAll" />
+                <Separator />
+                <MenuItem x:Name="InsertLocalVarMenuItem"
+                          Header="插入局部变量"
+                          InputGestureText="Ctrl+L"
+                          Click="OnInsertLocalVariableClick" />
+            </MenuItem>
+
+            <MenuItem Header="_V查看" Style="{StaticResource TopMenuItem}">
+                <MenuItem Header="工具条">
+                    <MenuItem x:Name="ToggleStandardToolbarMenuItem" Header="标准工具条"
+                              IsCheckable="True" IsChecked="True" Click="OnToggleStandardToolbar" />
+                    <MenuItem x:Name="ToggleAlignToolbarMenuItem" Header="对齐条"
+                              IsCheckable="True" IsChecked="True" Click="OnToggleAlignToolbar" />
+                    <MenuItem x:Name="ToggleStatusBarMenuItem" Header="状态条"
+                              IsCheckable="True" IsChecked="True" Click="OnToggleStatusBar" />
                 </MenuItem>
                 <Separator />
-                <MenuItem Header="退出" InputGestureText="Alt+F4" Click="OnExitClick">
-                    <MenuItem.Icon><TextBlock Text="×" /></MenuItem.Icon>
-                </MenuItem>
+                <MenuItem Header="工作夹" InputGestureText="Alt+1" Click="OnShowWorkTab" Tag="程序" />
+                <MenuItem Header="命令夹" InputGestureText="Alt+2" Click="OnShowWorkTab" Tag="支持库" />
+                <MenuItem Header="工作与状态组合夹" InputGestureText="Alt+3" Click="OnToggleExplorer" />
+                <MenuItem Header="窗口组件箱" InputGestureText="Alt+4" Click="OnToggleToolboxPanel" />
+                <Separator />
+                <MenuItem Header="全局变量表" Click="OnOpenDataTableView" Tag="全局变量" />
+                <MenuItem Header="常量表" Click="OnOpenDataTableView" Tag="常量表" />
+                <MenuItem Header="资源表" Click="OnOpenDataTableView" Tag="资源表" />
+                <Separator />
+                <MenuItem Header="预览被设计窗口" InputGestureText="Ctrl+Enter" Click="OnPreviewForm" />
             </MenuItem>
-            <MenuItem Header="运行" Style="{StaticResource TopMenuItem}">
-                <MenuItem Header="运行项目入口" InputGestureText="Ctrl+F5"
-                          Command="{x:Static local:MainWindow.RunProjectCommand}"
-                          xmlns:local="clr-namespace:Yy.Studio">
-                    <MenuItem.Icon><TextBlock Text="▶" /></MenuItem.Icon>
+
+            <MenuItem Header="_I插入" Style="{StaticResource TopMenuItem}">
+                <MenuItem Header="新窗口" InputGestureText=""
+                          Command="{x:Static local:MainWindow.NewFormCommand}"
+                          xmlns:local="clr-namespace:Yy.Studio" />
+                <MenuItem x:Name="InsertFunctionMenuItem" Header="新子程序" Click="OnInsertFunctionClick" />
+                <MenuItem x:Name="InsertConstantMenuItem" Header="新常量" Click="OnInsertConstantClick" />
+                <MenuItem Header="新资源">
+                    <MenuItem Header="图片" Click="OnAddResourceClick" Tag="图片" />
+                    <MenuItem Header="声音" Click="OnAddResourceClick" Tag="声音" />
                 </MenuItem>
-                <MenuItem Header="运行当前文件" InputGestureText="F5"
+                <Separator />
+                <MenuItem Header="插入局部变量" InputGestureText="Ctrl+L" Click="OnInsertLocalVariableClick" />
+            </MenuItem>
+
+            <MenuItem Header="_B数据库" Style="{StaticResource TopMenuItem}">
+                <MenuItem Header="数据库设计器" Click="OnDatabaseDesignerClick" />
+                <MenuItem Header="数据绑定" Click="OnDataBindClick" />
+            </MenuItem>
+
+            <MenuItem Header="_R运行" Style="{StaticResource TopMenuItem}">
+                <MenuItem Header="运行" InputGestureText="F5"
                           Command="{x:Static local:MainWindow.RunCommand}"
-                          xmlns:local="clr-namespace:Yy.Studio">
-                    <MenuItem.Icon><TextBlock Text="▷" /></MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="停止" InputGestureText="Shift+F5"
+                          xmlns:local="clr-namespace:Yy.Studio" />
+                <MenuItem Header="运行项目" InputGestureText="Ctrl+F5"
+                          Command="{x:Static local:MainWindow.RunProjectCommand}"
+                          xmlns:local="clr-namespace:Yy.Studio" />
+                <MenuItem Header="终止运行" InputGestureText="Shift+F5"
                           Command="{x:Static local:MainWindow.StopCommand}"
-                          xmlns:local="clr-namespace:Yy.Studio">
-                    <MenuItem.Icon><TextBlock Text="■" /></MenuItem.Icon>
-                </MenuItem>
+                          xmlns:local="clr-namespace:Yy.Studio" />
+                <Separator />
+                <MenuItem Header="单步" InputGestureText="F8"
+                          Command="{x:Static local:MainWindow.DebugStepCommand}"
+                          xmlns:local="clr-namespace:Yy.Studio" />
+                <MenuItem Header="单步跳过" InputGestureText="F10"
+                          Command="{x:Static local:MainWindow.DebugStepOverCommand}"
+                          xmlns:local="clr-namespace:Yy.Studio" />
+                <MenuItem Header="跳出" InputGestureText="Shift+F8"
+                          Command="{x:Static local:MainWindow.DebugStepOutCommand}"
+                          xmlns:local="clr-namespace:Yy.Studio" />
+                <MenuItem Header="到光标处" InputGestureText="F4"
+                          Command="{x:Static local:MainWindow.DebugRunToCursorCommand}"
+                          xmlns:local="clr-namespace:Yy.Studio" />
+                <Separator />
+                <MenuItem Header="切换断点" InputGestureText="F9"
+                          Command="{x:Static local:MainWindow.DebugToggleBreakpointCommand}"
+                          xmlns:local="clr-namespace:Yy.Studio" />
             </MenuItem>
-            <MenuItem Header="生成" Style="{StaticResource TopMenuItem}">
-                <MenuItem Header="编译为 EXE" InputGestureText="Ctrl+B"
+
+            <MenuItem Header="_C编译" Style="{StaticResource TopMenuItem}">
+                <MenuItem Header="编译到目的操作系统">
+                    <MenuItem x:Name="TargetOsWinX64MenuItem" Header="Windows x64"
+                              Tag="win-x64" IsCheckable="True" IsChecked="True"
+                              Click="OnCompileTargetOsClick" />
+                    <MenuItem x:Name="TargetOsWinArm64MenuItem" Header="Windows ARM64"
+                              Tag="win-arm64" IsCheckable="True"
+                              Click="OnCompileTargetOsClick" />
+                    <MenuItem Header="Linux x64" Tag="linux-x64" Click="OnCompileTargetOsClick" />
+                    <MenuItem Header="macOS ARM64" Tag="osx-arm64" Click="OnCompileTargetOsClick" />
+                </MenuItem>
+                <Separator />
+                <MenuItem Header="编译" InputGestureText="F7"
                           Command="{x:Static local:MainWindow.CompileProjectCommand}"
-                          xmlns:local="clr-namespace:Yy.Studio">
-                    <MenuItem.Icon><TextBlock Text="⚙" /></MenuItem.Icon>
-                </MenuItem>
+                          xmlns:local="clr-namespace:Yy.Studio" />
+                <MenuItem Header="独立编译" Click="OnStandaloneCompileClick" />
+                <Separator />
+                <MenuItem Header="编译为易模块" Click="OnCompileModuleClick" />
             </MenuItem>
-            <MenuItem Header="帮助" Style="{StaticResource TopMenuItem}">
-                <MenuItem Header="语法速查" Click="OnSyntaxClick">
-                    <MenuItem.Icon><TextBlock Text="?" /></MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="关于易语 Studio" Click="OnAboutClick">
-                    <MenuItem.Icon><TextBlock Text="ⓘ" /></MenuItem.Icon>
-                </MenuItem>
+
+            <MenuItem Header="_T工具" Style="{StaticResource TopMenuItem}">
+                <MenuItem Header="菜单编辑器" InputGestureText="Ctrl+E" Click="OnMenuEditorClick" />
+                <Separator />
+                <MenuItem Header="程序配置" Click="OnProjectPropertiesClick" />
+            </MenuItem>
+
+            <MenuItem x:Name="WindowMenu" Header="_W窗口" Style="{StaticResource TopMenuItem}">
+                <MenuItem x:Name="WindowMenuPlaceholder" Header="（无打开的窗口）" IsEnabled="False" />
+            </MenuItem>
+
+            <MenuItem Header="_H帮助" Style="{StaticResource TopMenuItem}">
+                <MenuItem Header="语法速查" Click="OnSyntaxClick" />
+                <MenuItem Header="关于易语 Studio" Click="OnAboutClick" />
             </MenuItem>
         </Menu>
 
-        <Border DockPanel.Dock="Top"
-                Height="44"
-                Background="#2D2D30"
+        <!-- ================= 标准工具条(图标按钮,对齐官方) ================= -->
+        <Border x:Name="StandardToolbarRow"
+                DockPanel.Dock="Top"
+                Height="30"
+                Style="{StaticResource ClassicToolbar}"
                 BorderBrush="{StaticResource BorderBrush}"
                 BorderThickness="0,0,0,1">
-            <Grid Margin="8,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" Margin="2,1">
+                <Button Style="{StaticResource IconButton}" Content="&#xE710;"
+                        ToolTip="新建项目 (Ctrl+Alt+N)"
+                        Command="{x:Static local:MainWindow.NewProjectCommand}"
+                        xmlns:local="clr-namespace:Yy.Studio" />
+                <Button Style="{StaticResource IconButton}" Content="&#xE838;"
+                        ToolTip="打开文件 (Ctrl+O)"
+                        Command="{x:Static local:MainWindow.OpenFileCommand}"
+                        xmlns:local="clr-namespace:Yy.Studio" />
+                <Button Style="{StaticResource IconButton}" Content="&#xE74E;"
+                        ToolTip="保存 (Ctrl+S)"
+                        Command="{x:Static local:MainWindow.SaveFileCommand}"
+                        xmlns:local="clr-namespace:Yy.Studio" />
+                <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="3,3" />
+                <Button Style="{StaticResource IconButton}" Content="&#xE8C6;"
+                        ToolTip="剪切 (Ctrl+X)" Command="ApplicationCommands.Cut" />
+                <Button Style="{StaticResource IconButton}" Content="&#xE8C8;"
+                        ToolTip="复制 (Ctrl+C)" Command="ApplicationCommands.Copy" />
+                <Button Style="{StaticResource IconButton}" Content="&#xE77F;"
+                        ToolTip="粘贴 (Ctrl+V)" Command="ApplicationCommands.Paste" />
+                <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="3,3" />
+                <Button x:Name="DesignerUndoButton"
+                        Style="{StaticResource IconButton}" Content="&#xE7A7;"
+                        ToolTip="撤销 (Ctrl+Z)"
+                        IsEnabled="False"
+                        Click="OnDesignerUndoClick" />
+                <Button x:Name="DesignerRedoButton"
+                        Style="{StaticResource IconButton}" Content="&#xE7A6;"
+                        ToolTip="重做 (Ctrl+Y)"
+                        IsEnabled="False"
+                        Click="OnDesignerRedoClick" />
+                <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="3,3" />
+                <Button x:Name="RunButton" Style="{StaticResource IconButton}" Content="&#xE768;"
+                        ToolTip="运行 (F5)"
+                        Command="{x:Static local:MainWindow.RunCommand}"
+                        xmlns:local="clr-namespace:Yy.Studio" />
+                <Button x:Name="StopButton" Style="{StaticResource IconButton}" Content="&#xE71A;"
+                        ToolTip="终止运行 (Shift+F5)"
+                        IsEnabled="False"
+                        Command="{x:Static local:MainWindow.StopCommand}"
+                        xmlns:local="clr-namespace:Yy.Studio" />
+                <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="3,3" />
+                <Button x:Name="CompileProjectButton"
+                        Style="{StaticResource IconButton}" Content="&#x2699;"
+                        ToolTip="编译 (F7)"
+                        Command="{x:Static local:MainWindow.CompileProjectCommand}"
+                        xmlns:local="clr-namespace:Yy.Studio" />
+            </StackPanel>
+        </Border>
 
-                <Border Width="25" Height="25"
-                        CornerRadius="3"
-                        Background="{StaticResource AccentBrush}"
-                        VerticalAlignment="Center">
-                    <TextBlock Text="易"
-                               Foreground="White"
-                               FontSize="14"
-                               FontWeight="Bold"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center" />
-                </Border>
-                <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center"
-                            Orientation="Horizontal">
-                    <TextBlock Text="易语 Studio" FontSize="13" FontWeight="SemiBold" />
-                    <TextBlock Text="中文应用开发环境"
-                               FontSize="10"
-                               Foreground="{StaticResource MutedBrush}"
-                               Margin="10,1,0,0" />
-                </StackPanel>
+        <!-- ================= 对齐条 ================= -->
+        <Border x:Name="AlignToolbarRow"
+                DockPanel.Dock="Top"
+                Height="28"
+                Style="{StaticResource ClassicToolbar}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal" Margin="2,1">
+                <Button Style="{StaticResource IconButton}" Content="&#x21E4;" Tag="Left"
+                        ToolTip="左对齐" Click="OnAlignDesignerControls" />
+                <Button Style="{StaticResource IconButton}" Content="&#x21E5;" Tag="Right"
+                        ToolTip="右对齐" Click="OnAlignDesignerControls" />
+                <Button Style="{StaticResource IconButton}" Content="&#x2912;" Tag="Top"
+                        ToolTip="顶对齐" Click="OnAlignDesignerControls" />
+                <Button Style="{StaticResource IconButton}" Content="&#x2913;" Tag="Bottom"
+                        ToolTip="底对齐" Click="OnAlignDesignerControls" />
+                <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="3,3" />
+                <Button Style="{StaticResource IconButton}" Content="&#x21D4;" Tag="CenterX"
+                        ToolTip="水平居中对齐" Click="OnAlignDesignerControls" />
+                <Button Style="{StaticResource IconButton}" Content="&#x21D5;" Tag="CenterY"
+                        ToolTip="垂直居中对齐" Click="OnAlignDesignerControls" />
+                <Button Style="{StaticResource IconButton}" Content="&#x21FF;" Tag="DistributeX"
+                        ToolTip="水平等距分布" Click="OnAlignDesignerControls" />
+                <Button Style="{StaticResource IconButton}" Content="&#x2195;" Tag="DistributeY"
+                        ToolTip="垂直等距分布" Click="OnAlignDesignerControls" />
+                <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="3,3" />
+                <CheckBox x:Name="SnapCheckBox"
+                          Content="吸附网格"
+                          IsChecked="True"
+                          Foreground="{StaticResource TextBrush}"
+                          FontSize="11"
+                          VerticalAlignment="Center" />
+            </StackPanel>
+        </Border>
 
-                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Style="{StaticResource ToolButton}" Content="＋ 新建项目"
-                            ToolTip="新建易语项目 (Ctrl+Alt+N)"
-                            Command="{x:Static local:MainWindow.NewProjectCommand}"
-                            xmlns:local="clr-namespace:Yy.Studio" />
-                    <Button Style="{StaticResource ToolButton}" Content="打开目录"
-                            ToolTip="打开文件或文件夹"
-                            Command="{x:Static local:MainWindow.OpenFolderCommand}"
-                            xmlns:local="clr-namespace:Yy.Studio" />
-                    <Button Style="{StaticResource ToolButton}" Content="保存"
-                            ToolTip="保存当前文件 (Ctrl+S)"
-                            Command="{x:Static local:MainWindow.SaveFileCommand}"
-                            xmlns:local="clr-namespace:Yy.Studio" />
-                    <Button Style="{StaticResource ToolButton}" Content="窗体"
-                            ToolTip="新建窗体设计"
-                            Command="{x:Static local:MainWindow.NewFormCommand}"
-                            xmlns:local="clr-namespace:Yy.Studio" />
-                    <Button x:Name="CompileProjectButton"
-                            Style="{StaticResource ToolButton}"
-                            Content="编译"
-                            ToolTip="编译项目为独立 EXE (Ctrl+B)"
-                            Command="{x:Static local:MainWindow.CompileProjectCommand}"
-                            xmlns:local="clr-namespace:Yy.Studio" />
-                    <Button x:Name="RunButton" Style="{StaticResource RunButton}" Content="▶  启动"
-                            ToolTip="运行或预览 (F5)"
-                            Command="{x:Static local:MainWindow.RunCommand}"
-                            xmlns:local="clr-namespace:Yy.Studio" />
-                    <Button x:Name="StopButton" Style="{StaticResource ToolButton}" Content="■  停止"
-                            ToolTip="停止运行 (Shift+F5)"
-                            IsEnabled="False"
-                            Command="{x:Static local:MainWindow.StopCommand}"
-                            xmlns:local="clr-namespace:Yy.Studio" />
-                </StackPanel>
+        <!-- ================= 提示、输入出组合夹(全宽,夹标签在顶) ================= -->
+        <Border DockPanel.Dock="Bottom"
+                Height="172"
+                MinHeight="96"
+                Background="{StaticResource PanelBrush}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="4" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <TabControl x:Name="BottomTabs"
+                            Grid.Row="0"
+                            Grid.RowSpan="3"
+                            Background="{StaticResource WindowBrush}"
+                            BorderThickness="0">
+                    <TabItem Header="提示">
+                        <TextBox x:Name="EditorHelpBox"
+                                 Background="{StaticResource HintBrush}"
+                                 Foreground="#000000"
+                                 BorderThickness="0"
+                                 IsReadOnly="True"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 Padding="10,6"
+                                 FontFamily="Microsoft YaHei UI"
+                                 FontSize="12"
+                                 VerticalScrollBarVisibility="Auto" />
+                    </TabItem>
+                    <TabItem Header="输出">
+                        <Grid Background="{StaticResource EditorBrush}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="26" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Border Background="{StaticResource FaceBrush}"
+                                    BorderBrush="{StaticResource BorderBrush}"
+                                    BorderThickness="0,0,0,1">
+                                <Grid Margin="9,0">
+                                    <TextBlock x:Name="RunInfoText"
+                                               FontSize="10"
+                                               Foreground="{StaticResource MutedBrush}"
+                                               VerticalAlignment="Center" />
+                                    <Button Content="清空" Style="{StaticResource ToolButton}"
+                                            Padding="8,2" HorizontalAlignment="Right"
+                                            VerticalAlignment="Center" Click="OnClearOutput" />
+                                </Grid>
+                            </Border>
+                            <TextBox x:Name="OutputBox"
+                                     Grid.Row="1"
+                                     Background="{StaticResource EditorBrush}"
+                                     Foreground="#000000"
+                                     BorderThickness="0"
+                                     FontFamily="Cascadia Code, Consolas, Microsoft YaHei UI"
+                                     FontSize="12"
+                                     IsReadOnly="True"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     Padding="12,8"
+                                     VerticalScrollBarVisibility="Auto"
+                                     HorizontalScrollBarVisibility="Disabled" />
+                        </Grid>
+                    </TabItem>
+                    <TabItem Header="调用表">
+                        <ListBox x:Name="CallStackList"
+                                 Background="{StaticResource EditorBrush}"
+                                 Foreground="{StaticResource TextBrush}">
+                            <ListBoxItem Content="（运行暂停时显示调用表）"
+                                         Foreground="{StaticResource MutedBrush}" />
+                        </ListBox>
+                    </TabItem>
+                    <TabItem Header="监视表">
+                        <Grid Background="{StaticResource EditorBrush}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="28" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Border Background="{StaticResource FaceBrush}"
+                                    BorderBrush="{StaticResource BorderBrush}"
+                                    BorderThickness="0,0,0,1">
+                                <StackPanel Orientation="Horizontal" Margin="6,3">
+                                    <TextBox x:Name="WatchInputBox" Width="220" FontSize="11.5"
+                                             VerticalContentAlignment="Center"
+                                             KeyDown="OnWatchInputKeyDown" />
+                                    <Button Content="加入监视" Style="{StaticResource ToolButton}"
+                                            Padding="8,2" Margin="6,0,0,0"
+                                            Click="OnWatchAddClick" />
+                                    <Button Content="移除" Style="{StaticResource ToolButton}"
+                                            Padding="8,2" Margin="6,0,0,0"
+                                            Click="OnWatchRemoveClick" />
+                                </StackPanel>
+                            </Border>
+                            <ListBox x:Name="WatchList" Grid.Row="1" Margin="0"
+                                     SelectionMode="Extended">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock FontSize="11.5" TextTrimming="CharacterEllipsis">
+                                            <Run Text="{Binding Key, Mode=OneWay}" FontWeight="SemiBold" />
+                                            <Run Text=" = " />
+                                            <Run Text="{Binding Value, Mode=OneWay}" />
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+                    </TabItem>
+                    <TabItem Header="变量表">
+                        <ListBox x:Name="VariableList" Margin="0">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock FontSize="11.5" TextTrimming="CharacterEllipsis">
+                                        <Run Text="{Binding Key, Mode=OneWay}" FontWeight="SemiBold" />
+                                        <Run Text=" = " />
+                                        <Run Text="{Binding Value, Mode=OneWay}" />
+                                    </TextBlock>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </TabItem>
+                    <TabItem Header="搜寻1">
+                        <Grid Background="{StaticResource EditorBrush}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="28" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Border Background="{StaticResource FaceBrush}"
+                                    BorderBrush="{StaticResource BorderBrush}"
+                                    BorderThickness="0,0,0,1">
+                                <StackPanel Orientation="Horizontal" Margin="6,3">
+                                    <TextBox x:Name="SearchInputBox" Width="220" FontSize="11.5"
+                                             VerticalContentAlignment="Center"
+                                             KeyDown="OnSearchInputKeyDown" />
+                                    <Button Content="查找" Style="{StaticResource ToolButton}"
+                                            Padding="8,2" Margin="6,0,0,0"
+                                            Click="OnSearchClick" />
+                                </StackPanel>
+                            </Border>
+                            <ListBox x:Name="SearchResultsList1" Grid.Row="1" Margin="0"
+                                     MouseDoubleClick="OnSearchResultDoubleClick">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock FontSize="11.5" TextTrimming="CharacterEllipsis">
+                                            <Run Text="{Binding Line, Mode=OneWay}" FontWeight="SemiBold" Foreground="#000080" />
+                                            <Run Text="  " />
+                                            <Run Text="{Binding Text, Mode=OneWay}" />
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+                    </TabItem>
+                    <TabItem Header="搜寻2">
+                        <ListBox x:Name="SearchResultsList2" Margin="0"
+                                 MouseDoubleClick="OnSearchResultDoubleClick">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock FontSize="11.5" TextTrimming="CharacterEllipsis">
+                                        <Run Text="{Binding Line, Mode=OneWay}" FontWeight="SemiBold" Foreground="#000080" />
+                                        <Run Text="  " />
+                                        <Run Text="{Binding Text, Mode=OneWay}" />
+                                    </TextBlock>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </TabItem>
+                    <TabItem Header="剪辑历史">
+                        <ListBox x:Name="ClipHistoryList" Margin="0"
+                                 MouseDoubleClick="OnClipHistoryInsert">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Text, Mode=OneWay}"
+                                               FontSize="11.5" TextTrimming="CharacterEllipsis" />
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </TabItem>
+                </TabControl>
             </Grid>
         </Border>
 
-        <Border DockPanel.Dock="Bottom"
-                Height="24"
-                Background="#007ACC"
-                BorderBrush="#0067A8"
+        <!-- ================= 状态条 ================= -->
+        <Border x:Name="StatusBarRow"
+                DockPanel.Dock="Bottom"
+                Height="22"
+                Background="{StaticResource FaceBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
                 BorderThickness="0,1,0,0">
             <Grid Margin="8,0">
                 <Grid.ColumnDefinitions>
@@ -238,117 +583,155 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Ellipse x:Name="StatusDot" Width="7" Height="7" Fill="White" />
+                    <Ellipse x:Name="StatusDot" Width="7" Height="7" Fill="#006000" />
                     <TextBlock x:Name="StatusText" Text="就绪"
                                Margin="7,0,0,0" FontSize="11"
-                               Foreground="White" />
+                               Foreground="{StaticResource TextBrush}" />
                 </StackPanel>
                 <TextBlock x:Name="CaretText" Grid.Column="1" Text="行 1，列 1"
-                           FontSize="11" Foreground="#EAF6FF"
+                           FontSize="11" Foreground="{StaticResource TextBrush}"
                            Margin="0,0,18,0" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="2" Text="UTF-8  ·  Windows 原生"
-                           FontSize="11" Foreground="#EAF6FF"
+                           FontSize="11" Foreground="{StaticResource MutedBrush}"
                            VerticalAlignment="Center" />
             </Grid>
         </Border>
 
+        <!-- ================= 主体:左工作与状态组合夹 | 设计中心 | 右窗口组件箱 ================= -->
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="44" />
-                <ColumnDefinition x:Name="ExplorerColumn" Width="240" MinWidth="180" />
+                <ColumnDefinition x:Name="ExplorerColumn" Width="252" MinWidth="180" />
                 <ColumnDefinition Width="4" />
                 <ColumnDefinition Width="*" MinWidth="420" />
                 <ColumnDefinition Width="4" />
-                <ColumnDefinition x:Name="InspectorColumn" Width="300" MinWidth="220" />
+                <ColumnDefinition x:Name="InspectorColumn" Width="132" MinWidth="104" />
             </Grid.ColumnDefinitions>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*" MinHeight="300" />
-                <RowDefinition Height="4" />
-                <RowDefinition Height="164" MinHeight="110" />
-            </Grid.RowDefinitions>
 
-            <Border Grid.Column="0" Grid.RowSpan="3" Background="#333337">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Button x:Name="ExplorerActivityButton"
-                            Width="44"
-                            Height="46"
-                            Background="#2D2D30"
-                            BorderThickness="0,0,2,0"
-                            BorderBrush="{StaticResource AccentBrush}"
-                            Foreground="{StaticResource TextBrush}"
-                            ToolTip="解决方案资源管理器"
-                            Click="OnToggleExplorer">
-                        <StackPanel>
-                            <TextBlock Text="▱" FontSize="18" HorizontalAlignment="Center" />
-                            <TextBlock Text="项目" FontSize="9" HorizontalAlignment="Center"
-                                       Foreground="#D7D7D7" Margin="0,1,0,0" />
-                        </StackPanel>
-                    </Button>
-                    <Button Grid.Row="2"
-                            Width="44"
-                            Height="42"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Foreground="{StaticResource MutedBrush}"
-                            ToolTip="关于易语 Studio"
-                            Click="OnAboutClick">
-                        <TextBlock Text="⚙" FontSize="18" HorizontalAlignment="Center" />
-                    </Button>
-                </Grid>
-            </Border>
-
-            <Border Grid.Column="1" x:Name="ExplorerPanel" Grid.RowSpan="3"
+            <!-- 左:工作与状态组合夹(夹标签在底部) -->
+            <Border Grid.Column="0" x:Name="ExplorerPanel"
                     Background="{StaticResource PanelBrush}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <DockPanel Margin="0,0,0,2">
-                        <TextBlock x:Name="ProjectTitleText" Text="解决方案资源管理器"
-                                   Style="{StaticResource SectionTitle}" />
-                        <Button Content="+"
-                                Style="{StaticResource ToolButton}"
-                                Padding="8,2"
-                                Margin="0,0,9,4"
-                                HorizontalAlignment="Right"
-                                ToolTip="新建易语文件"
-                                Command="{x:Static local:MainWindow.NewFileCommand}"
-                                xmlns:local="clr-namespace:Yy.Studio" />
+                <TabControl x:Name="WorkTabs" TabStripPlacement="Bottom">
+                    <TabItem Header="支持库">
+                        <TreeView x:Name="SupportTree"
+                                  SelectedItemChanged="OnSupportTreeSelectionChanged"
+                                  PreviewMouseLeftButtonDown="OnSupportTreeDoubleClick" />
+                    </TabItem>
+                    <TabItem Header="程序">
+                        <TreeView x:Name="ProjectTree"
+                                  SelectedItemChanged="OnProjectTreeSelectionChanged"
+                                  MouseDoubleClick="OnProjectTreeDoubleClick" />
+                    </TabItem>
+                    <TabItem Header="属性">
+                    <DockPanel Grid.IsSharedSizeScope="True">
+                        <ComboBox x:Name="PropertyObjectCombo"
+                                  DockPanel.Dock="Top"
+                                  Margin="4,4,4,2"
+                                  Padding="5,3"
+                                  SelectionChanged="OnPropertyObjectChanged"
+                                  ToolTip="选择要查看属性的对象" />
+                        <ComboBox x:Name="EventSelectorCombo"
+                                  DockPanel.Dock="Bottom"
+                                  Margin="4,2,4,4"
+                                  Padding="5,3"
+                                  SelectionChanged="OnEventSelectorChanged"
+                                  ToolTip="在此处选择加入事件处理子程序">
+                            <ComboBoxItem Content="在此处选择加入事件处理子程序" IsSelected="True" />
+                        </ComboBox>
+                        <ListBox x:Name="PropertyRows"
+                                 Margin="4,2,4,2"
+                                 BorderThickness="0"
+                                 Background="{StaticResource EditorBrush}"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 SelectionChanged="OnPropertyGridSelectionChanged">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="116" SharedSizeGroup="PropName" />
+                                            <ColumnDefinition Width="*" SharedSizeGroup="PropValue" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border x:Name="NameCell"
+                                                Background="{StaticResource FaceBrush}"
+                                                BorderBrush="{StaticResource SunkenShadowBrush}"
+                                                BorderThickness="0,0,1,1"
+                                                Padding="5,2">
+                                            <TextBlock x:Name="NameText"
+                                                       Text="{Binding Name}"
+                                                       FontSize="11.5" />
+                                        </Border>
+                                        <Border Grid.Column="1"
+                                                Background="{StaticResource EditorBrush}"
+                                                BorderBrush="{StaticResource SunkenShadowBrush}"
+                                                BorderThickness="0,0,1,1">
+                                            <Grid>
+                                                <TextBox x:Name="ValueBox"
+                                                         Text="{Binding ValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                                         BorderThickness="0"
+                                                         Background="Transparent"
+                                                         Padding="4,2"
+                                                         FontSize="11.5"
+                                                         KeyDown="OnPropertyRowKeyDown"
+                                                         LostFocus="OnPropertyRowCommit" />
+                                                <ComboBox x:Name="ValueBool"
+                                                          ItemsSource="{x:Static props:PropertyRowCatalog.TrueFalse}"
+                                                          SelectedItem="{Binding ValueText, Mode=TwoWay}"
+                                                          Visibility="Collapsed"
+                                                          Padding="3,1"
+                                                          FontSize="11.5"
+                                                          SelectionChanged="OnPropertyBoolCommit" />
+                                                <ComboBox x:Name="ValueColor"
+                                                          ItemsSource="{x:Static props:PropertyRowCatalog.ColorPresets}"
+                                                          SelectedItem="{Binding ValueText, Mode=TwoWay}"
+                                                          Visibility="Collapsed"
+                                                          Padding="3,1"
+                                                          FontSize="11.5"
+                                                          SelectionChanged="OnPropertyBoolCommit">
+                                                    <ComboBox.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <Border Width="14" Height="11"
+                                                                        BorderBrush="#808080" BorderThickness="1"
+                                                                        Background="{Binding ., Converter={x:Static props:HexToBrushConverter.Instance}}"
+                                                                        VerticalAlignment="Center"
+                                                                        Margin="0,0,6,0" />
+                                                                <TextBlock Text="{Binding .}" VerticalAlignment="Center" />
+                                                            </StackPanel>
+                                                        </DataTemplate>
+                                                    </ComboBox.ItemTemplate>
+                                                </ComboBox>
+                                            </Grid>
+                                        </Border>
+                                    </Grid>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding Kind}" Value="Bool">
+                                            <Setter TargetName="ValueBox" Property="Visibility" Value="Collapsed" />
+                                            <Setter TargetName="ValueBool" Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Kind}" Value="Color">
+                                            <Setter TargetName="ValueBox" Property="Visibility" Value="Collapsed" />
+                                            <Setter TargetName="ValueColor" Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
+                                                     Value="True">
+                                            <Setter TargetName="NameCell" Property="Background" Value="{StaticResource AccentBrush}" />
+                                            <Setter TargetName="NameText" Property="Foreground" Value="White" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsEnabled}" Value="False">
+                                            <Setter TargetName="ValueBox" Property="IsEnabled" Value="False" />
+                                            <Setter TargetName="ValueBool" Property="IsEnabled" Value="False" />
+                                            <Setter TargetName="ValueColor" Property="IsEnabled" Value="False" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
                     </DockPanel>
-                    <TreeView x:Name="ProjectTree"
-                              Grid.Row="1"
-                              SelectedItemChanged="OnProjectTreeSelectionChanged"
-                              MouseDoubleClick="OnProjectTreeDoubleClick" />
-                    <Border Grid.Row="2"
-                            Margin="12"
-                            Padding="10"
-                            Background="#1E1E1E"
-                            BorderBrush="{StaticResource BorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="2">
-                        <StackPanel>
-                            <TextBlock Text="源码格式" FontSize="10" Foreground="{StaticResource MutedBrush}" />
-                            <TextBlock Text=".yyc XML · UTF-8" FontSize="12" Margin="0,3,0,0" />
-                            <TextBlock Text="按 F5 直接运行，无需保存。"
-                                       TextWrapping="Wrap"
-                                       FontSize="10"
-                                       Foreground="{StaticResource MutedBrush}"
-                                       Margin="0,7,0,0" />
-                        </StackPanel>
-                    </Border>
-                </Grid>
+                </TabItem>
+                </TabControl>
             </Border>
 
             <GridSplitter x:Name="ExplorerSplitter"
-                          Grid.Column="2"
-                          Grid.RowSpan="3"
+                          Grid.Column="1"
                           Width="4"
                           HorizontalAlignment="Stretch"
                           Background="{StaticResource BorderBrush}"
@@ -356,20 +739,20 @@
                           ResizeDirection="Columns"
                           ShowsPreview="True" />
 
-            <Grid Grid.Column="3" Background="{StaticResource WindowBrush}">
+            <!-- 中:文档区(文档标签在底部,对齐官方) -->
+            <Grid x:Name="DocumentArea" Grid.Column="2" Background="{StaticResource WindowBrush}">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="34" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="30" />
                 </Grid.RowDefinitions>
-                <Border Background="#2D2D30"
+                <Border Background="{StaticResource FaceBrush}"
+                        Grid.Row="2"
                         BorderBrush="{StaticResource BorderBrush}"
-                        BorderThickness="0,0,0,1">
+                        BorderThickness="0,1,0,0">
                     <Grid Margin="8,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <ListBox x:Name="DocumentTabs"
@@ -406,11 +789,11 @@
                                                         <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
                                                         <Setter TargetName="TabChrome" Property="BorderBrush"
                                                                 Value="{StaticResource AccentBrush}" />
-                                        <Setter TargetName="TabChrome" Property="Background" Value="#1E1E1E" />
+                                        <Setter TargetName="TabChrome" Property="Background" Value="{StaticResource FaceBrush}" />
                                                     </Trigger>
                                                     <Trigger Property="IsMouseOver" Value="True">
                                                         <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
-                                        <Setter TargetName="TabChrome" Property="Background" Value="#3A3D41" />
+                                        <Setter TargetName="TabChrome" Property="Background" Value="{StaticResource PanelRaisedBrush}" />
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
@@ -446,53 +829,37 @@
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
-                        <Button Grid.Column="1"
-                                Content="+"
-                                Style="{StaticResource ToolButton}"
-                                Padding="8,3"
-                                Margin="5,0"
-                                ToolTip="新建源码"
-                                Command="{x:Static local:MainWindow.NewFileCommand}"
-                                xmlns:local="clr-namespace:Yy.Studio" />
-                        <Border Grid.Column="2"
-                                Background="#3A3D41"
-                                CornerRadius="4"
-                                Padding="6,2"
-                                Margin="3,0,8,0"
-                                VerticalAlignment="Center">
-                            <TextBlock Text="易语 3"
-                                       FontSize="9.5"
-                                       Foreground="{StaticResource AccentBrush}" />
-                        </Border>
-                        <TextBlock Grid.Column="3"
+                        <TextBlock Grid.Column="1"
                                    Text="Ctrl+Space 补全"
                                    VerticalAlignment="Center"
                                    FontSize="10"
-                                   Foreground="{StaticResource MutedBrush}" />
+                                   Foreground="{StaticResource MutedBrush}"
+                                   Margin="8,0,4,0" />
                     </Grid>
                 </Border>
 
                 <avalon:TextEditor x:Name="Editor"
-                                   Grid.Row="1"
-                                   Background="#1E1E1E"
-                                   Foreground="#D4D4D4"
+                                   Grid.Row="0"
+                                   Background="{StaticResource EditorBrush}"
+                                   Foreground="#000000"
                                    FontFamily="Cascadia Code, Consolas, Microsoft YaHei UI"
                                    FontSize="13"
                                    ShowLineNumbers="True"
+                                   LineNumbersForeground="{StaticResource MutedBrush}"
                                    HorizontalScrollBarVisibility="Auto"
                                    VerticalScrollBarVisibility="Auto"
                                    Padding="8,10,8,16"
                                    TextChanged="OnEditorTextChanged" />
 
                 <structured:StructuredCodeEditor x:Name="StructuredEditor"
-                                                 Grid.Row="1"
+                                                 Grid.Row="0"
                                                  Grid.RowSpan="2"
                                                  Visibility="Collapsed"
                                                  ModelChanged="OnStructuredCodeChanged" />
 
                 <Border x:Name="ParameterHintBar"
-                        Grid.Row="2"
-                        Background="#252526"
+                        Grid.Row="1"
+                        Background="{StaticResource FaceBrush}"
                         BorderBrush="{StaticResource BorderBrush}"
                         BorderThickness="0,1,0,0"
                         Padding="10,4"
@@ -500,208 +867,75 @@
                     <TextBlock x:Name="ParameterHintText"
                                FontFamily="Cascadia Code, Consolas, Microsoft YaHei UI"
                                FontSize="10.5"
-                               Foreground="#9CDCFE"
+                               Foreground="#000080"
                                TextTrimming="CharacterEllipsis" />
                 </Border>
 
+                <studio:DataTableView x:Name="DataTableViewHost"
+                                      Grid.Row="0"
+                                      Grid.RowSpan="2"
+                                      Visibility="Collapsed" />
+
                 <Grid x:Name="DesignerPanel"
-                      Grid.Row="1"
+                      Grid.Row="0"
                       Grid.RowSpan="2"
-                      Background="#1E1E1E"
+                      Background="{StaticResource WorkspaceBrush}"
                       Visibility="Collapsed">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="42" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <Border Background="#2D2D30"
-                            BorderBrush="{StaticResource BorderBrush}"
-                            BorderThickness="0,0,0,1">
-                        <Grid Margin="10,0">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="窗体设计器"
-                                           FontSize="12"
-                                           FontWeight="SemiBold" />
-                                <TextBlock Text="拖放控件 · Ctrl+单击多选 · 双击按钮生成事件代码"
-                                           FontSize="10"
-                                           Foreground="{StaticResource MutedBrush}"
-                                           Margin="12,0,0,0" />
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal"
-                                        HorizontalAlignment="Right"
-                                        VerticalAlignment="Center">
-                                <Button x:Name="DesignerUndoButton"
-                                        Content="↶ 撤销"
-                                        Style="{StaticResource ToolButton}"
-                                        Padding="8,4"
-                                        IsEnabled="False"
-                                        Click="OnDesignerUndoClick" />
-                                <Button x:Name="DesignerRedoButton"
-                                        Content="↷ 重做"
-                                        Style="{StaticResource ToolButton}"
-                                        Padding="8,4"
-                                        IsEnabled="False"
-                                        Click="OnDesignerRedoClick" />
-                                <Button x:Name="DesignerAlignButton"
-                                        Content="对齐 ▾"
-                                        Style="{StaticResource ToolButton}"
-                                        Padding="8,4"
-                                        Click="OnDesignerAlignMenuClick">
-                                    <Button.ContextMenu>
-                                        <ContextMenu>
-                                            <MenuItem Header="左对齐" Tag="Left" Click="OnAlignDesignerControls" />
-                                            <MenuItem Header="水平居中对齐" Tag="CenterX" Click="OnAlignDesignerControls" />
-                                            <MenuItem Header="右对齐" Tag="Right" Click="OnAlignDesignerControls" />
-                                            <Separator />
-                                            <MenuItem Header="顶对齐" Tag="Top" Click="OnAlignDesignerControls" />
-                                            <MenuItem Header="垂直居中对齐" Tag="CenterY" Click="OnAlignDesignerControls" />
-                                            <MenuItem Header="底对齐" Tag="Bottom" Click="OnAlignDesignerControls" />
-                                            <Separator />
-                                            <MenuItem Header="水平等距分布" Tag="DistributeX" Click="OnAlignDesignerControls" />
-                                            <MenuItem Header="垂直等距分布" Tag="DistributeY" Click="OnAlignDesignerControls" />
-                                        </ContextMenu>
-                                    </Button.ContextMenu>
-                                </Button>
-                                <CheckBox x:Name="SnapCheckBox"
-                                          Content="吸附网格"
-                                          IsChecked="True"
-                                          Foreground="{StaticResource MutedBrush}"
-                                          FontSize="11"
-                                          Margin="0,0,12,0"
-                                          VerticalAlignment="Center" />
-                                <Button Content="代码后置"
-                                        Style="{StaticResource ToolButton}"
-                                        Padding="10,4"
-                                        Click="OnOpenFormCodeBehind" />
-                                <Button Content="预览窗体"
-                                        Style="{StaticResource ToolButton}"
-                                        Padding="10,4"
-                                        Click="OnPreviewForm" />
-                            </StackPanel>
-                        </Grid>
-                    </Border>
-
-                    <Grid Grid.Row="1">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="1" />
-                            <ColumnDefinition Width="150" />
-                        </Grid.ColumnDefinitions>
-                        <Border Grid.Column="2" Background="#252526">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="*" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-                                <TextBlock Text="控件"
-                                           Style="{StaticResource SectionTitle}" />
-                                <ListBox x:Name="ControlToolbox"
-                                         Grid.Row="1"
-                                         Margin="6,0"
-                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                         MouseDoubleClick="OnToolboxDoubleClick"
-                                         PreviewMouseLeftButtonDown="OnToolboxMouseDown"
-                                         PreviewMouseMove="OnToolboxMouseMove">
-                                    <ListBox.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <WrapPanel Orientation="Horizontal" />
-                                        </ItemsPanelTemplate>
-                                    </ListBox.ItemsPanel>
-                                    <ListBox.ItemContainerStyle>
-                                        <Style TargetType="ListBoxItem">
-                                            <Setter Property="Width" Value="64" />
-                                            <Setter Property="Height" Value="48" />
-                                            <Setter Property="Margin" Value="2" />
-                                            <Setter Property="Padding" Value="0" />
-                                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                            <Setter Property="VerticalContentAlignment" Value="Stretch" />
-                                            <Setter Property="Template">
-                                                <Setter.Value>
-                                                    <ControlTemplate TargetType="ListBoxItem">
-                                                        <Border x:Name="ToolTile"
-                                                                Background="#2D2D30"
-                                                                BorderBrush="#3F3F46"
-                                                                BorderThickness="1"
-                                                                CornerRadius="2"
-                                                                Padding="4">
-                                                            <ContentPresenter HorizontalAlignment="Center"
-                                                                              VerticalAlignment="Center" />
-                                                        </Border>
-                                                        <ControlTemplate.Triggers>
-                                                            <Trigger Property="IsMouseOver" Value="True">
-                                                                <Setter TargetName="ToolTile" Property="Background" Value="#3A3D41" />
-                                                                <Setter TargetName="ToolTile" Property="BorderBrush" Value="#5A5A5A" />
-                                                            </Trigger>
-                                                            <Trigger Property="IsSelected" Value="True">
-                                                                <Setter TargetName="ToolTile" Property="Background" Value="#094771" />
-                                                                <Setter TargetName="ToolTile" Property="BorderBrush" Value="#007ACC" />
-                                                            </Trigger>
-                                                        </ControlTemplate.Triggers>
-                                                    </ControlTemplate>
-                                                </Setter.Value>
-                                            </Setter>
-                                        </Style>
-                                    </ListBox.ItemContainerStyle>
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <StackPanel>
-                                                <TextBlock x:Name="ToolGlyph"
-                                                           Text="＋"
-                                                           FontSize="16"
-                                                           Foreground="#7CC7FF"
-                                                           HorizontalAlignment="Center" />
-                                                <TextBlock Text="{Binding}"
-                                                           FontSize="10.5"
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  Padding="28">
+                        <Border HorizontalAlignment="Center"
+                                VerticalAlignment="Top"
+                                Background="#ECE9D8"
+                                BorderBrush="#000000"
+                                BorderThickness="1">
+                            <StackPanel>
+                                <!-- 官方样式蓝色标题栏 -->
+                                <Border x:Name="DesignerTitleBar"
+                                        Height="28"
+                                        Padding="8,0,4,0">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                            <GradientStop Color="#0A246A" Offset="0" />
+                                            <GradientStop Color="#316AC5" Offset="1" />
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                    <Grid>
+                                        <TextBlock x:Name="DesignerTitleText"
+                                                   Text="窗口"
+                                                   Foreground="White"
+                                                   FontSize="12"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center" />
+                                        <StackPanel Orientation="Horizontal"
+                                                    HorizontalAlignment="Right"
+                                                    VerticalAlignment="Center">
+                                            <TextBlock x:Name="DesignerMinGlyph"
+                                                       Text="＿"
+                                                       Foreground="White"
+                                                       FontSize="11"
+                                                       Margin="0,0,6,0"
+                                                       VerticalAlignment="Center" />
+                                            <TextBlock x:Name="DesignerMaxGlyph"
+                                                       Text="❐"
+                                                       Foreground="White"
+                                                       FontSize="11"
+                                                       Margin="0,0,6,0"
+                                                       VerticalAlignment="Center" />
+                                            <Border Width="24"
+                                                    Height="19"
+                                                    Background="#C0392B"
+                                                    BorderBrush="#E8746B"
+                                                    BorderThickness="1">
+                                                <TextBlock Text="✕"
+                                                           Foreground="White"
+                                                           FontSize="10"
                                                            HorizontalAlignment="Center"
-                                                           Margin="0,3,0,0" />
-                                            </StackPanel>
-                                            <DataTemplate.Triggers>
-                                                <DataTrigger Binding="{Binding}" Value="按钮">
-                                                    <Setter TargetName="ToolGlyph" Property="Text" Value="▣" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding}" Value="文本">
-                                                    <Setter TargetName="ToolGlyph" Property="Text" Value="T" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding}" Value="输入框">
-                                                    <Setter TargetName="ToolGlyph" Property="Text" Value="⌨" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding}" Value="复选框">
-                                                    <Setter TargetName="ToolGlyph" Property="Text" Value="☑" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding}" Value="下拉框">
-                                                    <Setter TargetName="ToolGlyph" Property="Text" Value="⌄" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding}" Value="列表框">
-                                                    <Setter TargetName="ToolGlyph" Property="Text" Value="☷" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding}" Value="分组框">
-                                                    <Setter TargetName="ToolGlyph" Property="Text" Value="▤" />
-                                                </DataTrigger>
-                                            </DataTemplate.Triggers>
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
-                                </ListBox>
-                                <TextBlock Grid.Row="2"
-                                           Text="双击添加，或拖到画布指定位置。"
-                                           TextWrapping="Wrap"
-                                           FontSize="10"
-                                           Foreground="{StaticResource MutedBrush}"
-                                           Margin="10,8,10,12" />
-                            </Grid>
-                        </Border>
-
-                        <Rectangle Grid.Column="1" Fill="#3F3F46" />
-
-                        <ScrollViewer Grid.Column="0"
-                                      Background="#1E1E1E"
-                                      HorizontalScrollBarVisibility="Auto"
-                                      VerticalScrollBarVisibility="Auto"
-                                      Padding="28">
-                            <Border HorizontalAlignment="Center"
-                                    VerticalAlignment="Top"
-                                    Background="#2D2D30"
-                                    Padding="12"
-                                    CornerRadius="8">
+                                                           VerticalAlignment="Center" />
+                                            </Border>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
                                 <Canvas x:Name="DesignerCanvas"
                                         Width="800"
                                         Height="520"
@@ -715,23 +949,42 @@
                                         PreviewMouseMove="OnDesignerCanvasMouseMove"
                                         PreviewMouseLeftButtonUp="OnDesignerCanvasMouseUp"
                                         KeyDown="OnDesignerCanvasKeyDown">
+                                    <Canvas.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="查看代码" Click="OnOpenFormCodeBehind" />
+                                            <Separator />
+                                            <MenuItem Header="剪切" InputGestureText="Ctrl+X"
+                                                      Command="ApplicationCommands.Cut" />
+                                            <MenuItem Header="复制" InputGestureText="Ctrl+C"
+                                                      Command="ApplicationCommands.Copy" />
+                                            <MenuItem Header="粘贴" InputGestureText="Ctrl+V"
+                                                      Command="ApplicationCommands.Paste" />
+                                            <MenuItem Header="全选" InputGestureText="Ctrl+A"
+                                                      Click="OnSelectAllDesignerControls" />
+                                            <Separator />
+                                            <MenuItem Header="置前" Click="OnDesignerBringFront" />
+                                            <MenuItem Header="置后" Click="OnDesignerSendBack" />
+                                            <Separator />
+                                            <MenuItem Header="预览窗体" InputGestureText="Ctrl+Enter" Click="OnPreviewForm" />
+                                            <MenuItem Header="菜单编辑器" InputGestureText="Ctrl+E" Click="OnMenuEditorClick" />
+                                            <Separator />
+                                            <MenuItem Header="删除所选控件" Click="OnDeleteDesignerControl" />
+                                        </ContextMenu>
+                                    </Canvas.ContextMenu>
                                     <Canvas.Background>
                                         <DrawingBrush TileMode="Tile"
-                                                      Viewport="0,0,16,16"
+                                                      Viewport="0,0,8,8"
                                                       ViewportUnits="Absolute">
                                             <DrawingBrush.Drawing>
                                                 <DrawingGroup>
-                                                    <GeometryDrawing Brush="#F4F7FB">
+                                                    <GeometryDrawing Brush="#ECE9D8">
                                                         <GeometryDrawing.Geometry>
-                                                            <RectangleGeometry Rect="0,0,16,16" />
+                                                            <RectangleGeometry Rect="0,0,8,8" />
                                                         </GeometryDrawing.Geometry>
                                                     </GeometryDrawing>
-                                                    <GeometryDrawing Brush="#E3E9F0">
+                                                    <GeometryDrawing Brush="#808080">
                                                         <GeometryDrawing.Geometry>
-                                                            <GeometryGroup>
-                                                                <RectangleGeometry Rect="0,0,16,1" />
-                                                                <RectangleGeometry Rect="0,0,1,16" />
-                                                            </GeometryGroup>
+                                                            <RectangleGeometry Rect="0,0,1,1" />
                                                         </GeometryDrawing.Geometry>
                                                     </GeometryDrawing>
                                                 </DrawingGroup>
@@ -739,15 +992,14 @@
                                         </DrawingBrush>
                                     </Canvas.Background>
                                 </Canvas>
-                            </Border>
-                        </ScrollViewer>
-                    </Grid>
+                            </StackPanel>
+                        </Border>
+                    </ScrollViewer>
                 </Grid>
             </Grid>
 
             <GridSplitter x:Name="InspectorSplitter"
-                          Grid.Column="4"
-                          Grid.RowSpan="3"
+                          Grid.Column="3"
                           Width="4"
                           HorizontalAlignment="Stretch"
                           Background="{StaticResource BorderBrush}"
@@ -755,352 +1007,92 @@
                           ResizeDirection="Columns"
                           ShowsPreview="True" />
 
-            <Border x:Name="InspectorPanel"
-                    Grid.Column="5"
-                    Grid.RowSpan="3"
+            <!-- 右:窗口组件箱 -->
+            <Border Grid.Column="4" x:Name="InspectorPanel"
                     Background="{StaticResource PanelBrush}">
-                <Grid>
-                <TabControl x:Name="InspectorTabs">
-                    <TabItem Header="概要">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-                            <TextBlock Text="当前文件的子程序与入口"
-                                       Style="{StaticResource SectionTitle}" />
-                            <TreeView x:Name="OutlineTree" Grid.Row="1" />
-                        </Grid>
-                    </TabItem>
-                    <TabItem Header="变量">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-                            <TextBlock Text="执行完成后的全局变量"
-                                       Style="{StaticResource SectionTitle}" />
-                            <ListBox x:Name="VariableList" Grid.Row="1" Margin="8,0">
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Padding="7,5" Margin="0,1">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="96" />
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Text="{Binding Key}"
-                                                           Foreground="{StaticResource AccentBrush}"
-                                                           FontFamily="Cascadia Mono, Consolas"
-                                                           TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Grid.Column="1"
-                                                           Text="{Binding Value}"
-                                                           TextTrimming="CharacterEllipsis"
-                                                           ToolTip="{Binding Value}" />
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
-                        </Grid>
-                    </TabItem>
-                    <TabItem Header="标准库">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-                            <TextBlock Text="常用内置函数"
-                                       Style="{StaticResource SectionTitle}" />
-                            <ListBox x:Name="BuiltinList" Grid.Row="1" Margin="8,0">
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <StackPanel Margin="4,5">
-                                            <TextBlock Text="{Binding Name}"
-                                                       FontFamily="Cascadia Mono, Consolas"
-                                                       Foreground="#72C8FF" />
-                                            <TextBlock Text="{Binding Description}"
-                                                       FontSize="10.5"
-                                                       TextWrapping="Wrap"
-                                                       Foreground="{StaticResource MutedBrush}" />
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
-                        </Grid>
-                    </TabItem>
-                </TabControl>
-
-                <ScrollViewer x:Name="DesignerInspector"
-                              Visibility="Collapsed"
-                              VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="13,10,13,18">
-                        <TextBlock Text="属性"
-                                   FontSize="13"
+                <DockPanel>
+                    <Border DockPanel.Dock="Top"
+                            Background="{StaticResource FaceBrush}"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="0,0,0,1"
+                            Padding="6,4">
+                        <TextBlock Text="基本组件"
+                                   FontSize="11"
                                    FontWeight="SemiBold"
-                                   Margin="0,2,0,3" />
-                        <TextBlock x:Name="PropertyTypeText"
-                                   Text="未选择对象"
-                                   FontSize="10"
-                                   Foreground="{StaticResource MutedBrush}"
-                                   Margin="0,0,0,12" />
-
-                        <TextBlock Text="名称" Foreground="{StaticResource MutedBrush}" FontSize="10" />
-                        <TextBox x:Name="PropertyNameBox"
-                                 Margin="0,4,0,10"
-                                 Padding="7,5"
-                                 Background="#11161D"
-                                 Foreground="{StaticResource TextBrush}"
-                                 BorderBrush="{StaticResource BorderBrush}"
-                                 TextChanged="OnDesignerPropertyChanged" />
-
-                        <TextBlock Text="文本 / 标题" Foreground="{StaticResource MutedBrush}" FontSize="10" />
-                        <TextBox x:Name="PropertyTextBox"
-                                 Margin="0,4,0,10"
-                                 Padding="7,5"
-                                 Background="#11161D"
-                                 Foreground="{StaticResource TextBrush}"
-                                 BorderBrush="{StaticResource BorderBrush}"
-                                 TextWrapping="Wrap"
-                                 AcceptsReturn="True"
-                                 TextChanged="OnDesignerPropertyChanged" />
-
-                        <Grid Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="8" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel>
-                                <TextBlock Text="X / 左" Foreground="{StaticResource MutedBrush}" FontSize="10" />
-                                <TextBox x:Name="PropertyXBox"
-                                         Margin="0,4,0,0"
-                                         Padding="7,5"
-                                         Background="#11161D"
-                                         Foreground="{StaticResource TextBrush}"
-                                         BorderBrush="{StaticResource BorderBrush}"
-                                         TextChanged="OnDesignerPropertyChanged" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Y / 上" Foreground="{StaticResource MutedBrush}" FontSize="10" />
-                                <TextBox x:Name="PropertyYBox"
-                                         Margin="0,4,0,0"
-                                         Padding="7,5"
-                                         Background="#11161D"
-                                         Foreground="{StaticResource TextBrush}"
-                                         BorderBrush="{StaticResource BorderBrush}"
-                                         TextChanged="OnDesignerPropertyChanged" />
-                            </StackPanel>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="8" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel>
-                                <TextBlock Text="宽" Foreground="{StaticResource MutedBrush}" FontSize="10" />
-                                <TextBox x:Name="PropertyWidthBox"
-                                         Margin="0,4,0,0"
-                                         Padding="7,5"
-                                         Background="#11161D"
-                                         Foreground="{StaticResource TextBrush}"
-                                         BorderBrush="{StaticResource BorderBrush}"
-                                         TextChanged="OnDesignerPropertyChanged" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="高" Foreground="{StaticResource MutedBrush}" FontSize="10" />
-                                <TextBox x:Name="PropertyHeightBox"
-                                         Margin="0,4,0,0"
-                                         Padding="7,5"
-                                         Background="#11161D"
-                                         Foreground="{StaticResource TextBrush}"
-                                         BorderBrush="{StaticResource BorderBrush}"
-                                         TextChanged="OnDesignerPropertyChanged" />
-                            </StackPanel>
-                        </Grid>
-
-                        <TextBlock Text="背景色" Foreground="{StaticResource MutedBrush}" FontSize="10" />
-                        <TextBox x:Name="PropertyBackgroundBox"
-                                 Margin="0,4,0,10"
-                                 Padding="7,5"
-                                 Background="#11161D"
-                                 Foreground="{StaticResource TextBrush}"
-                                 BorderBrush="{StaticResource BorderBrush}"
-                                 TextChanged="OnDesignerPropertyChanged" />
-
-                        <TextBlock Text="前景色" Foreground="{StaticResource MutedBrush}" FontSize="10" />
-                        <TextBox x:Name="PropertyForegroundBox"
-                                 Margin="0,4,0,10"
-                                 Padding="7,5"
-                                 Background="#11161D"
-                                 Foreground="{StaticResource TextBrush}"
-                                 BorderBrush="{StaticResource BorderBrush}"
-                                 TextChanged="OnDesignerPropertyChanged" />
-
-                        <TextBlock Text="字号" Foreground="{StaticResource MutedBrush}" FontSize="10" />
-                        <TextBox x:Name="PropertyFontSizeBox"
-                                 Margin="0,4,0,10"
-                                 Padding="7,5"
-                                 Background="#11161D"
-                                 Foreground="{StaticResource TextBrush}"
-                                 BorderBrush="{StaticResource BorderBrush}"
-                                 TextChanged="OnDesignerPropertyChanged" />
-
-                        <TextBlock Text="代码后置文件" Foreground="{StaticResource MutedBrush}" FontSize="10" />
-                        <TextBox x:Name="PropertyCodeFileBox"
-                                 Margin="0,4,0,10"
-                                 Padding="7,5"
-                                 Background="#11161D"
-                                 Foreground="{StaticResource TextBrush}"
-                                 BorderBrush="{StaticResource BorderBrush}"
-                                 TextChanged="OnDesignerPropertyChanged" />
-
-                        <TextBlock Text="单击事件名" Foreground="{StaticResource MutedBrush}" FontSize="10" />
-                        <TextBox x:Name="PropertyEventBox"
-                                 Margin="0,4,0,10"
-                                 Padding="7,5"
-                                 Background="#11161D"
-                                 Foreground="{StaticResource TextBrush}"
-                                 BorderBrush="{StaticResource BorderBrush}"
-                                 TextChanged="OnDesignerPropertyChanged" />
-
-                        <TextBlock Text="文本改变事件" Foreground="{StaticResource MutedBrush}" FontSize="10" />
-                        <TextBox x:Name="PropertyTextChangedEventBox"
-                                 Margin="0,4,0,10"
-                                 Padding="7,5"
-                                 Background="#1E1E1E"
-                                 Foreground="{StaticResource TextBrush}"
-                                 BorderBrush="{StaticResource BorderBrush}"
-                                 TextChanged="OnDesignerPropertyChanged" />
-
-                        <TextBlock Text="选择改变事件" Foreground="{StaticResource MutedBrush}" FontSize="10" />
-                        <TextBox x:Name="PropertySelectionChangedEventBox"
-                                 Margin="0,4,0,10"
-                                 Padding="7,5"
-                                 Background="#1E1E1E"
-                                 Foreground="{StaticResource TextBrush}"
-                                 BorderBrush="{StaticResource BorderBrush}"
-                                 TextChanged="OnDesignerPropertyChanged" />
-
-                        <TextBlock Text="选中改变事件" Foreground="{StaticResource MutedBrush}" FontSize="10" />
-                        <TextBox x:Name="PropertyCheckedChangedEventBox"
-                                 Margin="0,4,0,10"
-                                 Padding="7,5"
-                                 Background="#1E1E1E"
-                                 Foreground="{StaticResource TextBrush}"
-                                 BorderBrush="{StaticResource BorderBrush}"
-                                 TextChanged="OnDesignerPropertyChanged" />
-
-                        <TextBlock Text="窗体载入事件" Foreground="{StaticResource MutedBrush}" FontSize="10" />
-                        <TextBox x:Name="PropertyLoadEventBox"
-                                 Margin="0,4,0,10"
-                                 Padding="7,5"
-                                 Background="#11161D"
-                                 Foreground="{StaticResource TextBrush}"
-                                 BorderBrush="{StaticResource BorderBrush}"
-                                 TextChanged="OnDesignerPropertyChanged" />
-
-                        <TextBlock Text="窗体关闭事件" Foreground="{StaticResource MutedBrush}" FontSize="10" />
-                        <TextBox x:Name="PropertyCloseEventBox"
-                                 Margin="0,4,0,10"
-                                 Padding="7,5"
-                                 Background="#11161D"
-                                 Foreground="{StaticResource TextBrush}"
-                                 BorderBrush="{StaticResource BorderBrush}"
-                                 TextChanged="OnDesignerPropertyChanged" />
-
-                        <CheckBox x:Name="PropertyEnabledCheck"
-                                  Content="启用控件"
-                                  Foreground="{StaticResource TextBrush}"
-                                  Margin="0,2,0,8"
-                                  Checked="OnDesignerCheckChanged"
-                                  Unchecked="OnDesignerCheckChanged" />
-                        <CheckBox x:Name="PropertyVisibleCheck"
-                                  Content="设计时可见"
-                                  Foreground="{StaticResource TextBrush}"
-                                  Margin="0,0,0,12"
-                                  Checked="OnDesignerCheckChanged"
-                                  Unchecked="OnDesignerCheckChanged" />
-                        <CheckBox x:Name="PropertyCheckedCheck"
-                                  Content="复选框默认选中"
-                                  Foreground="{StaticResource TextBrush}"
-                                  Margin="0,0,0,12"
-                                  Checked="OnDesignerCheckChanged"
-                                  Unchecked="OnDesignerCheckChanged" />
-
-                        <Button Content="删除所选控件"
-                                Style="{StaticResource ToolButton}"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Center"
-                                Click="OnDeleteDesignerControl" />
-                    </StackPanel>
-                </ScrollViewer>
-                </Grid>
-            </Border>
-
-            <GridSplitter Grid.Column="3"
-                          Grid.Row="1"
-                          Height="4"
-                          HorizontalAlignment="Stretch"
-                          Background="{StaticResource BorderBrush}"
-                          ResizeBehavior="PreviousAndNext"
-                          ResizeDirection="Rows"
-                          ShowsPreview="True" />
-
-            <Border Grid.Column="3" Grid.Row="2" Background="#1E1E1E">
-                <TabControl x:Name="BottomTabs"
-                            Background="#1E1E1E"
-                            BorderThickness="0">
-                    <TabItem Header="输出">
-                        <Grid Background="#1E1E1E">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="30" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-                            <Border Background="#252526"
-                                    BorderBrush="{StaticResource BorderBrush}"
-                                    BorderThickness="0,0,0,1">
-                                <Grid Margin="9,0">
-                                    <TextBlock x:Name="RunInfoText"
+                                   Foreground="{StaticResource TextBrush}" />
+                    </Border>
+                    <ListBox x:Name="ControlToolbox"
+                             Margin="3"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             MouseDoubleClick="OnToolboxDoubleClick"
+                             PreviewMouseLeftButtonDown="OnToolboxMouseDown"
+                             PreviewMouseMove="OnToolboxMouseMove">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Width" Value="48" />
+                                <Setter Property="Height" Value="46" />
+                                <Setter Property="Margin" Value="1" />
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="ToolTile"
+                                                    Background="{StaticResource FaceBrush}"
+                                                    BorderBrush="{StaticResource SunkenShadowBrush}"
+                                                    BorderThickness="1"
+                                                    Padding="3">
+                                                <ContentPresenter HorizontalAlignment="Center"
+                                                                  VerticalAlignment="Center" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="ToolTile" Property="Background" Value="{StaticResource PanelRaisedBrush}" />
+                                                    <Setter TargetName="ToolTile" Property="BorderBrush" Value="{StaticResource SunkenDarkBrush}" />
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="ToolTile" Property="Background" Value="{StaticResource AccentHoverBrush}" />
+                                                    <Setter TargetName="ToolTile" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                                    <Setter Property="Foreground" Value="{StaticResource HighlightTextBrush}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel>
+                                    <TextBlock x:Name="ToolGlyph"
+                                               Text="{Binding Glyph}"
+                                               FontSize="15"
+                                               Foreground="#000080"
+                                               HorizontalAlignment="Center" />
+                                    <TextBlock x:Name="ToolName"
+                                               Text="{Binding DisplayName}"
                                                FontSize="10"
-                                               Foreground="{StaticResource MutedBrush}"
-                                               VerticalAlignment="Center" />
-                                    <Button Content="清空" Style="{StaticResource ToolButton}"
-                                            Padding="8,2" HorizontalAlignment="Right"
-                                            VerticalAlignment="Center" Click="OnClearOutput" />
-                                </Grid>
-                            </Border>
-                            <TextBox x:Name="OutputBox"
-                                     Grid.Row="1"
-                                     Background="#1E1E1E"
-                                     Foreground="#B9C6D6"
-                                     BorderThickness="0"
-                                     FontFamily="Cascadia Code, Consolas, Microsoft YaHei UI"
-                                     FontSize="12"
-                                     IsReadOnly="True"
-                                     AcceptsReturn="True"
-                                     TextWrapping="Wrap"
-                                     Padding="12,8"
-                                     VerticalScrollBarVisibility="Auto"
-                                     HorizontalScrollBarVisibility="Disabled" />
-                        </Grid>
-                    </TabItem>
-                    <TabItem Header="提示">
-                        <TextBox x:Name="EditorHelpBox"
-                                 Background="#1E1E1E"
-                                 Foreground="#D4D4D4"
-                                 BorderThickness="0"
-                                 IsReadOnly="True"
-                                 AcceptsReturn="True"
-                                 TextWrapping="Wrap"
-                                 Padding="14,10"
-                                 FontFamily="Microsoft YaHei UI"
-                                 FontSize="12"
-                                 VerticalScrollBarVisibility="Auto" />
-                    </TabItem>
-                </TabControl>
+                                               HorizontalAlignment="Center"
+                                               Margin="0,2,0,0"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding Supported}" Value="False">
+                                        <Setter TargetName="ToolGlyph" Property="Foreground" Value="#808080" />
+                                        <Setter TargetName="ToolName" Property="Foreground" Value="#808080" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
             </Border>
         </Grid>
     </DockPanel>

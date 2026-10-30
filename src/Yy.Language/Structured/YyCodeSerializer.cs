@@ -16,6 +16,11 @@ public static class YyCodeSerializer
             new XAttribute(XNamespace.Xmlns + "yy", Namespace),
             new XAttribute("格式版本", 1),
             new XAttribute("名称", document.Name));
+        if (!string.IsNullOrWhiteSpace(document.Remark))
+        {
+            root.SetAttributeValue("备注", document.Remark);
+        }
+
         foreach (var import in document.Imports)
         {
             root.Add(new XElement(Namespace + "引入", new XAttribute("路径", import)));
@@ -31,6 +36,21 @@ public static class YyCodeSerializer
                 functionElement.SetAttributeValue("返回类型", function.ReturnType);
             }
 
+            if (function.IsPublic)
+            {
+                functionElement.SetAttributeValue("公开", "真");
+            }
+
+            if (function.IsExport)
+            {
+                functionElement.SetAttributeValue("易包", "真");
+            }
+
+            if (!string.IsNullOrWhiteSpace(function.Remark))
+            {
+                functionElement.SetAttributeValue("备注", function.Remark);
+            }
+
             foreach (var parameter in function.Parameters)
             {
                 var parameterElement = new XElement(
@@ -44,6 +64,26 @@ public static class YyCodeSerializer
                 if (!string.IsNullOrWhiteSpace(parameter.DefaultExpression))
                 {
                     parameterElement.SetAttributeValue("默认值", parameter.DefaultExpression);
+                }
+
+                if (parameter.ByRef)
+                {
+                    parameterElement.SetAttributeValue("参考", "真");
+                }
+
+                if (parameter.Nullable)
+                {
+                    parameterElement.SetAttributeValue("可空", "真");
+                }
+
+                if (parameter.IsArray)
+                {
+                    parameterElement.SetAttributeValue("数组", "真");
+                }
+
+                if (!string.IsNullOrWhiteSpace(parameter.Remark))
+                {
+                    parameterElement.SetAttributeValue("备注", parameter.Remark);
                 }
 
                 functionElement.Add(parameterElement);
@@ -99,7 +139,8 @@ public static class YyCodeSerializer
 
         var document = new YyCodeDocument
         {
-            Name = RequiredAttribute(root, "名称")
+            Name = RequiredAttribute(root, "名称"),
+            Remark = Attribute(root, "备注", string.Empty)
         };
         foreach (var element in root.Elements())
         {
@@ -136,6 +177,16 @@ public static class YyCodeSerializer
                 }
 
                 element.SetAttributeValue("值", statement.Expression);
+                if (statement.IsStatic)
+                {
+                    element.SetAttributeValue("静态", "真");
+                }
+
+                if (statement.IsArray)
+                {
+                    element.SetAttributeValue("数组", "真");
+                }
+
                 break;
             case YyCodeStatementKinds.Assign:
                 element.SetAttributeValue("目标", statement.Target);
@@ -165,6 +216,11 @@ public static class YyCodeSerializer
                 break;
         }
 
+        if (!string.IsNullOrWhiteSpace(statement.Remark))
+        {
+            element.SetAttributeValue("备注", statement.Remark);
+        }
+
         foreach (var child in statement.Children)
         {
             element.Add(SerializeStatement(child));
@@ -189,7 +245,10 @@ public static class YyCodeSerializer
         var function = new YyCodeFunction
         {
             Name = RequiredAttribute(element, "名称"),
-            ReturnType = Attribute(element, "返回类型", string.Empty)
+            ReturnType = Attribute(element, "返回类型", string.Empty),
+            IsPublic = BooleanAttribute(element, "公开", false),
+            IsExport = BooleanAttribute(element, "易包", false),
+            Remark = Attribute(element, "备注", string.Empty)
         };
         foreach (var child in element.Elements())
         {
@@ -199,7 +258,11 @@ public static class YyCodeSerializer
                 {
                     Name = RequiredAttribute(child, "名称"),
                     TypeName = Attribute(child, "类型", string.Empty),
-                    DefaultExpression = Attribute(child, "默认值", string.Empty)
+                    DefaultExpression = Attribute(child, "默认值", string.Empty),
+                    ByRef = BooleanAttribute(child, "参考", false),
+                    Nullable = BooleanAttribute(child, "可空", false),
+                    IsArray = BooleanAttribute(child, "数组", false),
+                    Remark = Attribute(child, "备注", string.Empty)
                 });
             }
             else
@@ -245,7 +308,10 @@ public static class YyCodeSerializer
             From = Attribute(element, "从", "1"),
             To = Attribute(element, "到", "10"),
             Step = Attribute(element, "步长", "1"),
-            CatchName = Attribute(element, "捕获", "错误")
+            CatchName = Attribute(element, "捕获", "错误"),
+            IsStatic = BooleanAttribute(element, "静态", false),
+            IsArray = BooleanAttribute(element, "数组", false),
+            Remark = Attribute(element, "备注", string.Empty)
         };
 
         foreach (var child in element.Elements())
@@ -281,6 +347,22 @@ public static class YyCodeSerializer
 
     private static string Attribute(XElement element, string name, string defaultValue) =>
         element.Attribute(name)?.Value ?? defaultValue;
+
+    private static bool BooleanAttribute(XElement element, string name, bool defaultValue)
+    {
+        var value = element.Attribute(name)?.Value;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return defaultValue;
+        }
+
+        return value.Trim() switch
+        {
+            "真" or "true" or "True" or "1" => true,
+            "假" or "false" or "False" or "0" => false,
+            _ => defaultValue
+        };
+    }
 
     private static YyCodeFormatException Error(XElement element, string message)
     {

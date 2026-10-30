@@ -14,12 +14,98 @@ public sealed record YyProjectForm(
     string? CodePath,
     YyFormModel Model);
 
+public sealed class YyGlobalVarEntry
+{
+    [JsonPropertyName("名称")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("类型")]
+    public string TypeName { get; set; } = "文本";
+
+    [JsonPropertyName("备注")]
+    public string Remark { get; set; } = string.Empty;
+}
+
+public sealed class YyConstantEntry
+{
+    [JsonPropertyName("名称")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("值")]
+    public string Value { get; set; } = string.Empty;
+
+    [JsonPropertyName("备注")]
+    public string Remark { get; set; } = string.Empty;
+}
+
+public sealed class YyResourceEntry
+{
+    [JsonPropertyName("名称")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("类型")]
+    public string TypeName { get; set; } = "图片";
+
+    [JsonPropertyName("文件")]
+    public string File { get; set; } = string.Empty;
+
+    [JsonPropertyName("备注")]
+    public string Remark { get; set; } = string.Empty;
+}
+
+public sealed class YyDllCommandEntry
+{
+    [JsonPropertyName("名称")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("Dll文件")]
+    public string DllFile { get; set; } = string.Empty;
+
+    [JsonPropertyName("命令名")]
+    public string CommandName { get; set; } = string.Empty;
+
+    [JsonPropertyName("参数")]
+    public string Parameters { get; set; } = string.Empty;
+
+    [JsonPropertyName("返回类型")]
+    public string ReturnType { get; set; } = "整数型";
+
+    [JsonPropertyName("备注")]
+    public string Remark { get; set; } = string.Empty;
+}
+
+public sealed class YyDbColumn
+{
+    [JsonPropertyName("名称")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("类型")]
+    public string TypeName { get; set; } = "文本";
+
+    [JsonPropertyName("备注")]
+    public string Remark { get; set; } = string.Empty;
+}
+
+public sealed class YyDbTable
+{
+    [JsonPropertyName("名称")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("列")]
+    public List<YyDbColumn> Columns { get; set; } = [];
+}
+
 public sealed class YyProject
 {
     private readonly List<string> _formPaths;
     private readonly List<string> _sourcePaths;
     private readonly List<string> _resources;
     private readonly List<string> _references;
+    private readonly List<YyGlobalVarEntry> _globals;
+    private readonly List<YyConstantEntry> _constants;
+    private readonly List<YyResourceEntry> _resourceTable;
+    private readonly List<YyDllCommandEntry> _dllCommands;
+    private readonly List<YyDbTable> _databaseTables;
 
     private YyProject(
         string projectPath,
@@ -32,6 +118,11 @@ public sealed class YyProject
         List<string> formPaths,
         List<string> resources,
         List<string> references,
+        List<YyGlobalVarEntry> globals,
+        List<YyConstantEntry> constants,
+        List<YyResourceEntry> resourceTable,
+        List<YyDllCommandEntry> dllCommands,
+        List<YyDbTable> databaseTables,
         IReadOnlyList<YyProjectForm> forms)
     {
         ProjectPath = projectPath;
@@ -44,6 +135,11 @@ public sealed class YyProject
         _formPaths = formPaths;
         _resources = resources;
         _references = references;
+        _globals = globals;
+        _constants = constants;
+        _resourceTable = resourceTable;
+        _dllCommands = dllCommands;
+        _databaseTables = databaseTables;
         Forms = forms;
     }
 
@@ -58,6 +154,11 @@ public sealed class YyProject
     public IReadOnlyList<string> FormPaths => _formPaths;
     public IReadOnlyList<string> Resources => _resources;
     public IReadOnlyList<string> References => _references;
+    public List<YyGlobalVarEntry> Globals => _globals;
+    public List<YyConstantEntry> Constants => _constants;
+    public List<YyResourceEntry> ResourceTable => _resourceTable;
+    public List<YyDllCommandEntry> DllCommands => _dllCommands;
+    public List<YyDbTable> DatabaseTables => _databaseTables;
     public IReadOnlyList<YyProjectForm> Forms { get; }
 
     public static YyProject? LoadForDirectory(string directory)
@@ -187,6 +288,11 @@ public sealed class YyProject
             formPaths,
             resources,
             references,
+            manifest.Globals ?? [],
+            manifest.Constants ?? [],
+            manifest.ResourceTable ?? [],
+            manifest.DllCommands ?? [],
+            manifest.DatabaseTables ?? [],
             forms);
     }
 
@@ -226,10 +332,10 @@ public sealed class YyProject
         WriteStructuredSource(codePath, CreateCodeBehindTemplate());
         var form = new YyFormModel
         {
-            Name = "MainForm",
+            Name = "_启动窗口",
             CodeFile = "MainForm.yyc",
-            LoadEvent = "主窗口_载入",
-            CloseEvent = "主窗口_关闭",
+            LoadEvent = "__启动窗口_创建完毕",
+            CloseEvent = "__启动窗口_将被销毁",
             Title = projectName,
             Width = 760,
             Height = 500
@@ -244,7 +350,7 @@ public sealed class YyProject
             Name = projectName,
             Entry = "Program.yyc",
             Output = projectName + ".exe",
-            StartupForm = "MainForm",
+            StartupForm = "_启动窗口",
             Sources = ["Program.yyc", "Forms/MainForm.yyc"],
             Forms = ["Forms/MainForm.yyx"],
             Resources = [],
@@ -261,7 +367,7 @@ public sealed class YyProject
         string className;
         do
         {
-            className = "Window" + sequence;
+            className = "窗口" + sequence;
             sequence++;
         }
         while (Forms.Any(form => string.Equals(form.Model.Name, className, StringComparison.Ordinal)) ||
@@ -282,7 +388,7 @@ public sealed class YyProject
         var button = YyControlTypes.Create(YyControlTypes.Button, 1);
         button.Name = "确定按钮";
         button.Text = "确定";
-        button.ClickEvent = "确定按钮_被单击";
+        button.ClickEvent = "_确定按钮_被单击";
         model.Controls.Add(button);
 
         File.WriteAllText(formPath, YyFormSerializer.Serialize(model), new UTF8Encoding(false));
@@ -292,7 +398,7 @@ public sealed class YyProject
             .版本 3
             .程序集 {className}代码
 
-            子程序 确定按钮_被单击()
+            子程序 _确定按钮_被单击()
                 提示("窗体事件已经执行。")
             结束子程序
             """);
@@ -364,6 +470,9 @@ public sealed class YyProject
         WriteCurrentManifest();
     }
 
+    /// <summary>将数据表(全局变量/常量表/资源表/Dll命令)等清单内容写回 .yyproj。</summary>
+    public void SaveManifest() => WriteCurrentManifest();
+
     private void WriteCurrentManifest()
     {
         var manifest = new YyProjectManifest
@@ -376,7 +485,12 @@ public sealed class YyProject
             Sources = _sourcePaths.Select(path => ToRelativePath(path, DirectoryPath)).ToList(),
             Forms = _formPaths.Select(path => ToRelativePath(path, DirectoryPath)).ToList(),
             Resources = _resources.Select(path => ToRelativePath(path, DirectoryPath)).ToList(),
-            References = _references.Select(path => ToRelativePath(path, DirectoryPath)).ToList()
+            References = _references.Select(path => ToRelativePath(path, DirectoryPath)).ToList(),
+            Globals = _globals.Count > 0 ? _globals : null,
+            Constants = _constants.Count > 0 ? _constants : null,
+            ResourceTable = _resourceTable.Count > 0 ? _resourceTable : null,
+            DllCommands = _dllCommands.Count > 0 ? _dllCommands : null,
+            DatabaseTables = _databaseTables.Count > 0 ? _databaseTables : null
         };
         WriteManifest(ProjectPath, manifest);
     }
@@ -491,15 +605,16 @@ public sealed class YyProject
         .程序集 MainForm代码
 
         ' 控件在窗体运行时作为对象变量注入。
-        子程序 主窗口_载入()
+        ' 事件处理子程序按官方命名：“_” + 窗口单元名称 + “_” + 事件名称。
+        子程序 __启动窗口_创建完毕()
             输出("窗体已经载入。")
         结束子程序
 
-        子程序 欢迎按钮_被单击()
+        子程序 _欢迎按钮_被单击()
             提示("界面事件已经连接到代码后置文件。")
         结束子程序
 
-        子程序 主窗口_关闭()
+        子程序 __启动窗口_将被销毁()
             输出("窗体已经关闭。")
         结束子程序
         """;
@@ -524,13 +639,13 @@ public sealed class YyProject
             Type = YyControlTypes.Button,
             Name = "欢迎按钮",
             Text = "运行事件代码",
-            ClickEvent = "欢迎按钮_被单击",
+            ClickEvent = "_欢迎按钮_被单击",
             X = 40,
             Y = 108,
             Width = 150,
             Height = 42,
-            Background = "#2F7F6E",
-            Foreground = "#FFFFFF"
+            Background = "#ECE9D8",
+            Foreground = "#000000"
         };
 
     private sealed class YyProjectManifest
@@ -561,5 +676,20 @@ public sealed class YyProject
 
         [JsonPropertyName("引用")]
         public List<string>? References { get; init; }
+
+        [JsonPropertyName("全局变量")]
+        public List<YyGlobalVarEntry>? Globals { get; init; }
+
+        [JsonPropertyName("常量表")]
+        public List<YyConstantEntry>? Constants { get; init; }
+
+        [JsonPropertyName("资源表")]
+        public List<YyResourceEntry>? ResourceTable { get; init; }
+
+        [JsonPropertyName("Dll命令")]
+        public List<YyDllCommandEntry>? DllCommands { get; init; }
+
+        [JsonPropertyName("数据库")]
+        public List<YyDbTable>? DatabaseTables { get; init; }
     }
 }

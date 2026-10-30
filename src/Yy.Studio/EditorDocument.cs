@@ -91,6 +91,9 @@ public sealed class EditorDocument : INotifyPropertyChanged
         ".yyx",
         StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>起始页标签(启动/关闭全部文档后显示,对齐官方第一步)。</summary>
+    public bool IsStartPage { get; set; }
+
     public bool IsStructuredCode =>
         string.Equals(Path.GetExtension(FilePath ?? DisplayName), ".yyc", StringComparison.OrdinalIgnoreCase);
 

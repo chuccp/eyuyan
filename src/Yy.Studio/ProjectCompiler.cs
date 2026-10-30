@@ -12,6 +12,8 @@ public sealed class ProjectCompiler
     public async Task<string> CompileAsync(
         YyProject project,
         string outputPath,
+        bool selfContained = true,
+        string rid = "win-x64",
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -48,7 +50,9 @@ public sealed class ProjectCompiler
             File.WriteAllText(generatedProject, CreateGeneratedProject(runtimeProject), new UTF8Encoding(false));
             Directory.CreateDirectory(publishDirectory);
 
-            progress?.Report("正在把生成代码编译为独立 Windows 二进制…");
+            progress?.Report(selfContained
+                ? $"正在把生成代码编译为独立 Windows 二进制（{rid}）…"
+                : $"正在把生成代码编译为 Windows 二进制（{rid}）…");
             var startInfo = new ProcessStartInfo
             {
                 FileName = "dotnet",
@@ -62,12 +66,16 @@ public sealed class ProjectCompiler
             startInfo.ArgumentList.Add("-c");
             startInfo.ArgumentList.Add("Release");
             startInfo.ArgumentList.Add("-r");
-            startInfo.ArgumentList.Add("win-x64");
+            startInfo.ArgumentList.Add(rid);
             startInfo.ArgumentList.Add("--self-contained");
-            startInfo.ArgumentList.Add("true");
+            startInfo.ArgumentList.Add(selfContained ? "true" : "false");
             startInfo.ArgumentList.Add("-p:PublishSingleFile=true");
             startInfo.ArgumentList.Add("-p:IncludeNativeLibrariesForSelfExtract=true");
-            startInfo.ArgumentList.Add("-p:EnableCompressionInSingleFile=true");
+            if (selfContained)
+            {
+                startInfo.ArgumentList.Add("-p:EnableCompressionInSingleFile=true");
+            }
+
             startInfo.ArgumentList.Add("-p:DebugType=None");
             startInfo.ArgumentList.Add("-p:DebugSymbols=false");
             startInfo.ArgumentList.Add("-o");

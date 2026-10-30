@@ -41,12 +41,12 @@ Run("示例窗体读取", () =>
     var form = YyFormSerializer.Deserialize(File.ReadAllText(path));
     Equal("主窗口", form.Name);
     Equal("客户登记", form.Title);
-    Equal("主窗口_载入", form.LoadEvent);
-    Equal("主窗口_关闭", form.CloseEvent);
+    Equal("_主窗口_创建完毕", form.LoadEvent);
+    Equal("_主窗口_将被销毁", form.CloseEvent);
     Equal(8, form.Controls.Count);
-    Equal("保存按钮_被单击", form.Controls.Single(control => control.Name == "保存按钮").ClickEvent);
+    Equal("_保存按钮_被单击", form.Controls.Single(control => control.Name == "保存按钮").ClickEvent);
     Equal(
-        "姓名输入框_文本改变",
+        "_姓名输入框_内容被改变",
         form.Controls.Single(control => control.Name == "姓名输入框").TextChangedEvent);
 });
 
@@ -107,13 +107,13 @@ Run("完整项目骨架", () =>
             File.ReadAllText(Path.Combine(projectRoot, "Program.yyc")));
         True(entryDocument.MainStatements.Count > 0, "结构化入口没有命令数据。");
         Equal(1, project.Forms.Count);
-        Equal("MainForm", project.StartupForm);
+        Equal("_启动窗口", project.StartupForm);
         True(
             project.SourcePaths.Contains(project.Forms[0].CodePath!, StringComparer.OrdinalIgnoreCase),
             "源码列表应包含代码后置文件。");
         var sourcePath = project.CreateSourceFile();
         True(File.Exists(sourcePath), "项目内新建源码失败。");
-        project.UpdateSettings("DemoProjectRenamed", "Program.yyc", "RenamedDemo", "MainForm");
+        project.UpdateSettings("DemoProjectRenamed", "Program.yyc", "RenamedDemo", "_启动窗口");
         var updated = YyProject.LoadForDirectory(projectRoot)
             ?? throw new Exception("项目属性保存后无法重新加载。");
         Equal("DemoProjectRenamed", updated.Name);
@@ -121,6 +121,39 @@ Run("完整项目骨架", () =>
         True(
             updated.SourcePaths.Contains(sourcePath, StringComparer.OrdinalIgnoreCase),
             "新建源码没有写入项目清单。");
+    }
+    finally
+    {
+        if (Directory.Exists(temporaryRoot))
+        {
+            Directory.Delete(temporaryRoot, recursive: true);
+        }
+    }
+});
+
+Run("数据表清单往返", () =>
+{
+    var temporaryRoot = Path.Combine(
+        Path.GetTempPath(),
+        "yy-tables-" + Guid.NewGuid().ToString("N"));
+    try
+    {
+        var project = YyProject.CreateProject(
+            Path.Combine(temporaryRoot, "Tables.yyproj"),
+            "Tables");
+        project.Globals.Add(new YyGlobalVarEntry { Name = "计数", TypeName = "整数型", Remark = "全局计数" });
+        project.Constants.Add(new YyConstantEntry { Name = "最大值", Value = "100", Remark = "上限" });
+        project.ResourceTable.Add(new YyResourceEntry { Name = "测试图片", TypeName = "图片", File = "a.png" });
+        project.DllCommands.Add(new YyDllCommandEntry { Name = "取系统目录", DllFile = "kernel32", CommandName = "GetSystemDirectory" });
+        project.SaveManifest();
+
+        var reloaded = YyProject.LoadForDirectory(temporaryRoot)
+            ?? throw new Exception("数据表保存后无法重新加载。");
+        Equal("计数", reloaded.Globals.Single().Name);
+        Equal("整数型", reloaded.Globals.Single().TypeName);
+        Equal("100", reloaded.Constants.Single().Value);
+        Equal("测试图片", reloaded.ResourceTable.Single().Name);
+        Equal("kernel32", reloaded.DllCommands.Single().DllFile);
     }
     finally
     {

@@ -11,15 +11,19 @@ internal sealed class Interpreter
     private const int MaximumCallDepth = 128;
     private readonly Action<string> _write;
     private readonly CancellationToken _cancellationToken;
+    private readonly YyDebugProbe? _probe;
+    private readonly Func<IReadOnlyDictionary<string, object?>> _snapshot;
     private readonly Environment _globals = new();
     private int _callDepth;
     private int _steps;
 
-    public Interpreter(Action<string>? write, CancellationToken cancellationToken)
+    public Interpreter(Action<string>? write, CancellationToken cancellationToken, YyDebugProbe? probe = null)
     {
         _write = write ?? (_ => { });
         _cancellationToken = cancellationToken;
-        Builtins.Install(_globals, Emit, cancellationToken);
+        _probe = probe;
+        _snapshot = () => _globals.Snapshot();
+        Builtins.Install(_globals, Emit, cancellationToken, probe);
     }
 
     public IReadOnlyDictionary<string, object?> Globals => _globals.Snapshot();
@@ -261,7 +265,7 @@ internal sealed class Interpreter
 
     private object? Evaluate(Expression expression, Environment environment)
     {
-        Tick(expression.Line, expression.Column);
+        Tick(expression.Line, expression.Column, isStatement: false);
         return expression switch
         {
             LiteralExpression literal => literal.Value,
@@ -660,12 +664,18 @@ internal sealed class Interpreter
 
     private void Emit(object? value) => _write(Format(value));
 
-    private void Tick(int line, int column)
+    private void Tick(int line, int column, bool isStatement = true)
     {
         _steps++;
         if ((_steps & 127) == 0)
         {
             cancellationTokenCheck(line, column);
+        }
+
+        // 调试探针只挂语句级停点;表达式求值同属一行,若也停点会让单步卡在同一行。
+        if (isStatement)
+        {
+            _probe?.OnStatement(line, column, _callDepth, _snapshot);
         }
     }
 

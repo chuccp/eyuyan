@@ -7,6 +7,7 @@ namespace Yy.Language.Structured;
 public sealed class YyCodeDocument
 {
     public string Name { get; set; } = "程序集";
+    public string Remark { get; set; } = string.Empty;
     public List<string> Imports { get; } = [];
     public List<YyCodeStatement> MainStatements { get; } = [];
     public List<YyCodeFunction> Functions { get; } = [];
@@ -16,6 +17,9 @@ public sealed class YyCodeFunction
 {
     public string Name { get; set; } = "子程序";
     public string ReturnType { get; set; } = string.Empty;
+    public bool IsPublic { get; set; }
+    public bool IsExport { get; set; }
+    public string Remark { get; set; } = string.Empty;
     public List<YyCodeParameter> Parameters { get; } = [];
     public List<YyCodeStatement> Statements { get; } = [];
 }
@@ -25,6 +29,10 @@ public sealed class YyCodeParameter
     public string Name { get; set; } = "参数";
     public string TypeName { get; set; } = string.Empty;
     public string DefaultExpression { get; set; } = string.Empty;
+    public bool ByRef { get; set; }
+    public bool Nullable { get; set; }
+    public bool IsArray { get; set; }
+    public string Remark { get; set; } = string.Empty;
 }
 
 public sealed class YyCodeStatement
@@ -41,6 +49,9 @@ public sealed class YyCodeStatement
     public string To { get; set; } = "10";
     public string Step { get; set; } = "1";
     public string CatchName { get; set; } = "错误";
+    public bool IsStatic { get; set; }
+    public bool IsArray { get; set; }
+    public string Remark { get; set; } = string.Empty;
     public List<YyCodeStatement> Children { get; } = [];
     public List<YyCodeStatement> ElseChildren { get; } = [];
 }
@@ -113,7 +124,10 @@ public static class YyCodeDocumentConverter
         return document;
     }
 
-    public static string ToSource(YyCodeDocument document)
+    public static string ToSource(YyCodeDocument document) => ToSource(document, null);
+
+    /// <summary>生成源码;可选记录每条语句的起始行号(1 起),供调试定位表格行。</summary>
+    public static string ToSource(YyCodeDocument document, IDictionary<YyCodeStatement, int>? lineMap)
     {
         var builder = new StringBuilder();
         builder.AppendLine(".版本 3");
@@ -153,23 +167,100 @@ public static class YyCodeDocumentConverter
             builder.Append("子程序 ").Append(function.Name)
                 .Append('(').Append(parameters).Append(')')
                 .Append(returnType).AppendLine();
-            EmitStatements(builder, function.Statements, 1);
+            EmitStatements(builder, function.Statements, 1, lineMap);
             builder.AppendLine("结束子程序");
             builder.AppendLine();
         }
 
-        EmitStatements(builder, document.MainStatements, 0);
+        EmitStatements(builder, document.MainStatements, 0, lineMap);
         return builder.ToString().TrimEnd() + Environment.NewLine;
+    }
+
+    /// <summary>把单条语句转成一行源码文本(表格编辑器行显示用;容器语句仅显示头行)。</summary>
+    public static string StatementToSource(YyCodeStatement statement) => statement.Kind switch
+    {
+        YyCodeStatementKinds.Variable or YyCodeStatementKinds.Constant =>
+            statement.Kind + " " + statement.Name +
+            (string.IsNullOrWhiteSpace(statement.TypeName) ? string.Empty : ": " + statement.TypeName) +
+            " = " + statement.Expression,
+        YyCodeStatementKinds.Assign =>
+            statement.Target + " " + statement.Operator + " " + statement.Expression,
+        YyCodeStatementKinds.Call => statement.Expression,
+        YyCodeStatementKinds.If => "如果 " + statement.Condition + " 则",
+        YyCodeStatementKinds.While => "当 " + statement.Condition + " 循环",
+        YyCodeStatementKinds.CountLoop =>
+            "计次循环 " + statement.Variable + " 从 " + statement.From +
+            " 到 " + statement.To + " 步长 " + statement.Step,
+        YyCodeStatementKinds.ForEach => "遍历 " + statement.Variable + " 于 " + statement.Expression,
+        YyCodeStatementKinds.Try => "尝试",
+        YyCodeStatementKinds.Return => string.IsNullOrWhiteSpace(statement.Expression)
+            ? "返回"
+            : "返回 " + statement.Expression,
+        YyCodeStatementKinds.Break => "跳出",
+        YyCodeStatementKinds.Continue => "继续",
+        _ => statement.Expression
+    };
+
+    /// <summary>解析一行语句文本为结构化语句(表格编辑器行编辑确认用)。兼容官方全角运算符显示输入。</summary>
+    public static YyCodeStatement ParseStatementText(string text)
+    {
+        var normalized = (text ?? string.Empty)
+            .Replace("＜＞", "<>", StringComparison.Ordinal)
+            .Replace("＜＝", "<=", StringComparison.Ordinal)
+            .Replace("＞＝", ">=", StringComparison.Ordinal)
+            .Replace("＝", "=", StringComparison.Ordinal)
+            .Replace("＋", "+", StringComparison.Ordinal)
+            .Replace("－", "-", StringComparison.Ordinal)
+            .Replace("＊", "*", StringComparison.Ordinal)
+            .Replace("／", "/", StringComparison.Ordinal)
+            .Replace("（", "(", StringComparison.Ordinal)
+            .Replace("）", ")", StringComparison.Ordinal)
+            .Replace("＜", "<", StringComparison.Ordinal)
+            .Replace("＞", ">", StringComparison.Ordinal);
+        var trimmed = normalized.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            throw new YyCodeFormatException("语句不能为空。", 1, 1);
+        }
+
+        if (trimmed.Contains('\n') || trimmed.Contains('\r'))
+        {
+            throw new YyCodeFormatException("一次只能输入一行语句。", 1, 1);
+        }
+
+        var closer = trimmed switch
+        {
+            var t when t.StartsWith("如果", StringComparison.Ordinal) => "\n结束如果",
+            var t when t.StartsWith("当", StringComparison.Ordinal) ||
+                       t.StartsWith("计次循环", StringComparison.Ordinal) => "\n结束循环",
+            var t when t.StartsWith("遍历", StringComparison.Ordinal) => "\n结束遍历",
+            var t when t.StartsWith("尝试", StringComparison.Ordinal) => "\n结束尝试",
+            _ => string.Empty
+        };
+        var wrapped = ".版本 3\n.程序集 _行\n子程序 _行()\n" + trimmed + closer + "\n结束子程序\n";
+        var document = FromSource(wrapped, "_行");
+        if (document.Functions.Count != 1 || document.Functions[0].Statements.Count != 1)
+        {
+            throw new YyCodeFormatException("一次只能输入一行语句。", 1, 1);
+        }
+
+        return document.Functions[0].Statements[0];
     }
 
     private static void EmitStatements(
         StringBuilder builder,
         IReadOnlyList<YyCodeStatement> statements,
-        int depth)
+        int depth,
+        IDictionary<YyCodeStatement, int>? lineMap = null)
     {
         var indent = new string(' ', depth * 4);
         foreach (var statement in statements)
         {
+            if (lineMap is not null)
+            {
+                lineMap[statement] = CountLines(builder) + 1;
+            }
+
             switch (statement.Kind)
             {
                 case YyCodeStatementKinds.Variable:
@@ -194,11 +285,11 @@ public static class YyCodeDocumentConverter
                 case YyCodeStatementKinds.If:
                     builder.Append(indent).Append("如果 ").Append(statement.Condition)
                         .AppendLine(" 则");
-                    EmitStatements(builder, statement.Children, depth + 1);
+                    EmitStatements(builder, statement.Children, depth + 1, lineMap);
                     if (statement.ElseChildren.Count > 0)
                     {
                         builder.Append(indent).AppendLine("否则");
-                        EmitStatements(builder, statement.ElseChildren, depth + 1);
+                        EmitStatements(builder, statement.ElseChildren, depth + 1, lineMap);
                     }
 
                     builder.Append(indent).AppendLine("结束如果");
@@ -206,7 +297,7 @@ public static class YyCodeDocumentConverter
                 case YyCodeStatementKinds.While:
                     builder.Append(indent).Append("当 ").Append(statement.Condition)
                         .AppendLine(" 循环");
-                    EmitStatements(builder, statement.Children, depth + 1);
+                    EmitStatements(builder, statement.Children, depth + 1, lineMap);
                     builder.Append(indent).AppendLine("结束循环");
                     break;
                 case YyCodeStatementKinds.CountLoop:
@@ -214,20 +305,20 @@ public static class YyCodeDocumentConverter
                         .Append(" 从 ").Append(statement.From)
                         .Append(" 到 ").Append(statement.To)
                         .Append(" 步长 ").AppendLine(statement.Step);
-                    EmitStatements(builder, statement.Children, depth + 1);
+                    EmitStatements(builder, statement.Children, depth + 1, lineMap);
                     builder.Append(indent).AppendLine("结束循环");
                     break;
                 case YyCodeStatementKinds.ForEach:
                     builder.Append(indent).Append("遍历 ").Append(statement.Variable)
                         .Append(" 于 ").AppendLine(statement.Expression);
-                    EmitStatements(builder, statement.Children, depth + 1);
+                    EmitStatements(builder, statement.Children, depth + 1, lineMap);
                     builder.Append(indent).AppendLine("结束遍历");
                     break;
                 case YyCodeStatementKinds.Try:
                     builder.Append(indent).AppendLine("尝试");
-                    EmitStatements(builder, statement.Children, depth + 1);
+                    EmitStatements(builder, statement.Children, depth + 1, lineMap);
                     builder.Append(indent).Append("捕获 ").AppendLine(statement.CatchName);
-                    EmitStatements(builder, statement.ElseChildren, depth + 1);
+                    EmitStatements(builder, statement.ElseChildren, depth + 1, lineMap);
                     builder.Append(indent).AppendLine("结束尝试");
                     break;
                 case YyCodeStatementKinds.Return:
@@ -247,6 +338,20 @@ public static class YyCodeDocumentConverter
                     break;
             }
         }
+    }
+
+    private static int CountLines(StringBuilder builder)
+    {
+        var lines = 0;
+        for (var i = 0; i < builder.Length; i++)
+        {
+            if (builder[i] == '\n')
+            {
+                lines++;
+            }
+        }
+
+        return lines;
     }
 
     private static YyCodeStatement ConvertStatement(Statement statement)

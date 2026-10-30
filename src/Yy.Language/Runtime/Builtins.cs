@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -13,10 +14,16 @@ internal static class Builtins
         "绝对值", "平方根", "幂", "最大", "最小", "随机数", "范围", "包含", "分割", "连接",
         "替换", "修剪", "转大写", "转小写", "取子文本", "追加", "插入", "移除", "排序",
         "倒序", "键集", "值集", "当前时间", "格式化时间", "JSON解析", "JSON生成",
-        "UTF8编码", "UTF8解码"
+        "UTF8编码", "UTF8解码", "取文本左边", "取文本右边", "取文本中间",
+        "取环境变量", "取运行目录", "取启动时间", "延时",
+        "文件存在", "取目录文件", "删除文件", "读文件", "写文件", "断点"
     ];
 
-    public static void Install(Environment globals, Action<object?> write, CancellationToken cancellationToken)
+    public static void Install(
+        Environment globals,
+        Action<object?> write,
+        CancellationToken cancellationToken,
+        YyDebugProbe? probe = null)
     {
         Add("输出", 0, int.MaxValue, args =>
         {
@@ -211,6 +218,94 @@ internal static class Builtins
             Convert.ToBase64String(Encoding.UTF8.GetBytes(Interpreter.Format(args[0]))));
         Add("UTF8解码", 1, 1, args =>
             Encoding.UTF8.GetString(Convert.FromBase64String(Interpreter.Format(args[0]))));
+
+        // 文本操作(官方命令名与语义,取文本中间的位置从 1 开始)
+        Add("取文本左边", 2, 2, args =>
+        {
+            var text = RequireString(args[0], "取文本左边");
+            var count = (int)Interpreter.RequireNumber(args[1], 1, 1);
+            return count <= 0 ? string.Empty : text[..Math.Min(count, text.Length)];
+        });
+        Add("取文本右边", 2, 2, args =>
+        {
+            var text = RequireString(args[0], "取文本右边");
+            var count = (int)Interpreter.RequireNumber(args[1], 1, 1);
+            return count <= 0 ? string.Empty : text[^Math.Min(count, text.Length)..];
+        });
+        Add("取文本中间", 2, 3, args =>
+        {
+            var text = RequireString(args[0], "取文本中间");
+            var start = (int)Interpreter.RequireNumber(args[1], 1, 1);
+            if (start < 1)
+            {
+                throw new YyRuntimeError("取文本中间的起始位置不能小于 1", 1, 1);
+            }
+
+            if (start > text.Length)
+            {
+                return string.Empty;
+            }
+
+            var length = args.Length > 2 ? (int)Interpreter.RequireNumber(args[2], 1, 1) : text.Length - start + 1;
+            return text.Substring(start - 1, Math.Max(0, Math.Min(length, text.Length - start + 1)));
+        });
+
+        // 环境存取
+        Add("取环境变量", 1, 1, args =>
+            System.Environment.GetEnvironmentVariable(RequireString(args[0], "取环境变量")) ?? string.Empty);
+        Add("取运行目录", 0, 0, _ => AppContext.BaseDirectory);
+        Add("取启动时间", 0, 0, _ => (double)System.Environment.TickCount64);
+        Add("延时", 1, 1, args =>
+        {
+            var milliseconds = Interpreter.RequireNumber(args[0], 1, 1);
+            if (milliseconds > 0)
+            {
+                cancellationToken.WaitHandle.WaitOne(TimeSpan.FromMilliseconds(Math.Min(milliseconds, 60_000)));
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+            }
+
+            return null;
+        });
+
+        // 磁盘操作/文件读写
+        Add("文件存在", 1, 1, args =>
+            File.Exists(RequireString(args[0], "文件存在")));
+        Add("取目录文件", 1, 2, args =>
+        {
+            var directory = RequireString(args[0], "取目录文件");
+            var pattern = args.Length > 1 ? Interpreter.Format(args[1]) : "*";
+            if (!Directory.Exists(directory))
+            {
+                return new List<object?>();
+            }
+
+            return Directory.EnumerateFiles(directory, pattern, SearchOption.TopDirectoryOnly)
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .Cast<object?>()
+                .ToList();
+        });
+        Add("删除文件", 1, 1, args =>
+        {
+            File.Delete(RequireString(args[0], "删除文件"));
+            return true;
+        });
+        Add("读文件", 1, 1, args =>
+            File.ReadAllText(RequireString(args[0], "读文件")));
+        Add("写文件", 2, 2, args =>
+        {
+            File.WriteAllText(RequireString(args[0], "写文件"), Interpreter.Format(args[1]));
+            return true;
+        });
+
+        // 程序调试:在调试器中执行到此处时于下一条语句暂停
+        Add("断点", 0, 0, _ =>
+        {
+            probe?.RequestBreak();
+            return null;
+        });
 
         void Add(string name, int minimumArguments, int maximumArguments, Func<object?[], object?> invoke)
         {

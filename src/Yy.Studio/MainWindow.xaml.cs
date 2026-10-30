@@ -18,6 +18,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
 using System.Xml;
+using Yy.Studio.Properties;
 using Yy.Language;
 using Yy.Language.Syntax;
 using Yy.Studio.Forms;
@@ -52,12 +53,50 @@ public partial class MainWindow : Window
         new("运行项目", nameof(RunProjectCommand), typeof(MainWindow));
     public static readonly RoutedUICommand StopCommand =
         new("停止", nameof(StopCommand), typeof(MainWindow));
+    public static readonly RoutedUICommand DebugStepCommand =
+        new("单步", nameof(DebugStepCommand), typeof(MainWindow));
+    public static readonly RoutedUICommand DebugStepOverCommand =
+        new("单步跳过", nameof(DebugStepOverCommand), typeof(MainWindow));
+    public static readonly RoutedUICommand DebugStepOutCommand =
+        new("跳出", nameof(DebugStepOutCommand), typeof(MainWindow));
+    public static readonly RoutedUICommand DebugRunToCursorCommand =
+        new("到光标处", nameof(DebugRunToCursorCommand), typeof(MainWindow));
+    public static readonly RoutedUICommand DebugToggleBreakpointCommand =
+        new("切换断点", nameof(DebugToggleBreakpointCommand), typeof(MainWindow));
 
-    private static readonly Brush ReadyBrush = new SolidColorBrush(Color.FromRgb(85, 214, 179));
-    private static readonly Brush WarningBrush = new SolidColorBrush(Color.FromRgb(243, 183, 97));
-    private static readonly Brush ErrorBrush = new SolidColorBrush(Color.FromRgb(255, 116, 116));
+    private static readonly Brush ReadyBrush = new SolidColorBrush(Color.FromRgb(0, 96, 0));
+    private static readonly Brush WarningBrush = new SolidColorBrush(Color.FromRgb(128, 128, 0));
+    private static readonly Brush ErrorBrush = new SolidColorBrush(Color.FromRgb(160, 0, 0));
     private static readonly HashSet<string> IgnoredDirectories =
         new(StringComparer.OrdinalIgnoreCase) { ".git", ".vs", "bin", "obj", "node_modules" };
+
+    private sealed record ToolboxItem(string? Type, string DisplayName, string Glyph, bool Supported);
+
+    private static readonly IReadOnlyList<ToolboxItem> ToolboxItems =
+    [
+        new(null, "指针", "➤", true),
+        new(YyControlTypes.Button, "按钮", "▣", true),
+        new(YyControlTypes.Label, "标签", "ab", true),
+        new(YyControlTypes.TextBox, "编辑框", "⌨", true),
+        new(YyControlTypes.RadioButton, "单选框", "◉", true),
+        new(YyControlTypes.CheckBox, "复选框", "☑", true),
+        new(YyControlTypes.ComboBox, "组合框", "⌄", true),
+        new(YyControlTypes.ListBox, "列表框", "☷", true),
+        new(YyControlTypes.GroupBox, "分组框", "▤", true),
+        new(YyControlTypes.PictureBox, "图片框", "▨", true),
+        new(null, "外形框", "▢", false),
+        new(null, "画板", "✎", false),
+        new(null, "选择夹", "▥", false),
+        new(null, "横向滚动条", "↔", false),
+        new(null, "纵向滚动条", "↕", false),
+        new(null, "进度条", "▤", false),
+        new(null, "滑块条", "═", false),
+        new(null, "超级链接", "⚭", false),
+        new(null, "时钟", "◷", false),
+        new(null, "通用对话框", "▣", false),
+        new(null, "透", "透", false),
+        new(null, "OCX", "OCX", false)
+    ];
     private static readonly IReadOnlyDictionary<string, CodeSnippet> CodeSnippets =
         new Dictionary<string, CodeSnippet>(StringComparer.Ordinal)
         {
@@ -69,7 +108,6 @@ public partial class MainWindow : Window
             ["尝试"] = new("尝试\n    \n捕获 错误\n    \n结束尝试", 7, 0)
         };
 
-    private readonly DispatcherTimer _outlineTimer;
     private readonly ObservableCollection<EditorDocument> _documents = [];
     private readonly List<FrameworkElement> _selectionVisuals = [];
     private readonly List<YyControlModel> _selectedControls = [];
@@ -79,6 +117,7 @@ public partial class MainWindow : Window
     private string? _workspacePath;
     private YyProject? _project;
     private YyFormModel? _designForm;
+    private EditorDocument? _designerDocument;
     private YyControlModel? _selectedControl;
     private FrameworkElement? _selectedElement;
     private DesignerDragMode _designerDragMode;
@@ -87,7 +126,20 @@ public partial class MainWindow : Window
     private ResizeDirection _resizeDirection;
     private bool _designerDragChanged;
     private bool _updatingDesignerProperties;
+    private bool _suppressPropertyCommit;
     private Point _toolboxDragStart;
+    private bool _toolboxDragging;
+    private StudioSettings _settings = new();
+    private YyDebugProbe? _debugProbe;
+    private YyDebugPause? _debugPaused;
+    private string[] _debugSourceLines = [];
+    private readonly Dictionary<YyCodeStatement, int> _debugLineMap = [];
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<int, byte> _breakpoints = [];
+    private readonly List<string> _watchNames = [];
+    private readonly List<ClipHistoryRow> _clipHistory = [];
+    private string? _lastClipText;
+    private readonly StartPageView _startPageView = new();
+    private List<YyControlModel> _designerClipboard = [];
     private GridLength _explorerWidth = new(240);
     private GridLength _inspectorWidth = new(300);
     private string? _helpFunctionsSource;
@@ -108,25 +160,62 @@ public partial class MainWindow : Window
         InitializeComponent();
         StudioTrace.Write("InitializeComponent complete");
 
-        _outlineTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromMilliseconds(650)
-        };
-        _outlineTimer.Tick += (_, _) =>
-        {
-            _outlineTimer.Stop();
-            RefreshOutline(silent: true);
-        };
-
+        _settings = StudioSettings.Load();
         ConfigureEditor();
+        ApplySettings();
+        UpdateCompileTargetChecks();
         StudioTrace.Write("ConfigureEditor complete");
         StructuredEditor.DesignerActivationRequested += OnStructuredDesignerActivationRequested;
-        BuiltinList.ItemsSource = StudioCatalog.Builtins;
-        ControlToolbox.ItemsSource = YyControlTypes.All;
+        StructuredEditor.HintRequested += text => ShowHint(text);
+        WindowMenu.SubmenuOpened += (_, _) => BuildWindowMenu();
+        var clipTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(700) };
+        clipTimer.Tick += (_, _) => RecordClipHistory();
+        clipTimer.Start();
+        // 设计器控件剪贴板(文本框聚焦时由文本框自身处理剪切/复制/粘贴,不会到这里)
+        CommandBindings.Add(new CommandBinding(
+            ApplicationCommands.Copy,
+            OnDesignerCopy,
+            (_, args) => args.CanExecute =
+                DesignerPanel.Visibility == Visibility.Visible && _selectedControls.Count > 0));
+        CommandBindings.Add(new CommandBinding(
+            ApplicationCommands.Cut,
+            OnDesignerCut,
+            (_, args) => args.CanExecute =
+                DesignerPanel.Visibility == Visibility.Visible && _selectedControls.Count > 0));
+        CommandBindings.Add(new CommandBinding(
+            ApplicationCommands.Paste,
+            OnDesignerPaste,
+            (_, args) => args.CanExecute =
+                DesignerPanel.Visibility == Visibility.Visible && _designerClipboard.Count > 0));
+        BuildSupportTree();
+        ControlToolbox.ItemsSource = ToolboxItems;
         DocumentTabs.ItemsSource = _documents;
-        AddNewDocument(StudioCatalog.StarterCode);
+        Grid.SetRow(_startPageView, 0);
+        Grid.SetRowSpan(_startPageView, 2);
+        DocumentArea.Children.Add(_startPageView);
+        _startPageView.NewRequested += () => ShowNewProgramDialog();
+        _startPageView.OpenRequested += () => OpenFileCommand.Execute(null, this);
+        _startPageView.RecentSelected += path => OpenStartupPath(path);
+        _startPageView.ClearRequested += () =>
+        {
+            _settings.RecentFiles.Clear();
+            _settings.Save();
+            RefreshStartPageRecent();
+        };
+        AddStartPage();
+        if (!_settings.NoNewProgramDialog)
+        {
+            // 官方启动第一步:弹出“新建”程序类型对话框(勾选“启动后不再显示”可关闭)。
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (_currentDocument?.IsStartPage == true)
+                {
+                    ShowNewProgramDialog();
+                }
+            }));
+        }
+
         StudioTrace.Write("Initial document complete");
-        RefreshOutline(silent: true);
         AppendOutput("易语 Studio 已就绪。按 F5 运行当前源码。");
         SetStatus("就绪", ReadyBrush);
         StudioTrace.Write("MainWindow ctor complete");
@@ -135,9 +224,6 @@ public partial class MainWindow : Window
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
-        var handle = new WindowInteropHelper(this).Handle;
-        var enabled = 1;
-        DwmSetWindowAttribute(handle, 20, ref enabled, sizeof(int));
     }
 
     public void OpenStartupPath(string path)
@@ -220,9 +306,6 @@ public partial class MainWindow : Window
         UpdateDocumentIdentity();
         UpdateEditorHelp();
         UpdateParameterHint();
-
-        _outlineTimer.Stop();
-        _outlineTimer.Start();
     }
 
     private void OnCaretPositionChanged(object? sender, EventArgs e)
@@ -866,6 +949,80 @@ public partial class MainWindow : Window
         SetStatus("已新建窗体标签", ReadyBrush);
     }
 
+    /// <summary>“新建”程序类型对话框(对齐官方:点新建弹出类型选择,确定后内存中直接建程序)。</summary>
+    private void OnNewProgramClick(object sender, RoutedEventArgs e) => ShowNewProgramDialog();
+
+    private void ShowNewProgramDialog()
+    {
+        var dialog = new NewProgramDialog { Owner = this };
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        if (dialog.SuppressOnStartup && !_settings.NoNewProgramDialog)
+        {
+            _settings.NoNewProgramDialog = true;
+            _settings.Save();
+        }
+
+        switch (dialog.SelectedKind)
+        {
+            case NewProgramDialog.ProgramKind.Window:
+                CreateBlankWindowProgram();
+                break;
+            case NewProgramDialog.ProgramKind.Console:
+                AddNewDocument(
+                    ".版本 3\n.程序集 控制台程序\n\n' 控制台程序入口\n输出(\"你好，易语！\")\n");
+                SetStatus("已新建易语控制台程序", ReadyBrush);
+                break;
+            case NewProgramDialog.ProgramKind.Module:
+                AddNewDocument(
+                    ".版本 3\n.程序集 模块1\n\n' 易模块:在子程序表把“易包”设为“真”后可编译导出\n子程序 示例函数(参数: 文本): 文本\n    返回 参数\n结束子程序\n");
+                SetStatus("已新建易语模块", ReadyBrush);
+                break;
+            case NewProgramDialog.ProgramKind.Project:
+                NewProjectCommand.Execute(null, this);
+                break;
+            case NewProgramDialog.ProgramKind.OpenFile:
+                OpenFileCommand.Execute(null, this);
+                break;
+            case NewProgramDialog.ProgramKind.Sample when dialog.SelectedSamplePath is not null:
+                OpenStartupPath(dialog.SelectedSamplePath);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// 官方“Windows 窗口程序”:内存中立即创建 _启动窗口 空白程序(窗体+代码后置),
+    /// 不弹任何保存对话框,直接进入窗体设计器。
+    /// </summary>
+    private void CreateBlankWindowProgram()
+    {
+        var formName = "_启动窗口";
+        var form = new YyFormModel
+        {
+            Name = formName,
+            CodeFile = "未命名窗体.yyc",
+            Title = "窗口1",
+            Width = 500,
+            Height = 340
+        };
+        var formDocument = new EditorDocument(
+            null,
+            NextUntitledFormName(),
+            YyFormSerializer.Serialize(form));
+        var codeModel = new YyCodeDocument { Name = "窗口程序集1" };
+        var codeDocument = new EditorDocument(
+            null,
+            "未命名窗体.yyc",
+            YyCodeSerializer.Serialize(codeModel));
+        _documents.Add(codeDocument);
+        _documents.Add(formDocument);
+        DocumentTabs.SelectedItem = formDocument;
+        SetStatus("已新建易语窗口程序：_启动窗口", ReadyBrush);
+    }
+
     private void OnOpenFile(object sender, ExecutedRoutedEventArgs e)
     {
         var dialog = new OpenFileDialog
@@ -920,13 +1077,361 @@ public partial class MainWindow : Window
 
     private async void OnRun(object sender, ExecutedRoutedEventArgs e)
     {
+        if (_currentDocument?.IsStartPage == true)
+        {
+            ShowHint("请先在起始页“新建”或“打开…”一个程序。");
+            return;
+        }
+
         if (_currentDocument?.IsForm == true)
         {
             PreviewCurrentForm();
             return;
         }
 
+        if (_debugPaused is not null && _debugProbe is not null)
+        {
+            _debugPaused = null;
+            _debugProbe.Continue();
+            SetStatus("调试继续（全速）…", WarningBrush);
+            RunInfoText.Text = "调试运行中…";
+            return;
+        }
+
         await RunDocumentAsync();
+    }
+
+    private void OnDebugStep(object sender, ExecutedRoutedEventArgs e) =>
+        DebugResumeOrStart(YyDebugMode.StepInto);
+
+    private void OnDebugStepOver(object sender, ExecutedRoutedEventArgs e) =>
+        DebugResumeOrStart(YyDebugMode.StepOver);
+
+    private void OnDebugStepOut(object sender, ExecutedRoutedEventArgs e) =>
+        DebugResumeOrStart(YyDebugMode.StepOut);
+
+    private void OnDebugRunToCursor(object sender, ExecutedRoutedEventArgs e) =>
+        DebugResumeOrStart(YyDebugMode.RunToLine);
+
+    private void DebugResumeOrStart(YyDebugMode mode)
+    {
+        if (_runCancellation is not null)
+        {
+            if (_debugProbe is null || _debugPaused is null)
+            {
+                SetStatus("程序正在运行（未暂停）…", WarningBrush);
+                return;
+            }
+
+            var probe = _debugProbe;
+            var pause = _debugPaused;
+            switch (mode)
+            {
+                case YyDebugMode.StepInto:
+                    _debugPaused = null;
+                    probe.StepInto();
+                    break;
+                case YyDebugMode.StepOver:
+                    _debugPaused = null;
+                    probe.StepOver(pause.Depth);
+                    break;
+                case YyDebugMode.StepOut:
+                    _debugPaused = null;
+                    probe.StepOut(pause.Depth);
+                    break;
+                case YyDebugMode.RunToLine:
+                    if (!TryGetCursorLine(out var target))
+                    {
+                        SetStatus("请先单击代码行/语句行定位光标。", WarningBrush);
+                        return;
+                    }
+
+                    _debugPaused = null;
+                    probe.RunToLine(target, pause.Depth);
+                    break;
+            }
+
+            SetStatus("调试继续…", WarningBrush);
+            RunInfoText.Text = "调试运行中…";
+            return;
+        }
+
+        var probe2 = new YyDebugProbe(mode);
+        if (mode == YyDebugMode.RunToLine)
+        {
+            if (!TryGetCursorLine(out var line))
+            {
+                SetStatus("请先单击代码行/语句行定位光标。", WarningBrush);
+                return;
+            }
+
+            probe2 = new YyDebugProbe(YyDebugMode.RunToLine, line);
+        }
+
+        _ = RunDocumentAsync(probe2);
+    }
+
+    private bool TryGetCursorLine(out int line)
+    {
+        line = 0;
+        if (DesignerPanel.Visibility == Visibility.Visible)
+        {
+            return false;
+        }
+
+        if (StructuredEditor.Visibility == Visibility.Visible)
+        {
+            EnsureLineMap();
+            var statement = StructuredEditor.SelectedStatement;
+            return statement is not null && _debugLineMap.TryGetValue(statement, out line);
+        }
+
+        if (Editor.Visibility == Visibility.Visible)
+        {
+            var offset = Math.Clamp(Editor.CaretOffset, 0, Editor.Document.TextLength);
+            line = Editor.Document.GetLineByOffset(offset).LineNumber;
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>按需生成 语句→生成源码行号 映射(断点/到光标处在未运行时也要用)。</summary>
+    private void EnsureLineMap()
+    {
+        if (_debugLineMap.Count > 0 || StructuredEditor.Document is null)
+        {
+            return;
+        }
+
+        YyCodeDocumentConverter.ToSource(StructuredEditor.Document, _debugLineMap);
+    }
+
+    private void OnDebugToggleBreakpoint(object sender, ExecutedRoutedEventArgs e)
+    {
+        if (!TryGetCursorLine(out var line))
+        {
+            SetStatus("请先单击代码行/语句行定位光标。", WarningBrush);
+            return;
+        }
+
+        string message;
+        if (_breakpoints.TryRemove(line, out _))
+        {
+            message = $"已清除第 {line} 行断点";
+        }
+        else
+        {
+            _breakpoints[line] = 0;
+            message = $"已在第 {line} 行设置断点";
+        }
+
+        UpdateBreakpointMarkers();
+        SetStatus(message, ReadyBrush);
+    }
+
+    private void UpdateBreakpointMarkers()
+    {
+        if (StructuredEditor.Document is null)
+        {
+            return;
+        }
+
+        EnsureLineMap();
+        var statements = new HashSet<YyCodeStatement>();
+        foreach (var pair in _debugLineMap)
+        {
+            if (_breakpoints.ContainsKey(pair.Value))
+            {
+                statements.Add(pair.Key);
+            }
+        }
+
+        StructuredEditor.SetBreakpointStatements(statements);
+    }
+
+    // =============== 底部面板:监视表/搜寻/剪辑历史 ===============
+
+    private void OnWatchAddClick(object sender, RoutedEventArgs e) => AddWatch();
+
+    private void OnWatchInputKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            AddWatch();
+            e.Handled = true;
+        }
+    }
+
+    private void AddWatch()
+    {
+        var name = WatchInputBox.Text.Trim();
+        if (string.IsNullOrEmpty(name) || _watchNames.Contains(name, StringComparer.Ordinal))
+        {
+            return;
+        }
+
+        _watchNames.Add(name);
+        WatchInputBox.Text = string.Empty;
+        RefreshWatches();
+    }
+
+    private void OnWatchRemoveClick(object sender, RoutedEventArgs e)
+    {
+        foreach (var item in WatchList.SelectedItems.OfType<VariableRow>().ToList())
+        {
+            _watchNames.Remove(item.Key);
+        }
+
+        RefreshWatches();
+    }
+
+    private void RefreshWatches(IReadOnlyDictionary<string, object?>? variables = null)
+    {
+        WatchList.ItemsSource = _watchNames
+            .Select(name => new VariableRow(
+                name,
+                variables is not null && variables.TryGetValue(name, out var value)
+                    ? DisplayValue(value)
+                    : "（运行暂停时显示）"))
+            .ToList();
+    }
+
+    private void OnSearchClick(object sender, RoutedEventArgs e) => RunSearch();
+
+    private void OnSearchInputKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            RunSearch();
+            e.Handled = true;
+        }
+    }
+
+    private void RunSearch()
+    {
+        var keyword = SearchInputBox.Text;
+        if (string.IsNullOrEmpty(keyword))
+        {
+            return;
+        }
+
+        var text = StructuredEditor.Visibility == Visibility.Visible
+            ? StructuredEditor.PlainText
+            : Editor.Text;
+        var rows = new List<SearchResultRow>();
+        var lines = text.Replace("\r\n", "\n").Split('\n');
+        for (var i = 0; i < lines.Length; i++)
+        {
+            if (lines[i].Contains(keyword, StringComparison.OrdinalIgnoreCase))
+            {
+                rows.Add(new SearchResultRow(i + 1, lines[i].Trim()));
+            }
+        }
+
+        SearchResultsList1.ItemsSource = rows;
+        BottomTabs.SelectedIndex = 5;
+        SetStatus($"搜寻“{keyword}”：找到 {rows.Count} 处", ReadyBrush);
+    }
+
+    private void OnSearchResultDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if ((sender as ListBox)?.SelectedItem is not SearchResultRow row)
+        {
+            return;
+        }
+
+        if (Editor.Visibility == Visibility.Visible)
+        {
+            if (row.Line <= Editor.Document.LineCount)
+            {
+                var line = Editor.Document.GetLineByNumber(row.Line);
+                Editor.Select(line.Offset, 0);
+                Editor.ScrollToLine(row.Line);
+                Editor.Focus();
+            }
+
+            return;
+        }
+
+        if (StructuredEditor.Visibility == Visibility.Visible)
+        {
+            foreach (var pair in _debugLineMap)
+            {
+                if (pair.Value == row.Line)
+                {
+                    StructuredEditor.SelectStatement(pair.Key);
+                    return;
+                }
+            }
+        }
+    }
+
+    private void OnClipHistoryInsert(object sender, MouseButtonEventArgs e)
+    {
+        if (ClipHistoryList.SelectedItem is ClipHistoryRow row &&
+            Editor.Visibility == Visibility.Visible)
+        {
+            Editor.Document.Insert(Editor.CaretOffset, row.Text);
+            Editor.Focus();
+        }
+    }
+
+    private void RecordClipHistory()
+    {
+        try
+        {
+            if (!Clipboard.ContainsText())
+            {
+                return;
+            }
+
+            var text = Clipboard.GetText();
+            if (string.IsNullOrWhiteSpace(text) || string.Equals(text, _lastClipText, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _lastClipText = text;
+            var display = text.Replace("\r", string.Empty).Replace("\n", " ");
+            if (display.Length > 200)
+            {
+                display = display[..200] + "…";
+            }
+
+            _clipHistory.Insert(0, new ClipHistoryRow(text));
+            if (_clipHistory.Count > 50)
+            {
+                _clipHistory.RemoveAt(_clipHistory.Count - 1);
+            }
+
+            ClipHistoryList.ItemsSource = _clipHistory.ToList();
+        }
+        catch (Exception exception) when (exception is System.Runtime.InteropServices.COMException or ExternalException)
+        {
+            // 剪贴板被占用时忽略本次记录。
+        }
+    }
+
+    private void OnDebugPaused(YyDebugPause pause)
+    {
+        _debugPaused = pause;
+        var lineText = pause.Line > 0 && pause.Line <= _debugSourceLines.Length
+            ? _debugSourceLines[pause.Line - 1].Trim()
+            : string.Empty;
+        SetStatus($"调试暂停 · 第 {pause.Line} 行：{lineText}", WarningBrush);
+        RunInfoText.Text = $"暂停 · 第 {pause.Line} 行";
+
+        CallStackList.Items.Clear();
+        CallStackList.Items.Add(new ListBoxItem { Content = $"第 {pause.Line} 行    {lineText}" });
+        for (var depth = 0; depth < pause.Depth; depth++)
+        {
+            CallStackList.Items.Add(new ListBoxItem { Content = $"（外层调用 {depth + 1}）" });
+        }
+
+        ShowVariables(pause.Variables);
+        RefreshWatches(pause.Variables);
+        BottomTabs.SelectedIndex = 4;
     }
 
     private async void OnRunProject(object sender, ExecutedRoutedEventArgs e)
@@ -964,6 +1469,46 @@ public partial class MainWindow : Window
 
     private async void OnCompileProject(object sender, ExecutedRoutedEventArgs e)
     {
+        await CompileProjectAsync(selfContained: false);
+    }
+
+    private async void OnStandaloneCompileClick(object sender, RoutedEventArgs e)
+    {
+        await CompileProjectAsync(selfContained: true);
+    }
+
+    private void OnCompileTargetOsClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { Tag: string rid })
+        {
+            return;
+        }
+
+        if (!rid.StartsWith("win-", StringComparison.Ordinal))
+        {
+            MessageBox.Show(
+                this,
+                "生成的应用基于 WPF 界面,目的操作系统目前仅支持 Windows。\nLinux/macOS 目标将在后续版本提供。",
+                "编译到目的操作系统",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        _settings.TargetRid = rid;
+        _settings.Save();
+        UpdateCompileTargetChecks();
+        SetStatus($"目的操作系统:{(rid == "win-arm64" ? "Windows ARM64" : "Windows x64")}", ReadyBrush);
+    }
+
+    private void UpdateCompileTargetChecks()
+    {
+        TargetOsWinX64MenuItem.IsChecked = _settings.TargetRid == "win-x64";
+        TargetOsWinArm64MenuItem.IsChecked = _settings.TargetRid == "win-arm64";
+    }
+
+    private async Task CompileProjectAsync(bool selfContained)
+    {
         if (_project is null)
         {
             MessageBox.Show(
@@ -992,7 +1537,7 @@ public partial class MainWindow : Window
 
         var dialog = new SaveFileDialog
         {
-            Title = "编译为 Windows 可执行文件",
+            Title = selfContained ? "独立编译为 Windows 可执行文件" : "编译为 Windows 可执行文件",
             Filter = "Windows 应用 (*.exe)|*.exe",
             DefaultExt = ".exe",
             AddExtension = true,
@@ -1011,10 +1556,17 @@ public partial class MainWindow : Window
         try
         {
             var compiler = new ProjectCompiler();
-            var output = await compiler.CompileAsync(_project, dialog.FileName, progress);
+            var output = await compiler.CompileAsync(
+                _project,
+                dialog.FileName,
+                selfContained,
+                _settings.TargetRid,
+                progress);
             SetStatus("EXE 编译完成", ReadyBrush);
             MessageBox.Show(
-                $"编译完成：\n{output}\n\n可以直接双击运行，不需要源码目录或 .NET SDK。",
+                selfContained
+                    ? $"独立编译完成：\n{output}\n\n可以直接双击运行，不需要源码目录或 .NET 运行时。"
+                    : $"编译完成：\n{output}\n\n目标机器需要安装 .NET 桌面运行时才能运行。",
                 "编译完成",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
@@ -1069,6 +1621,8 @@ public partial class MainWindow : Window
     {
         if (_runCancellation is not null)
         {
+            _debugProbe?.Stop();
+            _debugPaused = null;
             _runCancellation.Cancel();
             SetStatus("正在停止…", WarningBrush);
             RunInfoText.Text = "已请求停止";
@@ -1115,26 +1669,28 @@ public partial class MainWindow : Window
         YyControlModel control,
         ControlEventKind eventKind)
     {
-        if (_designForm is null || string.IsNullOrWhiteSpace(_currentDocument?.FilePath))
+        if (_designForm is null)
         {
-            MessageBox.Show(
-                "请先保存窗体，再双击控件生成代码后置事件。",
-                "生成事件代码",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
             return;
         }
 
-        var formPath = _currentDocument.FilePath;
-        var formDirectory = Path.GetDirectoryName(formPath)!;
+        // 对齐官方:未保存的内存窗体也能直接生成事件代码(操作内存中的代码后置文档)。
+        var isFileBacked = !string.IsNullOrWhiteSpace(_currentDocument?.FilePath);
+        string? formDirectory = isFileBacked ? Path.GetDirectoryName(_currentDocument!.FilePath)! : null;
         var codeFileName = string.IsNullOrWhiteSpace(_designForm.CodeFile)
-            ? Path.GetFileNameWithoutExtension(formPath) + ".yyc"
+            ? (isFileBacked
+                ? Path.GetFileNameWithoutExtension(_currentDocument!.FilePath!)
+                : Path.GetFileNameWithoutExtension(_currentDocument?.DisplayName ?? "未命名窗体")) + ".yyc"
             : _designForm.CodeFile;
-        var codePath = Path.GetFullPath(Path.Combine(formDirectory, codeFileName));
-        var codeDocument = _documents.FirstOrDefault(document =>
-            string.Equals(document.FilePath, codePath, StringComparison.OrdinalIgnoreCase));
+        string? codePath = isFileBacked ? Path.GetFullPath(Path.Combine(formDirectory!, codeFileName)) : null;
+        var codeDocument = codePath is not null
+            ? _documents.FirstOrDefault(document =>
+                string.Equals(document.FilePath, codePath, StringComparison.OrdinalIgnoreCase))
+            : _documents.FirstOrDefault(document =>
+                document.FilePath is null &&
+                string.Equals(document.DisplayName, codeFileName, StringComparison.OrdinalIgnoreCase));
 
-        if (string.Equals(Path.GetExtension(codePath), ".yyc", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(Path.GetExtension(codeFileName), ".yyc", StringComparison.OrdinalIgnoreCase))
         {
             CreateStructuredEventHandler(
                 control,
@@ -1146,7 +1702,7 @@ public partial class MainWindow : Window
         }
 
         var source = codeDocument?.Text
-            ?? (File.Exists(codePath)
+            ?? (codePath is not null && File.Exists(codePath)
                 ? File.ReadAllText(codePath, new UTF8Encoding(false, true))
                 : $"""
                    .版本 3
@@ -1158,23 +1714,11 @@ public partial class MainWindow : Window
         var handlerName = GetControlEvent(control, eventKind);
         if (string.IsNullOrWhiteSpace(handlerName))
         {
-            var suffix = eventKind switch
-            {
-                ControlEventKind.TextChanged => "_文本改变",
-                ControlEventKind.SelectionChanged => "_选择改变",
-                ControlEventKind.CheckedChanged => "_选中改变",
-                _ => "_被单击"
-            };
-            var baseName = control.Name + suffix;
-            handlerName = baseName;
-            var index = 2;
+            var baseName = EventHandlerNaming.ForControl(control.Name, GetEventDisplayName(eventKind));
             var existing = YyRunner.CompileSource(source, codePath).Functions
                 .Select(function => function.Name)
                 .ToHashSet(StringComparer.Ordinal);
-            while (existing.Contains(handlerName))
-            {
-                handlerName = baseName + index++;
-            }
+            handlerName = EventHandlerNaming.Unique(baseName, existing.Contains);
         }
 
         var functionMarker = "子程序 " + handlerName;
@@ -1190,9 +1734,11 @@ public partial class MainWindow : Window
 
         if (codeDocument is null)
         {
-            codeDocument = new EditorDocument(codePath, Path.GetFileName(codePath), source);
+            codeDocument = codePath is not null
+                ? new EditorDocument(codePath, Path.GetFileName(codePath), source)
+                : new EditorDocument(null, codeFileName, source);
             _documents.Add(codeDocument);
-            if (!File.Exists(codePath))
+            if (codePath is null || !File.Exists(codePath))
             {
                 codeDocument.MarkModified();
             }
@@ -1203,7 +1749,11 @@ public partial class MainWindow : Window
         }
 
         SetControlEvent(control, eventKind, handlerName);
-        _designForm.CodeFile = Path.GetRelativePath(formDirectory, codePath).Replace('\\', '/');
+        if (formDirectory is not null && codePath is not null)
+        {
+            _designForm.CodeFile = Path.GetRelativePath(formDirectory, codePath).Replace('\\', '/');
+        }
+
         DesignerChanged();
         DocumentTabs.SelectedItem = codeDocument;
         var offset = codeDocument.Text.IndexOf(functionMarker, StringComparison.Ordinal);
@@ -1221,14 +1771,14 @@ public partial class MainWindow : Window
     private void CreateStructuredEventHandler(
         YyControlModel control,
         ControlEventKind eventKind,
-        string codePath,
+        string? codePath,
         EditorDocument? codeDocument,
-        string formDirectory)
+        string? formDirectory)
     {
         try
         {
             var existingText = codeDocument?.Text
-                ?? (File.Exists(codePath)
+                ?? (codePath is not null && File.Exists(codePath)
                     ? File.ReadAllText(codePath, new UTF8Encoding(false, true))
                     : null);
             var model = string.IsNullOrWhiteSpace(existingText)
@@ -1237,23 +1787,11 @@ public partial class MainWindow : Window
             var handlerName = GetControlEvent(control, eventKind);
             if (string.IsNullOrWhiteSpace(handlerName))
             {
-                var suffix = eventKind switch
-                {
-                    ControlEventKind.TextChanged => "_文本改变",
-                    ControlEventKind.SelectionChanged => "_选择改变",
-                    ControlEventKind.CheckedChanged => "_选中改变",
-                    _ => "_被单击"
-                };
-                var baseName = control.Name + suffix;
-                handlerName = baseName;
-                var index = 2;
+                var baseName = EventHandlerNaming.ForControl(control.Name, GetEventDisplayName(eventKind));
                 var existingNames = model.Functions
                     .Select(function => function.Name)
                     .ToHashSet(StringComparer.Ordinal);
-                while (existingNames.Contains(handlerName))
-                {
-                    handlerName = baseName + index++;
-                }
+                handlerName = EventHandlerNaming.Unique(baseName, existingNames.Contains);
             }
 
             if (model.Functions.All(function =>
@@ -1266,9 +1804,11 @@ public partial class MainWindow : Window
             var changed = !string.Equals(existingText, serialized, StringComparison.Ordinal);
             if (codeDocument is null)
             {
-                codeDocument = new EditorDocument(codePath, Path.GetFileName(codePath), serialized);
+                codeDocument = codePath is not null
+                    ? new EditorDocument(codePath, Path.GetFileName(codePath), serialized)
+                    : new EditorDocument(null, _designForm?.CodeFile ?? "未命名窗体.yyc", serialized);
                 _documents.Add(codeDocument);
-                if (changed || !File.Exists(codePath))
+                if (changed || codePath is null || !File.Exists(codePath))
                 {
                     codeDocument.MarkModified();
                 }
@@ -1279,7 +1819,11 @@ public partial class MainWindow : Window
             }
 
             SetControlEvent(control, eventKind, handlerName);
-            _designForm!.CodeFile = Path.GetRelativePath(formDirectory, codePath).Replace('\\', '/');
+            if (formDirectory is not null && codePath is not null)
+            {
+                _designForm!.CodeFile = Path.GetRelativePath(formDirectory, codePath).Replace('\\', '/');
+            }
+
             DesignerChanged();
             DocumentTabs.SelectedItem = codeDocument;
             StructuredEditor.SelectFunction(handlerName);
@@ -1331,11 +1875,60 @@ public partial class MainWindow : Window
 
     private static string GetEventDisplayName(ControlEventKind eventKind) => eventKind switch
     {
-        ControlEventKind.TextChanged => "文本改变",
-        ControlEventKind.SelectionChanged => "选择改变",
-        ControlEventKind.CheckedChanged => "选中改变",
-        _ => "单击"
+        ControlEventKind.TextChanged => EventHandlerNaming.TextChanged,
+        ControlEventKind.SelectionChanged => EventHandlerNaming.SelectionChanged,
+        ControlEventKind.CheckedChanged => EventHandlerNaming.CheckedChanged,
+        _ => EventHandlerNaming.Click
     };
+
+    /// <summary>
+    /// 构建 事件子程序名 → 组件关联描述 映射(如 "_按钮1_被单击" → "按钮1 · 被单击"),
+    /// 用于代码编辑页显示子程序与窗体组件的对应关系。
+    /// </summary>
+    private Dictionary<string, string> BuildEventAssociations()
+    {
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        void AddForm(YyFormModel form)
+        {
+            void Add(string? handler, string display)
+            {
+                if (!string.IsNullOrWhiteSpace(handler))
+                {
+                    map[handler] = display;
+                }
+            }
+
+            Add(form.LoadEvent, form.Name + " · " + EventHandlerNaming.FormLoad);
+            Add(form.CloseEvent, form.Name + " · " + EventHandlerNaming.FormClose);
+            foreach (var control in form.Controls)
+            {
+                Add(control.ClickEvent, control.Name + " · " + EventHandlerNaming.Click);
+                Add(control.TextChangedEvent, control.Name + " · " + EventHandlerNaming.TextChanged);
+                Add(control.SelectionChangedEvent, control.Name + " · " + EventHandlerNaming.SelectionChanged);
+                Add(control.CheckedChangedEvent, control.Name + " · " + EventHandlerNaming.CheckedChanged);
+            }
+        }
+
+        var associated = GetAssociatedFormForCurrentDocument();
+        if (associated is not null)
+        {
+            AddForm(associated);
+        }
+        else if (_project is not null)
+        {
+            foreach (var form in _project.Forms)
+            {
+                AddForm(form.Model);
+            }
+        }
+        else if (_designForm is not null)
+        {
+            AddForm(_designForm);
+        }
+
+        return map;
+    }
 
     private void PreviewCurrentForm()
     {
@@ -1350,12 +1943,74 @@ public partial class MainWindow : Window
             return;
         }
 
-        var preview = new YyFormPreviewWindow(_designForm, _currentDocument?.FilePath) { Owner = this };
-        preview.Closed += (_, _) => StudioTrace.Write("Form preview closed");
+        var preview = new YyFormPreviewWindow(_designForm, _currentDocument?.FilePath, ResolveCodeBehindText())
+        {
+            Owner = this
+        };
+        preview.Closed += (_, _) =>
+        {
+            StudioTrace.Write("Form preview closed");
+            if (ReferenceEquals(_lastPreview, preview))
+            {
+                _lastPreview = null;
+            }
+        };
+        _lastPreview = preview;
         preview.Show();
         StudioTrace.Write($"Form preview shown: {preview.Title}");
         RunInfoText.Text = $"窗体预览：{_designForm.Title}";
         SetStatus("窗体预览已打开", ReadyBrush);
+    }
+
+    /// <summary>
+    /// 取当前窗体的代码后置文本(优先编辑器中的内存文档,其次磁盘文件),
+    /// 让未保存的窗体也能在预览中运行事件代码(对齐官方)。
+    /// </summary>
+    private string? ResolveCodeBehindText()
+    {
+        if (_designForm is null)
+        {
+            return null;
+        }
+
+        var codeFileName = _designForm.CodeFile;
+        var document = codeFileName is null
+            ? null
+            : _documents.FirstOrDefault(item =>
+                  item.FilePath is not null &&
+                  string.Equals(Path.GetFileName(item.FilePath), Path.GetFileName(codeFileName), StringComparison.OrdinalIgnoreCase))
+              ?? _documents.FirstOrDefault(item =>
+                  item.FilePath is null &&
+                  string.Equals(item.DisplayName, codeFileName, StringComparison.OrdinalIgnoreCase));
+        if (document is not null)
+        {
+            return document.Text;
+        }
+
+        var path = ResolveCodeBehindPath();
+        return path is not null && File.Exists(path)
+            ? File.ReadAllText(path, new UTF8Encoding(false, true))
+            : null;
+    }
+
+    /// <summary>解析当前窗体的代码后置磁盘路径(仅文件窗体有效)。</summary>
+    private string? ResolveCodeBehindPath()
+    {
+        if (_designForm is null || string.IsNullOrWhiteSpace(_currentDocument?.FilePath))
+        {
+            return null;
+        }
+
+        var formDirectory = Path.GetDirectoryName(_currentDocument.FilePath);
+        if (formDirectory is null)
+        {
+            return null;
+        }
+
+        var codeFileName = string.IsNullOrWhiteSpace(_designForm.CodeFile)
+            ? Path.GetFileNameWithoutExtension(_currentDocument.FilePath) + ".yyc"
+            : _designForm.CodeFile;
+        return Path.GetFullPath(Path.Combine(formDirectory, codeFileName));
     }
 
     private void OpenWorkspace(string path)
@@ -1375,8 +2030,8 @@ public partial class MainWindow : Window
                 MessageBoxImage.Warning);
         }
 
-        ProjectTitleText.Text = _project?.Name ?? "项目";
         PopulateProjectTree();
+        _settings.AddRecent(path);
         SetStatus(
             _project is null
                 ? $"已打开目录：{Path.GetFileName(path)}"
@@ -1400,6 +2055,10 @@ public partial class MainWindow : Window
         }
     }
 
+    private sealed record TableLink(string Kind);
+
+    private DataTableView? _dataTableView;
+
     private void PopulateProjectTree()
     {
         ProjectTree.Items.Clear();
@@ -1408,256 +2067,168 @@ public partial class MainWindow : Window
             return;
         }
 
-        var root = BuildDirectoryNode(_workspacePath);
-        root.IsExpanded = true;
-        ProjectTree.Items.Add(root);
-    }
-
-    private TreeViewItem BuildDirectoryNode(string path)
-    {
-        var item = new TreeViewItem
+        // 官方“程序数据”树(对齐 img041):全局变量/自定义数据类型/Dll命令/窗口/程序集/常量表/资源表
+        var root = new TreeViewItem
         {
-            Header = MakeTreeHeader("▸  " + Path.GetFileName(path), isFolder: true),
-            Tag = path,
-            IsExpanded = path == _workspacePath
+            Header = MakeTreeHeader("程序数据"),
+            IsExpanded = true
+        };
+        root.Items.Add(new TreeViewItem { Header = MakeTreeHeader("全局变量"), Tag = new TableLink("全局变量") });
+        root.Items.Add(new TreeViewItem { Header = MakeTreeHeader("自定义数据类型"), Tag = new TableLink("自定义数据类型") });
+        root.Items.Add(new TreeViewItem { Header = MakeTreeHeader("Dll命令"), Tag = new TableLink("Dll命令") });
+
+        var windowsItem = new TreeViewItem
+        {
+            Header = MakeTreeHeader("窗口"),
+            IsExpanded = true
+        };
+        var assembliesItem = new TreeViewItem
+        {
+            Header = MakeTreeHeader("程序集"),
+            IsExpanded = true
         };
 
-        IEnumerable<string> directories;
-        IEnumerable<string> files;
-        try
-        {
-            directories = Directory.EnumerateDirectories(path)
-                .Where(directory => !IgnoredDirectories.Contains(Path.GetFileName(directory)))
-                .OrderBy(directory => directory, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
-            files = Directory.EnumerateFiles(path)
-                .Where(file => string.Equals(Path.GetExtension(file), ".yyc", StringComparison.OrdinalIgnoreCase) ||
-                               string.Equals(Path.GetExtension(file), ".yyx", StringComparison.OrdinalIgnoreCase) ||
-                               string.Equals(Path.GetExtension(file), ".yyproj", StringComparison.OrdinalIgnoreCase))
-                .OrderBy(file => file, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
-        }
-        catch (UnauthorizedAccessException)
-        {
-            directories = [];
-            files = [];
-        }
-
-        foreach (var directory in directories)
-        {
-            item.Items.Add(BuildDirectoryNode(directory));
-        }
-
-        var formFiles = files
-            .Where(file => string.Equals(Path.GetExtension(file), ".yyx", StringComparison.OrdinalIgnoreCase))
-            .ToArray();
+        var formFiles = new List<string>();
         var linkedCodeFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var formFile in formFiles)
+        if (_project is not null)
         {
-            var formItem = new TreeViewItem
+            foreach (var form in _project.Forms)
             {
-                Header = MakeTreeHeader("▣  " + Path.GetFileName(formFile), isFolder: false),
-                Tag = formFile,
-                Padding = new Thickness(3, 3, 3, 3)
-            };
-            try
-            {
-                var form = YyFormSerializer.Deserialize(File.ReadAllText(formFile));
-                string? codePath = null;
-                if (!string.IsNullOrWhiteSpace(form.CodeFile))
+                formFiles.Add(form.FormPath);
+                windowsItem.Items.Add(new TreeViewItem
                 {
-                    codePath = Path.GetFullPath(
-                        Path.Combine(Path.GetDirectoryName(formFile)!, form.CodeFile));
-                    if (File.Exists(codePath))
-                    {
-                        linkedCodeFiles.Add(codePath);
-                        formItem.Items.Add(new TreeViewItem
-                        {
-                            Header = MakeTreeHeader("◈  " + Path.GetFileName(codePath), isFolder: false),
-                            Tag = codePath,
-                            Padding = new Thickness(3, 3, 3, 3)
-                        });
-                    }
+                    Header = MakeTreeHeader(form.Model.Name),
+                    Tag = form.FormPath
+                });
+                if (form.CodePath is not null)
+                {
+                    linkedCodeFiles.Add(form.CodePath);
+                }
+            }
+        }
+        else
+        {
+            foreach (var formFile in Directory.EnumerateFiles(_workspacePath, "*.yyx", SearchOption.AllDirectories)
+                         .Where(file => !IsIgnoredPath(file))
+                         .OrderBy(file => file, StringComparer.OrdinalIgnoreCase))
+            {
+                formFiles.Add(formFile);
+                var formName = Path.GetFileNameWithoutExtension(formFile);
+                try
+                {
+                    formName = YyFormSerializer.Deserialize(File.ReadAllText(formFile)).Name;
+                }
+                catch (Exception exception) when (exception is IOException or YyFormFormatException)
+                {
+                    // 名称回退为文件名,仍允许打开修复。
                 }
 
-                var componentsItem = new TreeViewItem
+                windowsItem.Items.Add(new TreeViewItem
                 {
-                    Header = MakeTreeHeader($"◆  组件 ({form.Controls.Count})", isFolder: true),
-                    IsExpanded = false
-                };
-                foreach (var control in form.Controls)
-                {
-                    var controlItem = new TreeViewItem
-                    {
-                        Header = MakeTreeHeader($"◇  {control.Name}  ·  {control.Type}", isFolder: false),
-                        Tag = new ProjectControlLink(formFile, control.Name)
-                    };
-                    foreach (var (eventName, description) in GetControlEvents(control))
-                    {
-                        controlItem.Items.Add(new TreeViewItem
-                        {
-                            Header = MakeTreeHeader($"ƒ  {description}  ·  {eventName}", isFolder: false),
-                            Tag = new ProjectEventLink(formFile, codePath, eventName, control.Name)
-                        });
-                    }
-
-                    componentsItem.Items.Add(controlItem);
-                }
-
-                formItem.Items.Add(componentsItem);
+                    Header = MakeTreeHeader(formName),
+                    Tag = formFile
+                });
             }
-            catch (Exception exception) when (exception is IOException or YyFormFormatException)
-            {
-                // The file remains openable so the user can repair invalid form XML.
-            }
-
-            item.Items.Add(formItem);
         }
 
-        foreach (var file in files.Where(file =>
-                     !linkedCodeFiles.Contains(file) &&
-                     !formFiles.Contains(file, StringComparer.OrdinalIgnoreCase)))
+        var moduleFiles = Directory.EnumerateFiles(_workspacePath, "*.yyc", SearchOption.AllDirectories)
+            .Where(file => !IsIgnoredPath(file))
+            .Where(file => !linkedCodeFiles.Contains(Path.GetFullPath(file)))
+            .OrderBy(file => file, StringComparer.OrdinalIgnoreCase);
+        foreach (var module in moduleFiles)
         {
-            item.Items.Add(new TreeViewItem
+            assembliesItem.Items.Add(new TreeViewItem
             {
-                Header = MakeTreeHeader(
-                    (string.Equals(Path.GetExtension(file), ".yyc", StringComparison.OrdinalIgnoreCase)
-                        ? "◈  "
-                        : "◇  ") + Path.GetFileName(file),
-                    isFolder: false),
-                Tag = file,
-                Padding = new Thickness(3, 3, 3, 3)
+                Header = MakeTreeHeader(Path.GetFileNameWithoutExtension(module)),
+                Tag = module
             });
         }
 
-        return item;
+        root.Items.Add(windowsItem);
+        root.Items.Add(assembliesItem);
+        root.Items.Add(new TreeViewItem { Header = MakeTreeHeader("常量表..."), Tag = new TableLink("常量表") });
+
+        var resourceItem = new TreeViewItem { Header = MakeTreeHeader("资源表") };
+        resourceItem.Items.Add(new TreeViewItem { Header = MakeTreeHeader("图片或图片组..."), Tag = new TableLink("资源表") });
+        resourceItem.Items.Add(new TreeViewItem { Header = MakeTreeHeader("声音..."), Tag = new TableLink("资源表") });
+        root.Items.Add(resourceItem);
+
+        ProjectTree.Items.Add(root);
     }
 
-    private static TextBlock MakeTreeHeader(string text, bool isFolder)
-    {
-        return new TextBlock
+    private static bool IsIgnoredPath(string file) =>
+        file.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            .Any(part => part is "bin" or "obj" or ".git" or ".vs");
+
+    private static TextBlock MakeTreeHeader(string text) =>
+        new()
         {
             Text = text,
-            FontSize = 12,
-            Foreground = new SolidColorBrush(isFolder
-                ? Color.FromRgb(211, 221, 232)
-                : Color.FromRgb(196, 212, 229))
+            FontSize = 12
         };
-    }
 
     private void OnProjectTreeSelectionChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
-        if (e.NewValue is TreeViewItem { Tag: ProjectControlLink controlLink })
+        switch (e.NewValue)
         {
-            OpenDocument(controlLink.FormPath);
-            if (_designForm is not null)
-            {
-                var control = _designForm.Controls.FirstOrDefault(item =>
-                    string.Equals(item.Name, controlLink.ControlName, StringComparison.Ordinal));
-                if (control is not null)
-                {
-                    SelectDesignerControl(control);
-                }
-            }
-
-            return;
-        }
-
-        if (e.NewValue is TreeViewItem { Tag: ProjectEventLink eventLink })
-        {
-            OpenEventHandlerFromProject(eventLink);
-            return;
-        }
-
-        if (e.NewValue is not TreeViewItem { Tag: string path } || !File.Exists(path))
-        {
-            return;
-        }
-
-        if (string.Equals(Path.GetExtension(path), ".yyproj", StringComparison.OrdinalIgnoreCase))
-        {
-            OpenWorkspace(Path.GetDirectoryName(Path.GetFullPath(path))!);
-            return;
-        }
-
-        if (!string.Equals(path, _currentDocument?.FilePath, StringComparison.OrdinalIgnoreCase))
-        {
-            OpenDocument(path);
-        }
-    }
-
-    private void OpenEventHandlerFromProject(ProjectEventLink link)
-    {
-        if (string.IsNullOrWhiteSpace(link.CodePath) || !File.Exists(link.CodePath))
-        {
-            MessageBox.Show(
-                $"控件“{link.ControlName}”绑定了事件“{link.EventName}”，但还没有代码后置文件。\n\n请在窗体设计器中双击该控件生成事件代码。",
-                "事件代码",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-            return;
-        }
-
-        OpenDocument(link.CodePath);
-        if (_currentDocument?.IsStructuredCode == true)
-        {
-            StructuredEditor.SelectFunction(link.EventName);
-            SetStatus($"已打开事件：{link.EventName}", ReadyBrush);
-            return;
-        }
-
-        var marker = "子程序 " + link.EventName;
-        var offset = Editor.Text.IndexOf(marker, StringComparison.Ordinal);
-        if (offset < 0)
-        {
-            MessageBox.Show(
-                $"代码后置中还没有事件函数“{link.EventName}”。\n\n请在窗体设计器中双击控件生成它。",
-                "事件代码",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-            return;
-        }
-
-        Editor.CaretOffset = offset;
-        var line = Editor.Document.GetLineByOffset(offset);
-        Editor.Select(line.Offset, line.Length);
-        Editor.ScrollToLine(line.LineNumber);
-        Editor.Focus();
-    }
-
-    private static IEnumerable<(string Name, string Description)> GetControlEvents(YyControlModel control)
-    {
-        if (!string.IsNullOrWhiteSpace(control.ClickEvent))
-        {
-            yield return (control.ClickEvent, "单击");
-        }
-
-        if (!string.IsNullOrWhiteSpace(control.TextChangedEvent))
-        {
-            yield return (control.TextChangedEvent, "文本改变");
-        }
-
-        if (!string.IsNullOrWhiteSpace(control.SelectionChangedEvent))
-        {
-            yield return (control.SelectionChangedEvent, "选择改变");
-        }
-
-        if (!string.IsNullOrWhiteSpace(control.CheckedChangedEvent))
-        {
-            yield return (control.CheckedChangedEvent, "选中改变");
+            case TreeViewItem { Tag: TableLink { Kind: "自定义数据类型" } }:
+                ShowHint("自定义数据类型将在后续版本提供。");
+                break;
+            case TreeViewItem { Tag: TableLink link }:
+                SetStatus($"数据表：{link.Kind}(双击打开)", ReadyBrush);
+                break;
+            case TreeViewItem { Tag: string path }:
+                SetStatus($"{Path.GetFileName(path)}(双击打开)", ReadyBrush);
+                break;
         }
     }
 
     private void OnProjectTreeDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (ProjectTree.SelectedItem is TreeViewItem { Tag: string path } &&
-            Directory.Exists(path))
+        if (ProjectTree.SelectedItem is not TreeViewItem item)
         {
-            if (ProjectTree.SelectedItem is TreeViewItem item)
-            {
-                item.IsExpanded = !item.IsExpanded;
-            }
+            return;
         }
+
+        switch (item.Tag)
+        {
+            case TableLink { Kind: "自定义数据类型" }:
+                ShowHint("自定义数据类型将在后续版本提供。");
+                break;
+            case TableLink link:
+                ShowDataTableView(link.Kind);
+                break;
+            case string path when File.Exists(path):
+                OpenDocument(path);
+                break;
+            default:
+                item.IsExpanded = !item.IsExpanded;
+                break;
+        }
+    }
+
+    private void ShowDataTableView(string kind)
+    {
+        if (_project is null)
+        {
+            ShowHint("请先打开项目后再编辑数据表。");
+            return;
+        }
+
+        _dataTableView ??= new DataTableView();
+        if (!ReferenceEquals(DataTableViewHost.Content, _dataTableView))
+        {
+            DataTableViewHost.Content = _dataTableView;
+        }
+
+        Editor.Visibility = Visibility.Collapsed;
+        StructuredEditor.Visibility = Visibility.Collapsed;
+        DesignerPanel.Visibility = Visibility.Collapsed;
+        ParameterHintBar.Visibility = Visibility.Collapsed;
+        DataTableViewHost.Visibility = Visibility.Visible;
+
+        _dataTableView.Load(_project, kind, () => _project.SaveManifest());
+        SetStatus($"数据表：{kind}", ReadyBrush);
     }
 
     private void OpenDocument(string path)
@@ -1692,6 +2263,7 @@ public partial class MainWindow : Window
             var document = new EditorDocument(fullPath, Path.GetFileName(fullPath), source);
             _documents.Add(document);
             DocumentTabs.SelectedItem = document;
+            _settings.AddRecent(fullPath);
             SetStatus($"已打开 {Path.GetFileName(fullPath)}", ReadyBrush);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or DecoderFallbackException)
@@ -1714,6 +2286,41 @@ public partial class MainWindow : Window
         _documents.Add(document);
         DocumentTabs.SelectedItem = document;
     }
+
+    /// <summary>添加起始页标签(对齐官方:启动/关闭全部文档后先到起始页)。</summary>
+    private void AddStartPage()
+    {
+        if (_documents.Any(document => document.IsStartPage))
+        {
+            DocumentTabs.SelectedItem = _documents.First(document => document.IsStartPage);
+            return;
+        }
+
+        var document = new EditorDocument(null, "起始页", string.Empty) { IsStartPage = true };
+        _documents.Add(document);
+        DocumentTabs.SelectedItem = document;
+    }
+
+    private void ShowStartPage()
+    {
+        DataTableViewHost.Visibility = Visibility.Collapsed;
+        DesignerPanel.Visibility = Visibility.Collapsed;
+        StructuredEditor.Visibility = Visibility.Collapsed;
+        Editor.Visibility = Visibility.Collapsed;
+        ParameterHintBar.Visibility = Visibility.Collapsed;
+        _startPageView.Visibility = Visibility.Visible;
+        RestoreInspectorColumn();
+        PropertyRows.Visibility = Visibility.Collapsed;
+        _designForm = null;
+        _selectedControl = null;
+        _selectedElement = null;
+        _selectedControls.Clear();
+        ClearSelectionVisuals();
+        RefreshStartPageRecent();
+    }
+
+    private void RefreshStartPageRecent() =>
+        _startPageView.SetRecent(_settings.RecentFiles);
 
     private string NextUntitledName()
     {
@@ -1758,6 +2365,13 @@ public partial class MainWindow : Window
         _currentDocument = document;
         _helpFunctionsSource = null;
         _helpFunctions.Clear();
+        if (document.IsStartPage)
+        {
+            ShowStartPage();
+            UpdateDocumentIdentity();
+            return;
+        }
+
         if (document.IsForm)
         {
             ShowFormDesigner(document);
@@ -1786,20 +2400,21 @@ public partial class MainWindow : Window
         }
 
         UpdateDocumentIdentity();
-        RefreshOutline(silent: true);
         CaretText.Text = $"行 {Editor.TextArea.Caret.Line}，列 {Editor.TextArea.Caret.Column}";
     }
 
     private void ShowCodeEditor(EditorDocument document)
     {
+        DataTableViewHost.Visibility = Visibility.Collapsed;
         DesignerPanel.Visibility = Visibility.Collapsed;
         StructuredEditor.Visibility = Visibility.Collapsed;
+        _startPageView.Visibility = Visibility.Collapsed;
         Editor.Visibility = Visibility.Visible;
         ParameterHintBar.Visibility = Visibility.Visible;
         RestoreInspectorColumn();
-        DesignerInspector.Visibility = Visibility.Collapsed;
-        InspectorTabs.Visibility = Visibility.Visible;
+        PropertyRows.Visibility = Visibility.Collapsed;
         _designForm = null;
+        _designerDocument = null;
         _selectedControl = null;
         _selectedElement = null;
         _selectedControls.Clear();
@@ -1809,9 +2424,11 @@ public partial class MainWindow : Window
 
     private void ShowFormDesigner(EditorDocument document)
     {
+        DataTableViewHost.Visibility = Visibility.Collapsed;
         try
         {
             _designForm = YyFormSerializer.Deserialize(document.Text);
+            _designerDocument = document;
             var currentSnapshot = YyFormSerializer.Serialize(_designForm);
             if (document.LastDesignerSnapshot is null ||
                 !string.Equals(document.LastDesignerSnapshot, currentSnapshot, StringComparison.Ordinal))
@@ -1823,13 +2440,14 @@ public partial class MainWindow : Window
 
             Editor.Visibility = Visibility.Collapsed;
             StructuredEditor.Visibility = Visibility.Collapsed;
+            _startPageView.Visibility = Visibility.Collapsed;
             DesignerPanel.Visibility = Visibility.Visible;
             ParameterHintBar.Visibility = Visibility.Collapsed;
             RestoreInspectorColumn();
-            InspectorTabs.Visibility = Visibility.Collapsed;
-            DesignerInspector.Visibility = Visibility.Visible;
+            PropertyRows.Visibility = Visibility.Visible;
             RenderDesignerForm();
             UpdateDesignerHistoryButtons();
+            UpdateDesignerTitleChrome();
             SetStatus($"窗体设计：{_designForm.Title}", ReadyBrush);
         }
         catch (YyFormFormatException exception)
@@ -1855,15 +2473,18 @@ public partial class MainWindow : Window
 
     private void ShowStructuredCode(EditorDocument document)
     {
+        DataTableViewHost.Visibility = Visibility.Collapsed;
         try
         {
             var model = YyCodeSerializer.Deserialize(document.Text);
             Editor.Visibility = Visibility.Collapsed;
             DesignerPanel.Visibility = Visibility.Collapsed;
+            _startPageView.Visibility = Visibility.Collapsed;
             StructuredEditor.Visibility = Visibility.Visible;
             ParameterHintBar.Visibility = Visibility.Collapsed;
             HideInspectorColumn();
             StructuredEditor.SetDesignContext(GetAssociatedFormForCurrentDocument());
+            StructuredEditor.SetEventAssociations(BuildEventAssociations());
             StructuredEditor.LoadDocument(model);
             SetStatus($"结构化代码：{document.DisplayName}", ReadyBrush);
         }
@@ -1933,19 +2554,12 @@ public partial class MainWindow : Window
 
     private void HideInspectorColumn()
     {
-        _inspectorWidth = InspectorColumn.Width;
-        InspectorPanel.Visibility = Visibility.Collapsed;
-        InspectorSplitter.Visibility = Visibility.Collapsed;
-        InspectorColumn.MinWidth = 0;
-        InspectorColumn.Width = new GridLength(0);
+        // 官方布局:窗口组件箱常驻右侧,不随文档视图隐藏。
     }
 
     private void RestoreInspectorColumn()
     {
-        InspectorPanel.Visibility = Visibility.Visible;
-        InspectorSplitter.Visibility = Visibility.Visible;
-        InspectorColumn.MinWidth = 220;
-        InspectorColumn.Width = _inspectorWidth.Value > 0 ? _inspectorWidth : new GridLength(300);
+        // 官方布局:窗口组件箱常驻右侧,不随文档视图隐藏。
     }
 
     private void OnStructuredCodeChanged(object? sender, EventArgs e)
@@ -1957,7 +2571,6 @@ public partial class MainWindow : Window
 
         _currentDocument.Text = YyCodeSerializer.Serialize(StructuredEditor.Document);
         UpdateDocumentIdentity();
-        RefreshOutline(silent: true);
     }
 
     private void RenderDesignerForm()
@@ -1976,6 +2589,9 @@ public partial class MainWindow : Window
         DesignerCanvas.Width = _designForm.Width;
         DesignerCanvas.Height = _designForm.Height;
         DesignerCanvas.Background = CreateDesignerBackground(_designForm.Background);
+        DesignerTitleText.Text = string.IsNullOrWhiteSpace(_designForm.Title)
+            ? _designForm.Name
+            : _designForm.Title;
 
         foreach (var control in _designForm.Controls)
         {
@@ -1989,31 +2605,23 @@ public partial class MainWindow : Window
     {
         var baseColor = YyFormRenderer.Brush(color) is SolidColorBrush solid
             ? solid.Color
-            : Color.FromRgb(244, 247, 251);
-        var gridPen = new Pen(new SolidColorBrush(Color.FromArgb(44, 48, 64, 82)), 1);
-        gridPen.Freeze();
+            : Color.FromRgb(236, 233, 216);
 
         var drawing = new DrawingGroup();
         drawing.Children.Add(new GeometryDrawing(
             new SolidColorBrush(baseColor),
             null,
-            new RectangleGeometry(new Rect(0, 0, 16, 16))));
+            new RectangleGeometry(new Rect(0, 0, 8, 8))));
+        // 官方式点阵:8px 网格交点画 1px 灰点
         drawing.Children.Add(new GeometryDrawing(
+            new SolidColorBrush(Color.FromRgb(128, 128, 128)),
             null,
-            gridPen,
-            new GeometryGroup
-            {
-                Children =
-                {
-                    new LineGeometry(new Point(0, 0), new Point(16, 0)),
-                    new LineGeometry(new Point(0, 0), new Point(0, 16))
-                }
-            }));
+            new RectangleGeometry(new Rect(0, 0, 1, 1))));
 
         var brush = new DrawingBrush(drawing)
         {
             TileMode = TileMode.Tile,
-            Viewport = new Rect(0, 0, 16, 16),
+            Viewport = new Rect(0, 0, 8, 8),
             ViewportUnits = BrushMappingMode.Absolute
         };
         brush.Freeze();
@@ -2038,8 +2646,9 @@ public partial class MainWindow : Window
 
     private void OnToolboxMouseMove(object sender, MouseEventArgs e)
     {
-        if (e.LeftButton != MouseButtonState.Pressed ||
-            ControlToolbox.SelectedItem is not string type)
+        if (_toolboxDragging ||
+            e.LeftButton != MouseButtonState.Pressed ||
+            ControlToolbox.SelectedItem is not ToolboxItem { Supported: true, Type: { } type })
         {
             return;
         }
@@ -2051,15 +2660,28 @@ public partial class MainWindow : Window
             return;
         }
 
-        System.Windows.DragDrop.DoDragDrop(ControlToolbox, type, DragDropEffects.Copy);
+        _toolboxDragging = true;
+        try
+        {
+            System.Windows.DragDrop.DoDragDrop(ControlToolbox, type, DragDropEffects.Copy);
+        }
+        finally
+        {
+            _toolboxDragging = false;
+        }
     }
 
     private void OnToolboxDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (ControlToolbox.SelectedItem is string type && _designForm is not null)
+        if (ControlToolbox.SelectedItem is ToolboxItem { Supported: true, Type: { } type } &&
+            _designForm is not null)
         {
             AddDesignerControl(type, new Point(44 + _designForm.Controls.Count % 6 * 22, 44));
             e.Handled = true;
+        }
+        else if (ControlToolbox.SelectedItem is ToolboxItem { Supported: false } item)
+        {
+            ShowHint($"组件“{item.DisplayName}”暂未支持，后续版本提供。");
         }
     }
 
@@ -2110,7 +2732,7 @@ public partial class MainWindow : Window
     }
 
     private static string GetControlBaseName(string type) =>
-        type == YyControlTypes.Label ? "标签" : type;
+        YyControlTypes.GetBaseName(type);
 
     private static bool TryGetDefaultEvent(string controlType, out ControlEventKind eventKind)
     {
@@ -2119,7 +2741,7 @@ public partial class MainWindow : Window
             YyControlTypes.Button => ControlEventKind.Click,
             YyControlTypes.TextBox => ControlEventKind.TextChanged,
             YyControlTypes.ComboBox or YyControlTypes.ListBox => ControlEventKind.SelectionChanged,
-            YyControlTypes.CheckBox => ControlEventKind.CheckedChanged,
+            YyControlTypes.CheckBox or YyControlTypes.RadioButton => ControlEventKind.CheckedChanged,
             _ => default
         };
 
@@ -2558,6 +3180,131 @@ public partial class MainWindow : Window
         // The designer canvas size is driven by the active form model.
     }
 
+    /// <summary>设计器标题栏随窗体属性联动(最小化/最大化按钮与边框样式)。</summary>
+    private void UpdateDesignerTitleChrome()
+    {
+        if (_designForm is null)
+        {
+            return;
+        }
+
+        var hasChrome = _designForm.BorderStyle != "无边框";
+        DesignerMinGlyph.Visibility = hasChrome && _designForm.MinimizeBox
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        DesignerMaxGlyph.Visibility = hasChrome && _designForm.MaximizeBox
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    // =============== 设计器控件剪贴板(对齐官方 Ctrl+X/C/V) ===============
+
+    private void OnDesignerCopy(object sender, ExecutedRoutedEventArgs e) =>
+        CopySelectedControls(cut: false);
+
+    private void OnDesignerCut(object sender, ExecutedRoutedEventArgs e) =>
+        CopySelectedControls(cut: true);
+
+    private void OnDesignerPaste(object sender, ExecutedRoutedEventArgs e) =>
+        PasteDesignerControls();
+
+    private void CopySelectedControls(bool cut)
+    {
+        if (_designForm is null || _selectedControls.Count == 0)
+        {
+            return;
+        }
+
+        _designerClipboard = _selectedControls.Select(control => control.Clone()).ToList();
+        if (cut)
+        {
+            DeleteSelectedControls();
+            SetStatus($"已剪切 {_designerClipboard.Count} 个控件", ReadyBrush);
+        }
+        else
+        {
+            SetStatus($"已复制 {_designerClipboard.Count} 个控件", ReadyBrush);
+        }
+    }
+
+    private void PasteDesignerControls()
+    {
+        if (_designForm is null || _designerClipboard.Count == 0)
+        {
+            return;
+        }
+
+        var pasted = new List<YyControlModel>();
+        foreach (var prototype in _designerClipboard)
+        {
+            var model = prototype.Clone();
+            var sequence = 1;
+            while (_designForm.Controls.Any(control =>
+                       control.Name == GetControlBaseName(model.Type) + sequence))
+            {
+                sequence++;
+            }
+
+            model.Name = GetControlBaseName(model.Type) + sequence;
+            model.ClickEvent = null;
+            model.TextChangedEvent = null;
+            model.SelectionChangedEvent = null;
+            model.CheckedChangedEvent = null;
+            model.X = Clamp(model.X + 12, 0, Math.Max(0, _designForm.Width - model.Width));
+            model.Y = Clamp(model.Y + 12, 0, Math.Max(0, _designForm.Height - model.Height));
+            _designForm.Controls.Add(model);
+            AddControlVisual(model);
+            pasted.Add(model);
+        }
+
+        SetDesignerSelection(pasted);
+        DesignerChanged();
+        SetStatus($"已粘贴 {pasted.Count} 个控件", ReadyBrush);
+    }
+
+    private void OnSelectAllDesignerControls(object sender, RoutedEventArgs e)
+    {
+        if (_designForm is not null)
+        {
+            SetDesignerSelection(_designForm.Controls);
+        }
+    }
+
+    private void OnDesignerBringFront(object sender, RoutedEventArgs e) =>
+        ReorderSelectedControls(toFront: true);
+
+    private void OnDesignerSendBack(object sender, RoutedEventArgs e) =>
+        ReorderSelectedControls(toFront: false);
+
+    private void ReorderSelectedControls(bool toFront)
+    {
+        if (_designForm is null || _selectedControls.Count == 0)
+        {
+            return;
+        }
+
+        var selected = _designForm.Controls.Where(_selectedControls.Contains).ToList();
+        foreach (var control in selected)
+        {
+            _designForm.Controls.Remove(control);
+        }
+
+        if (toFront)
+        {
+            _designForm.Controls.AddRange(selected);
+        }
+        else
+        {
+            _designForm.Controls.InsertRange(0, selected);
+        }
+
+        RenderDesignerForm();
+        UpdateDesignerHistoryButtons();
+        UpdateDesignerTitleChrome();
+        DesignerChanged();
+        SetStatus(toFront ? "已置前" : "已置后", ReadyBrush);
+    }
+
     private void SelectDesignerControl(YyControlModel control, bool additive = false)
     {
         if (additive)
@@ -2619,11 +3366,13 @@ public partial class MainWindow : Window
 
     private void SelectDesignerForm()
     {
+        StudioTrace.Write("DBG select-designer-form");
         _selectedControls.Clear();
         _selectedControl = null;
         _selectedElement = null;
         ClearSelectionVisuals();
         PopulateDesignerProperties();
+        ShowHint("窗口用来设计程序的用户界面及对界面事件进行处理。");
     }
 
     private void UpdateSelectedControlVisual()
@@ -2694,7 +3443,7 @@ public partial class MainWindow : Window
                 Width = control.Width,
                 Height = control.Height,
                 BorderBrush = YyFormRenderer.Brush(
-                    ReferenceEquals(control, _selectedControl) ? "#007ACC" : "#569CD6"),
+                    ReferenceEquals(control, _selectedControl) ? "#000000" : "#808080"),
                 BorderThickness = new Thickness(1.5),
                 Background = Brushes.Transparent,
                 IsHitTestVisible = false
@@ -2717,8 +3466,8 @@ public partial class MainWindow : Window
             {
                 Width = 8,
                 Height = 8,
-                Background = YyFormRenderer.Brush("#007ACC"),
-                BorderBrush = YyFormRenderer.Brush("#1E1E1E"),
+                Background = YyFormRenderer.Brush("#000000"),
+                BorderBrush = YyFormRenderer.Brush("#FFFFFF"),
                 BorderThickness = new Thickness(1),
                 Tag = new ResizeHandleTag(direction)
             };
@@ -2760,21 +3509,24 @@ public partial class MainWindow : Window
 
     private void DesignerChanged()
     {
-        if (_designForm is null || _currentDocument is null)
+        // 快照永远写回窗体自己的文档:创建事件后当前文档可能已是 .yyc 代码,
+        // 若盲目写 _currentDocument,窗体 XML 会覆盖代码文档(根元素校验失败)。
+        var target = _designerDocument ?? _currentDocument;
+        if (_designForm is null || target is null)
         {
             return;
         }
 
         var snapshot = YyFormSerializer.Serialize(_designForm);
-        var previous = _currentDocument.LastDesignerSnapshot;
+        var previous = target.LastDesignerSnapshot;
         if (previous is not null && !string.Equals(previous, snapshot, StringComparison.Ordinal))
         {
-            _currentDocument.DesignerUndo.Push(previous);
-            _currentDocument.DesignerRedo.Clear();
+            target.DesignerUndo.Push(previous);
+            target.DesignerRedo.Clear();
         }
 
-        _currentDocument.LastDesignerSnapshot = snapshot;
-        _currentDocument.Text = snapshot;
+        target.LastDesignerSnapshot = snapshot;
+        target.Text = snapshot;
         UpdateDesignerHistoryButtons();
         UpdateDocumentIdentity();
     }
@@ -2787,8 +3539,55 @@ public partial class MainWindow : Window
     {
         if (e.Key == Key.F1)
         {
-            BottomTabs.SelectedIndex = 1;
+            BottomTabs.SelectedIndex = 0;
             UpdateEditorHelp();
+            e.Handled = true;
+            return;
+        }
+
+        // 官方快捷键:Ctrl+E 菜单编辑器、Ctrl+L 插入局部变量、Ctrl+Enter 预览被设计窗口、Alt+1..4 面板
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && e.Key == Key.E)
+        {
+            OnMenuEditorClick(sender, e);
+            e.Handled = true;
+            return;
+        }
+
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && e.Key == Key.L)
+        {
+            OnInsertLocalVariableClick(sender, e);
+            e.Handled = true;
+            return;
+        }
+
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && e.Key == Key.Enter)
+        {
+            PreviewCurrentForm();
+            e.Handled = true;
+            return;
+        }
+
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Alt) && key is Key.D1 or Key.D2 or Key.D3 or Key.D4)
+        {
+            switch (key)
+            {
+                case Key.D1:
+                    ExplorerPanel.Visibility = Visibility.Visible;
+                    WorkTabs.SelectedIndex = 1;
+                    break;
+                case Key.D2:
+                    ExplorerPanel.Visibility = Visibility.Visible;
+                    WorkTabs.SelectedIndex = 0;
+                    break;
+                case Key.D3:
+                    OnToggleExplorer(sender, e);
+                    break;
+                case Key.D4:
+                    OnToggleToolboxPanel(sender, e);
+                    break;
+            }
+
             e.Handled = true;
             return;
         }
@@ -2819,14 +3618,15 @@ public partial class MainWindow : Window
             return;
         }
 
-        var current = _currentDocument.LastDesignerSnapshot;
-        var target = _currentDocument.DesignerUndo.Pop();
+        var document = _designerDocument ?? _currentDocument!;
+        var current = document.LastDesignerSnapshot;
+        var undoTarget = document.DesignerUndo.Pop();
         if (current is not null)
         {
-            _currentDocument.DesignerRedo.Push(current);
+            document.DesignerRedo.Push(current);
         }
 
-        RestoreDesignerSnapshot(target);
+        RestoreDesignerSnapshot(undoTarget);
         SetStatus("已撤销窗体设计操作", ReadyBrush);
     }
 
@@ -2837,28 +3637,30 @@ public partial class MainWindow : Window
             return;
         }
 
-        var current = _currentDocument.LastDesignerSnapshot;
-        var target = _currentDocument.DesignerRedo.Pop();
+        var document = _designerDocument ?? _currentDocument!;
+        var current = document.LastDesignerSnapshot;
+        var redoTarget = document.DesignerRedo.Pop();
         if (current is not null)
         {
-            _currentDocument.DesignerUndo.Push(current);
+            document.DesignerUndo.Push(current);
         }
 
-        RestoreDesignerSnapshot(target);
+        RestoreDesignerSnapshot(redoTarget);
         SetStatus("已重做窗体设计操作", ReadyBrush);
     }
 
     private void RestoreDesignerSnapshot(string snapshot)
     {
-        if (_currentDocument is null)
+        var document = _designerDocument ?? _currentDocument;
+        if (document is null)
         {
             return;
         }
 
         var selectedName = _selectedControl?.Name;
         _designForm = YyFormSerializer.Deserialize(snapshot);
-        _currentDocument.LastDesignerSnapshot = snapshot;
-        _currentDocument.Text = snapshot;
+        document.LastDesignerSnapshot = snapshot;
+        document.Text = snapshot;
         RenderDesignerForm();
         var selected = string.IsNullOrWhiteSpace(selectedName)
             ? null
@@ -2881,147 +3683,299 @@ public partial class MainWindow : Window
 
     private void PopulateDesignerProperties()
     {
+        StudioTrace.Write($"DBG populate-props guard={_updatingDesignerProperties}");
         if (_designForm is null)
         {
             return;
         }
 
         _updatingDesignerProperties = true;
+        _suppressPropertyCommit = true;
         try
         {
+            BuildPropertyObjectCombo();
+
             if (_selectedControls.Count > 1)
             {
-                PropertyTypeText.Text = $"已选择 {_selectedControls.Count} 个控件";
-                PropertyNameBox.Text = string.Empty;
-                PropertyTextBox.Text = string.Empty;
-                PropertyXBox.Text = string.Empty;
-                PropertyYBox.Text = string.Empty;
-                PropertyWidthBox.Text = string.Empty;
-                PropertyHeightBox.Text = string.Empty;
-                PropertyBackgroundBox.Text = string.Empty;
-                PropertyForegroundBox.Text = string.Empty;
-                PropertyFontSizeBox.Text = string.Empty;
-                PropertyCodeFileBox.Text = string.Empty;
-                PropertyEventBox.Text = string.Empty;
-                PropertyTextChangedEventBox.Text = string.Empty;
-                PropertySelectionChangedEventBox.Text = string.Empty;
-                PropertyCheckedChangedEventBox.Text = string.Empty;
-                PropertyLoadEventBox.Text = string.Empty;
-                PropertyCloseEventBox.Text = string.Empty;
-                PropertyNameBox.IsEnabled = false;
-                PropertyTextBox.IsEnabled = false;
-                PropertyXBox.IsEnabled = false;
-                PropertyYBox.IsEnabled = false;
-                PropertyWidthBox.IsEnabled = false;
-                PropertyHeightBox.IsEnabled = false;
-                PropertyBackgroundBox.IsEnabled = false;
-                PropertyForegroundBox.IsEnabled = false;
-                PropertyFontSizeBox.IsEnabled = false;
-                PropertyCodeFileBox.IsEnabled = false;
-                PropertyEventBox.IsEnabled = false;
-                PropertyTextChangedEventBox.IsEnabled = false;
-                PropertySelectionChangedEventBox.IsEnabled = false;
-                PropertyCheckedChangedEventBox.IsEnabled = false;
-                PropertyLoadEventBox.IsEnabled = false;
-                PropertyCloseEventBox.IsEnabled = false;
-                PropertyEnabledCheck.IsEnabled = false;
-                PropertyVisibleCheck.IsEnabled = false;
-                PropertyCheckedCheck.IsEnabled = false;
+                PropertyRows.ItemsSource = Array.Empty<PropertyRow>();
+                ResetEventSelectorPlaceholder();
+                EventSelectorCombo.IsEnabled = false;
+                return;
             }
-            else if (_selectedControl is null)
+
+            var rows = new List<PropertyRow>();
+            if (_selectedControl is null)
             {
-                PropertyTypeText.Text = "窗体";
-                PropertyNameBox.Text = _designForm.Name;
-                PropertyTextBox.Text = _designForm.Title;
-                PropertyXBox.Text = "0";
-                PropertyYBox.Text = "0";
-                PropertyWidthBox.Text = _designForm.Width.ToString("0.###");
-                PropertyHeightBox.Text = _designForm.Height.ToString("0.###");
-                PropertyBackgroundBox.Text = _designForm.Background;
-                PropertyForegroundBox.Text = string.Empty;
-                PropertyFontSizeBox.Text = string.Empty;
-                PropertyCodeFileBox.Text = _designForm.CodeFile;
-                PropertyEventBox.Text = string.Empty;
-                PropertyTextChangedEventBox.Text = string.Empty;
-                PropertySelectionChangedEventBox.Text = string.Empty;
-                PropertyCheckedChangedEventBox.Text = string.Empty;
-                PropertyLoadEventBox.Text = _designForm.LoadEvent ?? string.Empty;
-                PropertyCloseEventBox.Text = _designForm.CloseEvent ?? string.Empty;
-                PropertyXBox.IsEnabled = false;
-                PropertyYBox.IsEnabled = false;
-                PropertyForegroundBox.IsEnabled = false;
-                PropertyFontSizeBox.IsEnabled = false;
-                PropertyCodeFileBox.IsEnabled = true;
-                PropertyEventBox.IsEnabled = false;
-                PropertyTextChangedEventBox.IsEnabled = false;
-                PropertySelectionChangedEventBox.IsEnabled = false;
-                PropertyCheckedChangedEventBox.IsEnabled = false;
-                PropertyLoadEventBox.IsEnabled = true;
-                PropertyCloseEventBox.IsEnabled = true;
-                PropertyNameBox.IsEnabled = true;
-                PropertyTextBox.IsEnabled = true;
-                PropertyWidthBox.IsEnabled = true;
-                PropertyHeightBox.IsEnabled = true;
-                PropertyBackgroundBox.IsEnabled = true;
-                PropertyEnabledCheck.IsEnabled = false;
-                PropertyVisibleCheck.IsEnabled = false;
-                PropertyCheckedCheck.IsEnabled = false;
-                PropertyEnabledCheck.IsChecked = true;
-                PropertyVisibleCheck.IsChecked = true;
+                rows.Add(new PropertyRow("名称", _designForm.Name, PropertyCellKind.Identifier, PropertyRowCatalog.HintName));
+                rows.Add(new PropertyRow("备注", _designForm.Remark, PropertyCellKind.Text, PropertyRowCatalog.HintRemark));
+                rows.Add(new PropertyRow("标题", _designForm.Title, PropertyCellKind.Text, PropertyRowCatalog.HintTitle));
+                rows.Add(new PropertyRow("宽度", PropertyRowCatalog.FormatNumber(_designForm.Width), PropertyCellKind.Integer, PropertyRowCatalog.HintWidth));
+                rows.Add(new PropertyRow("高度", PropertyRowCatalog.FormatNumber(_designForm.Height), PropertyCellKind.Integer, PropertyRowCatalog.HintHeight));
+                rows.Add(new PropertyRow("背景", _designForm.Background, PropertyCellKind.Color, PropertyRowCatalog.HintBackground));
+                rows.Add(new PropertyRow("边框", _designForm.BorderStyle, PropertyCellKind.Text, PropertyRowCatalog.HintBorderStyle));
+                rows.Add(new PropertyRow("可否移动", PropertyRowCatalog.BoolText(_designForm.Movable), PropertyCellKind.Bool, PropertyRowCatalog.HintMovable));
+                rows.Add(new PropertyRow("初始位置", _designForm.StartPosition, PropertyCellKind.Text, PropertyRowCatalog.HintStartPosition));
+                rows.Add(new PropertyRow("最小化按钮", PropertyRowCatalog.BoolText(_designForm.MinimizeBox), PropertyCellKind.Bool, PropertyRowCatalog.HintMinBox));
+                rows.Add(new PropertyRow("最大化按钮", PropertyRowCatalog.BoolText(_designForm.MaximizeBox), PropertyCellKind.Bool, PropertyRowCatalog.HintMaxBox));
+                PropertyRows.ItemsSource = rows;
+                BuildFormEventSelector();
             }
             else
             {
-                PropertyTypeText.Text = $"控件 · {_selectedControl.Type}";
-                PropertyNameBox.Text = _selectedControl.Name;
-                PropertyTextBox.Text = _selectedControl.Text;
-                PropertyXBox.Text = _selectedControl.X.ToString("0.###");
-                PropertyYBox.Text = _selectedControl.Y.ToString("0.###");
-                PropertyWidthBox.Text = _selectedControl.Width.ToString("0.###");
-                PropertyHeightBox.Text = _selectedControl.Height.ToString("0.###");
-                PropertyBackgroundBox.Text = _selectedControl.Background;
-                PropertyForegroundBox.Text = _selectedControl.Foreground;
-                PropertyFontSizeBox.Text = _selectedControl.FontSize.ToString("0.###");
-                PropertyCodeFileBox.Text = string.Empty;
-                PropertyEventBox.Text = _selectedControl.ClickEvent ?? string.Empty;
-                PropertyTextChangedEventBox.Text = _selectedControl.TextChangedEvent ?? string.Empty;
-                PropertySelectionChangedEventBox.Text = _selectedControl.SelectionChangedEvent ?? string.Empty;
-                PropertyCheckedChangedEventBox.Text = _selectedControl.CheckedChangedEvent ?? string.Empty;
-                PropertyLoadEventBox.Text = string.Empty;
-                PropertyCloseEventBox.Text = string.Empty;
-                PropertyXBox.IsEnabled = true;
-                PropertyYBox.IsEnabled = true;
-                PropertyForegroundBox.IsEnabled = true;
-                PropertyFontSizeBox.IsEnabled = true;
-                PropertyCodeFileBox.IsEnabled = false;
-                PropertyEventBox.IsEnabled = _selectedControl.Type == YyControlTypes.Button;
-                PropertyTextChangedEventBox.IsEnabled = _selectedControl.Type == YyControlTypes.TextBox;
-                PropertySelectionChangedEventBox.IsEnabled =
-                    _selectedControl.Type is YyControlTypes.ComboBox or YyControlTypes.ListBox;
-                PropertyCheckedChangedEventBox.IsEnabled = _selectedControl.Type == YyControlTypes.CheckBox;
-                PropertyLoadEventBox.IsEnabled = false;
-                PropertyCloseEventBox.IsEnabled = false;
-                PropertyNameBox.IsEnabled = true;
-                PropertyTextBox.IsEnabled = true;
-                PropertyXBox.IsEnabled = true;
-                PropertyYBox.IsEnabled = true;
-                PropertyWidthBox.IsEnabled = true;
-                PropertyHeightBox.IsEnabled = true;
-                PropertyBackgroundBox.IsEnabled = true;
-                PropertyEnabledCheck.IsEnabled = true;
-                PropertyVisibleCheck.IsEnabled = true;
-                PropertyCheckedCheck.IsEnabled = _selectedControl.Type == YyControlTypes.CheckBox;
-                PropertyEnabledCheck.IsChecked = _selectedControl.IsEnabled;
-                PropertyVisibleCheck.IsChecked = _selectedControl.IsVisible;
-                PropertyCheckedCheck.IsChecked = _selectedControl.IsChecked;
+                var control = _selectedControl;
+                rows.Add(new PropertyRow("名称", control.Name, PropertyCellKind.Identifier, PropertyRowCatalog.HintName));
+                rows.Add(new PropertyRow("备注", control.Remark, PropertyCellKind.Text, PropertyRowCatalog.HintRemark));
+                rows.Add(new PropertyRow("左边", PropertyRowCatalog.FormatNumber(control.X), PropertyCellKind.Integer, PropertyRowCatalog.HintLeft));
+                rows.Add(new PropertyRow("顶边", PropertyRowCatalog.FormatNumber(control.Y), PropertyCellKind.Integer, PropertyRowCatalog.HintTop));
+                rows.Add(new PropertyRow("宽度", PropertyRowCatalog.FormatNumber(control.Width), PropertyCellKind.Integer, PropertyRowCatalog.HintWidth));
+                rows.Add(new PropertyRow("高度", PropertyRowCatalog.FormatNumber(control.Height), PropertyCellKind.Integer, PropertyRowCatalog.HintHeight));
+                rows.Add(new PropertyRow("可视", PropertyRowCatalog.BoolText(control.IsVisible), PropertyCellKind.Bool, PropertyRowCatalog.HintVisible));
+                rows.Add(new PropertyRow("禁止", PropertyRowCatalog.BoolText(!control.IsEnabled), PropertyCellKind.Bool, PropertyRowCatalog.HintForbidden));
+                rows.Add(new PropertyRow("标题", control.Text, PropertyCellKind.Text, PropertyRowCatalog.HintTitle));
+                rows.Add(new PropertyRow("字号", PropertyRowCatalog.FormatNumber(control.FontSize), PropertyCellKind.Integer, PropertyRowCatalog.HintFontSize));
+                rows.Add(new PropertyRow("前景", control.Foreground, PropertyCellKind.Color, PropertyRowCatalog.HintForeground));
+                rows.Add(new PropertyRow("背景", control.Background, PropertyCellKind.Color, PropertyRowCatalog.HintBackground));
+                if (control.Type is YyControlTypes.TextBox)
+                {
+                    rows.Add(new PropertyRow("只读", PropertyRowCatalog.BoolText(control.ReadOnly), PropertyCellKind.Bool, PropertyRowCatalog.HintReadOnly));
+                    rows.Add(new PropertyRow("多行", PropertyRowCatalog.BoolText(control.MultiLine), PropertyCellKind.Bool, PropertyRowCatalog.HintMultiLine));
+                    rows.Add(new PropertyRow("密码", control.PasswordChar, PropertyCellKind.Text, PropertyRowCatalog.HintPassword));
+                    rows.Add(new PropertyRow("最大长度", PropertyRowCatalog.FormatNumber(control.MaxLength), PropertyCellKind.Integer, PropertyRowCatalog.HintMaxLength));
+                }
+
+                if (control.Type is YyControlTypes.PictureBox)
+                {
+                    rows.Add(new PropertyRow("图片", control.Picture, PropertyCellKind.Text, PropertyRowCatalog.HintPicture));
+                }
+
+                rows.Add(new PropertyRow(
+                    "数据绑定",
+                    string.IsNullOrWhiteSpace(control.DataBindingTable)
+                        ? string.Empty
+                        : control.DataBindingTable + "." + control.DataBindingColumn,
+                    PropertyCellKind.Text,
+                    PropertyRowCatalog.HintDataBinding));
+                if (control.Type is YyControlTypes.CheckBox or YyControlTypes.RadioButton)
+                {
+                    rows.Add(new PropertyRow("选中", PropertyRowCatalog.BoolText(control.IsChecked), PropertyCellKind.Bool, PropertyRowCatalog.HintChecked));
+                }
+
+                PropertyRows.ItemsSource = rows;
+                BuildControlEventSelector(control);
             }
         }
         finally
         {
             _updatingDesignerProperties = false;
+            // 属性行模板内的组合框在页签可见时才布局实现,其 SelectionChanged 在本方法
+            // 返回后才补发;延迟到布局之后再放开提交,抑制这批伪事件。
+            Dispatcher.BeginInvoke(
+                new Action(() => _suppressPropertyCommit = false),
+                DispatcherPriority.Background);
         }
     }
 
-    private void OnDesignerPropertyChanged(object sender, TextChangedEventArgs e)
+    private void BuildPropertyObjectCombo()
+    {
+        PropertyObjectCombo.Items.Clear();
+        var formItem = new ComboBoxItem
+        {
+            Content = _designForm!.Name + "（窗口）",
+            Tag = null
+        };
+        PropertyObjectCombo.Items.Add(formItem);
+        foreach (var control in _designForm.Controls)
+        {
+            PropertyObjectCombo.Items.Add(new ComboBoxItem
+            {
+                Content = control.Name + "（" + YyControlTypes.GetDisplayName(control.Type) + "）",
+                Tag = control
+            });
+        }
+
+        PropertyObjectCombo.SelectedItem = _selectedControl is null
+            ? formItem
+            : PropertyObjectCombo.Items.OfType<ComboBoxItem>()
+                .FirstOrDefault(item => ReferenceEquals(item.Tag, _selectedControl))
+              ?? formItem;
+    }
+
+    private void OnPropertyObjectChanged(object sender, SelectionChangedEventArgs e)
+    {
+        StudioTrace.Write($"DBG prop-object-changed guard={_updatingDesignerProperties} item={(PropertyObjectCombo.SelectedItem is ComboBoxItem i ? (i.Content?.ToString() ?? "?") : "null")}");
+        if (_updatingDesignerProperties || PropertyObjectCombo.SelectedItem is not ComboBoxItem item)
+        {
+            return;
+        }
+
+        if (item.Tag is YyControlModel control)
+        {
+            SelectDesignerControl(control);
+        }
+        else
+        {
+            SelectDesignerForm();
+        }
+    }
+
+    private void BuildControlEventSelector(YyControlModel control)
+    {
+        EventSelectorCombo.Items.Clear();
+        ResetEventSelectorPlaceholder();
+        foreach (var kind in GetControlEventKinds(control.Type))
+        {
+            var bound = GetControlEvent(control, kind);
+            EventSelectorCombo.Items.Add(new ComboBoxItem
+            {
+                Content = (string.IsNullOrWhiteSpace(bound) ? string.Empty : "✓ ") + GetEventDisplayName(kind),
+                Tag = kind
+            });
+        }
+
+        EventSelectorCombo.IsEnabled = true;
+    }
+
+    private void BuildFormEventSelector()
+    {
+        EventSelectorCombo.Items.Clear();
+        ResetEventSelectorPlaceholder();
+        EventSelectorCombo.Items.Add(new ComboBoxItem
+        {
+            Content = (string.IsNullOrWhiteSpace(_designForm?.LoadEvent) ? string.Empty : "✓ ") + EventHandlerNaming.FormLoad,
+            Tag = "Load"
+        });
+        EventSelectorCombo.Items.Add(new ComboBoxItem
+        {
+            Content = (string.IsNullOrWhiteSpace(_designForm?.CloseEvent) ? string.Empty : "✓ ") + EventHandlerNaming.FormClose,
+            Tag = "Close"
+        });
+        EventSelectorCombo.IsEnabled = true;
+    }
+
+    private void ResetEventSelectorPlaceholder()
+    {
+        var placeholder = new ComboBoxItem
+        {
+            Content = "在此处选择加入事件处理子程序",
+            IsSelected = true
+        };
+        EventSelectorCombo.Items.Insert(0, placeholder);
+        EventSelectorCombo.SelectedIndex = 0;
+    }
+
+    private static IEnumerable<ControlEventKind> GetControlEventKinds(string controlType) => controlType switch
+    {
+        YyControlTypes.Button => [ControlEventKind.Click],
+        YyControlTypes.TextBox => [ControlEventKind.TextChanged],
+        YyControlTypes.ComboBox or YyControlTypes.ListBox => [ControlEventKind.SelectionChanged],
+        YyControlTypes.CheckBox or YyControlTypes.RadioButton => [ControlEventKind.CheckedChanged],
+        _ => []
+    };
+
+    private void OnEventSelectorChanged(object sender, SelectionChangedEventArgs e)
+    {
+        StudioTrace.Write($"DBG event-selector-changed guard={_updatingDesignerProperties} selected={(EventSelectorCombo.SelectedItem is ComboBoxItem ei ? (ei.Content?.ToString() ?? "?") : "null")}");
+        if (_updatingDesignerProperties || _designForm is null)
+        {
+            return;
+        }
+
+        if (EventSelectorCombo.SelectedItem is not ComboBoxItem { Tag: var tag } || tag is null)
+        {
+            return;
+        }
+
+        if (tag is ControlEventKind eventKind && _selectedControl is not null)
+        {
+            CreateOrOpenControlEventHandler(_selectedControl, eventKind);
+        }
+        else if (tag is string formKind)
+        {
+            CreateOrOpenFormEventHandler(formKind == "Load");
+        }
+
+        _updatingDesignerProperties = true;
+        ResetEventSelectorPlaceholder();
+        _updatingDesignerProperties = false;
+        RefreshPropertyObjectLabel();
+    }
+
+    private void OnPropertyGridSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (PropertyRows.SelectedItem is PropertyRow row)
+        {
+            ShowHint(row.Description);
+        }
+    }
+
+    private void ShowHint(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
+        EditorHelpBox.Text = text;
+        BottomTabs.SelectedIndex = 0;
+    }
+
+    private void OnPropertyRowKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || sender is not TextBox box)
+        {
+            return;
+        }
+
+        box.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
+        if (box.DataContext is PropertyRow row)
+        {
+            CommitPropertyRow(row);
+        }
+
+        e.Handled = true;
+    }
+
+    private void OnPropertyRowCommit(object sender, RoutedEventArgs e)
+    {
+        StudioTrace.Write($"DBG prop-row-commit guard={_updatingDesignerProperties} sender={((sender as TextBox)?.DataContext is PropertyRow pr ? pr.Name : "other")}");
+        if (_updatingDesignerProperties || _suppressPropertyCommit)
+        {
+            return;
+        }
+
+        if (sender is TextBox { DataContext: PropertyRow row })
+        {
+            if (string.Equals(row.ValueText, row.InitialValue, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            CommitPropertyRow(row);
+            row.InitialValue = row.ValueText;
+        }
+    }
+
+    private void OnPropertyBoolCommit(object sender, SelectionChangedEventArgs e)
+    {
+        StudioTrace.Write($"DBG bool-commit guard={_updatingDesignerProperties} suppress={_suppressPropertyCommit}");
+        if (_updatingDesignerProperties || _suppressPropertyCommit)
+        {
+            return;
+        }
+
+        if (sender is ComboBox { DataContext: PropertyRow row })
+        {
+            if (string.Equals(row.ValueText, row.InitialValue, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            CommitPropertyRow(row);
+            row.InitialValue = row.ValueText;
+        }
+    }
+
+    private void CommitPropertyRow(PropertyRow row)
     {
         if (_updatingDesignerProperties || _designForm is null)
         {
@@ -3030,109 +3984,363 @@ public partial class MainWindow : Window
 
         if (_selectedControl is null)
         {
-            _designForm.Name = PropertyNameBox.Text.Trim();
-            _designForm.Title = PropertyTextBox.Text;
-            if (TryDesignerNumber(PropertyWidthBox, 320, 3840, out var width))
-            {
-                _designForm.Width = width;
-            }
-
-            if (TryDesignerNumber(PropertyHeightBox, 240, 2160, out var height))
-            {
-                _designForm.Height = height;
-            }
-
-            _designForm.Background = PropertyBackgroundBox.Text.Trim();
-            _designForm.CodeFile = PropertyCodeFileBox.Text.Trim();
-            _designForm.LoadEvent = string.IsNullOrWhiteSpace(PropertyLoadEventBox.Text)
-                ? null
-                : PropertyLoadEventBox.Text.Trim();
-            _designForm.CloseEvent = string.IsNullOrWhiteSpace(PropertyCloseEventBox.Text)
-                ? null
-                : PropertyCloseEventBox.Text.Trim();
-            DesignerCanvas.Width = _designForm.Width;
-            DesignerCanvas.Height = _designForm.Height;
-            DesignerCanvas.Background = CreateDesignerBackground(_designForm.Background);
+            CommitFormProperty(row);
         }
         else
         {
-            var proposedName = PropertyNameBox.Text.Trim();
-            if (!string.IsNullOrWhiteSpace(proposedName) &&
-                _designForm.Controls.All(control =>
-                    ReferenceEquals(control, _selectedControl) ||
-                    !string.Equals(control.Name, proposedName, StringComparison.Ordinal)))
-            {
-                _selectedControl.Name = proposedName;
-            }
+            CommitControlProperty(row);
+        }
+    }
 
-            _selectedControl.Text = PropertyTextBox.Text;
-            if (TryDesignerNumber(PropertyXBox, -10_000, 10_000, out var x))
-            {
-                _selectedControl.X = x;
-            }
+    private void CommitFormProperty(PropertyRow row)
+    {
+        switch (row.Name)
+        {
+            case "名称":
+                var name = row.ValueText.Trim();
+                if (YyFormSerializer.IsIdentifier(name))
+                {
+                    _designForm!.Name = name;
+                }
+                else
+                {
+                    row.ValueText = _designForm!.Name;
+                    ShowHint("名称必须是中文、英文、数字或下划线组成的标识符。");
+                    return;
+                }
 
-            if (TryDesignerNumber(PropertyYBox, -10_000, 10_000, out var y))
-            {
-                _selectedControl.Y = y;
-            }
+                break;
+            case "备注":
+                _designForm!.Remark = row.ValueText;
+                break;
+            case "标题":
+                _designForm!.Title = row.ValueText;
+                DesignerTitleText.Text = string.IsNullOrWhiteSpace(_designForm.Title)
+                    ? _designForm.Name
+                    : _designForm.Title;
+                break;
+            case "宽度":
+                if (TryDesignerNumber(row.ValueText, 320, 3840, out var width))
+                {
+                    _designForm!.Width = width;
+                }
 
-            if (TryDesignerNumber(PropertyWidthBox, 24, 3840, out var width))
-            {
-                _selectedControl.Width = width;
-            }
+                break;
+            case "高度":
+                if (TryDesignerNumber(row.ValueText, 240, 2160, out var height))
+                {
+                    _designForm!.Height = height;
+                }
 
-            if (TryDesignerNumber(PropertyHeightBox, 20, 2160, out var height))
-            {
-                _selectedControl.Height = height;
-            }
+                break;
+            case "背景":
+                _designForm!.Background = row.ValueText.Trim();
+                break;
+            case "边框":
+                var borderStyle = row.ValueText.Trim();
+                if (borderStyle is "可调边框" or "对话框边框" or "无边框")
+                {
+                    _designForm!.BorderStyle = borderStyle;
+                }
+                else
+                {
+                    row.ValueText = _designForm!.BorderStyle;
+                    ShowHint("边框只能是:可调边框/对话框边框/无边框。");
+                    return;
+                }
 
-            _selectedControl.Background = PropertyBackgroundBox.Text.Trim();
-            _selectedControl.Foreground = PropertyForegroundBox.Text.Trim();
-            if (TryDesignerNumber(PropertyFontSizeBox, 6, 96, out var fontSize))
-            {
-                _selectedControl.FontSize = fontSize;
-            }
+                break;
+            case "可否移动":
+                _designForm!.Movable = PropertyRowCatalog.ParseBool(row.ValueText);
+                break;
+            case "初始位置":
+                var position = row.ValueText.Trim();
+                if (position is "默认" or "居中显示" or "最小化" or "最大化")
+                {
+                    _designForm!.StartPosition = position;
+                }
+                else
+                {
+                    row.ValueText = _designForm!.StartPosition;
+                    ShowHint("初始位置只能是:默认/居中显示/最小化/最大化。");
+                    return;
+                }
 
-            _selectedControl.ClickEvent = string.IsNullOrWhiteSpace(PropertyEventBox.Text)
-                ? null
-                : PropertyEventBox.Text.Trim();
-            _selectedControl.TextChangedEvent = string.IsNullOrWhiteSpace(PropertyTextChangedEventBox.Text)
-                ? null
-                : PropertyTextChangedEventBox.Text.Trim();
-            _selectedControl.SelectionChangedEvent =
-                string.IsNullOrWhiteSpace(PropertySelectionChangedEventBox.Text)
-                    ? null
-                    : PropertySelectionChangedEventBox.Text.Trim();
-            _selectedControl.CheckedChangedEvent =
-                string.IsNullOrWhiteSpace(PropertyCheckedChangedEventBox.Text)
-                    ? null
-                    : PropertyCheckedChangedEventBox.Text.Trim();
-            RefreshSelectedControlElement();
+                break;
+            case "最小化按钮":
+                _designForm!.MinimizeBox = PropertyRowCatalog.ParseBool(row.ValueText);
+                break;
+            case "最大化按钮":
+                _designForm!.MaximizeBox = PropertyRowCatalog.ParseBool(row.ValueText);
+                break;
         }
 
+        DesignerCanvas.Width = _designForm!.Width;
+        DesignerCanvas.Height = _designForm.Height;
+        DesignerCanvas.Background = CreateDesignerBackground(_designForm.Background);
+        UpdateDesignerTitleChrome();
+        RefreshPropertyObjectLabel();
         DesignerChanged();
     }
 
-    private bool TryDesignerNumber(TextBox box, double minimum, double maximum, out double value)
+    private void CommitControlProperty(PropertyRow row)
     {
-        return double.TryParse(box.Text, out value) &&
-               double.IsFinite(value) &&
-               value >= minimum &&
-               value <= maximum;
+        var control = _selectedControl!;
+        switch (row.Name)
+        {
+            case "名称":
+                var name = row.ValueText.Trim();
+                if (!YyFormSerializer.IsIdentifier(name))
+                {
+                    row.ValueText = control.Name;
+                    ShowHint("名称必须是中文、英文、数字或下划线组成的标识符。");
+                    return;
+                }
+
+                if (_designForm!.Controls.Any(other =>
+                        !ReferenceEquals(other, control) &&
+                        string.Equals(other.Name, name, StringComparison.Ordinal)))
+                {
+                    row.ValueText = control.Name;
+                    ShowHint("名称“" + name + "”已被其他控件使用。");
+                    return;
+                }
+
+                control.Name = name;
+                break;
+            case "备注":
+                control.Remark = row.ValueText;
+                break;
+            case "标题":
+                control.Text = row.ValueText;
+                break;
+            case "左边":
+                if (TryDesignerNumber(row.ValueText, -10_000, 10_000, out var x))
+                {
+                    control.X = x;
+                }
+
+                break;
+            case "顶边":
+                if (TryDesignerNumber(row.ValueText, -10_000, 10_000, out var y))
+                {
+                    control.Y = y;
+                }
+
+                break;
+            case "宽度":
+                if (TryDesignerNumber(row.ValueText, 24, 3840, out var width))
+                {
+                    control.Width = width;
+                }
+
+                break;
+            case "高度":
+                if (TryDesignerNumber(row.ValueText, 20, 2160, out var height))
+                {
+                    control.Height = height;
+                }
+
+                break;
+            case "字号":
+                if (TryDesignerNumber(row.ValueText, 6, 96, out var fontSize))
+                {
+                    control.FontSize = fontSize;
+                }
+
+                break;
+            case "可视":
+                control.IsVisible = PropertyRowCatalog.ParseBool(row.ValueText);
+                break;
+            case "禁止":
+                control.IsEnabled = !PropertyRowCatalog.ParseBool(row.ValueText);
+                break;
+            case "选中":
+                control.IsChecked = PropertyRowCatalog.ParseBool(row.ValueText);
+                break;
+            case "前景":
+                control.Foreground = row.ValueText.Trim();
+                break;
+            case "背景":
+                control.Background = row.ValueText.Trim();
+                break;
+            case "只读":
+                control.ReadOnly = PropertyRowCatalog.ParseBool(row.ValueText);
+                break;
+            case "多行":
+                control.MultiLine = PropertyRowCatalog.ParseBool(row.ValueText);
+                break;
+            case "密码":
+                control.PasswordChar = row.ValueText.Length > 0 ? row.ValueText[..1] : string.Empty;
+                break;
+            case "最大长度":
+                if (TryDesignerNumber(row.ValueText, 0, 100_000, out var maxLength))
+                {
+                    control.MaxLength = (int)maxLength;
+                }
+
+                break;
+            case "图片":
+                control.Picture = row.ValueText.Trim();
+                break;
+            case "数据绑定":
+                var binding = row.ValueText.Trim();
+                if (string.IsNullOrEmpty(binding))
+                {
+                    control.DataBindingTable = null;
+                    control.DataBindingColumn = null;
+                }
+                else
+                {
+                    var parts = binding.Split('.', 2);
+                    if (parts.Length != 2 ||
+                        string.IsNullOrWhiteSpace(parts[0]) ||
+                        string.IsNullOrWhiteSpace(parts[1]))
+                    {
+                        row.ValueText = string.IsNullOrWhiteSpace(control.DataBindingTable)
+                            ? string.Empty
+                            : control.DataBindingTable + "." + control.DataBindingColumn;
+                        ShowHint("数据绑定格式为 表名.列名。");
+                        return;
+                    }
+
+                    control.DataBindingTable = parts[0].Trim();
+                    control.DataBindingColumn = parts[1].Trim();
+                }
+
+                break;
+            default:
+                return;
+        }
+
+        RefreshSelectedControlElement();
+        RefreshPropertyObjectLabel();
+        DesignerChanged();
     }
 
-    private void OnDesignerCheckChanged(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// 仅刷新对象下拉标签,不重建属性行。
+    /// 属性行模板里的真假/颜色组合框在页签可见时才布局实现,
+    /// 重建触发的 SelectionChanged 会在守卫外补发;提交路径若整表重建,
+    /// 会形成 提交→重建→布局→SelectionChanged→提交 的无限递归(栈溢出)。
+    /// </summary>
+    private void RefreshPropertyObjectLabel()
     {
-        if (_updatingDesignerProperties || _selectedControl is null)
+        _updatingDesignerProperties = true;
+        try
+        {
+            BuildPropertyObjectCombo();
+        }
+        finally
+        {
+            _updatingDesignerProperties = false;
+        }
+    }
+
+    private void CreateOrOpenFormEventHandler(bool isLoad)
+    {
+        if (_designForm is null)
         {
             return;
         }
 
-        _selectedControl.IsEnabled = PropertyEnabledCheck.IsChecked == true;
-        _selectedControl.IsVisible = PropertyVisibleCheck.IsChecked == true;
-        _selectedControl.IsChecked = PropertyCheckedCheck.IsChecked == true;
-        RefreshSelectedControlElement();
-        DesignerChanged();
+        // 对齐官方:未保存的内存窗体也能直接生成窗体事件代码。
+        var isFileBacked = !string.IsNullOrWhiteSpace(_currentDocument?.FilePath);
+        string? formDirectory = isFileBacked ? Path.GetDirectoryName(_currentDocument!.FilePath)! : null;
+        var codeFileName = string.IsNullOrWhiteSpace(_designForm.CodeFile)
+            ? (isFileBacked
+                ? Path.GetFileNameWithoutExtension(_currentDocument!.FilePath!)
+                : Path.GetFileNameWithoutExtension(_currentDocument?.DisplayName ?? "未命名窗体")) + ".yyc"
+            : _designForm.CodeFile;
+        string? codePath = isFileBacked ? Path.GetFullPath(Path.Combine(formDirectory!, codeFileName)) : null;
+        var codeDocument = codePath is not null
+            ? _documents.FirstOrDefault(document =>
+                string.Equals(document.FilePath, codePath, StringComparison.OrdinalIgnoreCase))
+            : _documents.FirstOrDefault(document =>
+                document.FilePath is null &&
+                string.Equals(document.DisplayName, codeFileName, StringComparison.OrdinalIgnoreCase));
+
+        string? handlerName;
+        try
+        {
+            var existingText = codeDocument?.Text
+                ?? (codePath is not null && File.Exists(codePath)
+                    ? File.ReadAllText(codePath, new UTF8Encoding(false, true))
+                    : null);
+            var model = string.IsNullOrWhiteSpace(existingText)
+                ? new YyCodeDocument { Name = _designForm.Name + "代码" }
+                : YyCodeSerializer.Deserialize(existingText);
+            handlerName = isLoad ? _designForm.LoadEvent : _designForm.CloseEvent;
+            if (string.IsNullOrWhiteSpace(handlerName))
+            {
+                var baseName = EventHandlerNaming.ForForm(
+                    _designForm.Name,
+                    isLoad ? EventHandlerNaming.FormLoad : EventHandlerNaming.FormClose);
+                var existingNames = model.Functions
+                    .Select(function => function.Name)
+                    .ToHashSet(StringComparer.Ordinal);
+                handlerName = EventHandlerNaming.Unique(baseName, existingNames.Contains);
+                if (isLoad)
+                {
+                    _designForm.LoadEvent = handlerName;
+                }
+                else
+                {
+                    _designForm.CloseEvent = handlerName;
+                }
+            }
+
+            if (model.Functions.All(function =>
+                    !string.Equals(function.Name, handlerName, StringComparison.Ordinal)))
+            {
+                model.Functions.Add(new YyCodeFunction { Name = handlerName });
+            }
+
+            var serialized = YyCodeSerializer.Serialize(model);
+            var changed = !string.Equals(existingText, serialized, StringComparison.Ordinal);
+            if (codeDocument is null)
+            {
+                codeDocument = codePath is not null
+                    ? new EditorDocument(codePath, Path.GetFileName(codePath), serialized)
+                    : new EditorDocument(null, codeFileName, serialized);
+                _documents.Add(codeDocument);
+                if (changed || codePath is null || !File.Exists(codePath))
+                {
+                    codeDocument.MarkModified();
+                }
+            }
+            else
+            {
+                codeDocument.Text = serialized;
+            }
+
+            if (formDirectory is not null && codePath is not null)
+            {
+                _designForm.CodeFile = Path.GetRelativePath(formDirectory, codePath).Replace('\\', '/');
+            }
+
+            DesignerChanged();
+            DocumentTabs.SelectedItem = codeDocument;
+            StructuredEditor.SelectFunction(handlerName);
+            SetStatus("已绑定窗体事件 " + handlerName + "()", ReadyBrush);
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or YyCodeFormatException)
+        {
+            MessageBox.Show(
+                "无法创建事件代码：\n" + exception.Message,
+                "生成事件代码",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+    }
+
+    private static bool TryDesignerNumber(string text, double minimum, double maximum, out double value)
+    {
+        return double.TryParse(text, out value) &&
+               double.IsFinite(value) &&
+               value >= minimum &&
+               value <= maximum;
     }
 
     private void OnDeleteDesignerControl(object sender, RoutedEventArgs e) => DeleteSelectedControls();
@@ -3258,6 +4466,7 @@ public partial class MainWindow : Window
                 PopulateProjectTree();
             }
 
+            _settings.AddRecent(path);
             SetStatus($"已保存 {Path.GetFileName(path)}", ReadyBrush);
             return true;
         }
@@ -3304,7 +4513,8 @@ public partial class MainWindow : Window
         _documents.Remove(document);
         if (_documents.Count == 0)
         {
-            AddNewDocument(string.Empty);
+            // 官方先后逻辑:关闭全部文档后回到起始页。
+            AddStartPage();
         }
         else
         {
@@ -3315,7 +4525,7 @@ public partial class MainWindow : Window
         return true;
     }
 
-    private async Task<bool> RunDocumentAsync()
+    private async Task<bool> RunDocumentAsync(YyDebugProbe? debugger = null)
     {
         if (_runCancellation is not null)
         {
@@ -3324,6 +4534,7 @@ public partial class MainWindow : Window
 
         var document = _currentDocument;
         var source = document?.Text ?? Editor.Text;
+        _debugLineMap.Clear();
         if (document?.IsStructuredCode == true &&
             string.Equals(
                 Path.GetExtension(document.FilePath ?? document.DisplayName),
@@ -3332,7 +4543,9 @@ public partial class MainWindow : Window
         {
             try
             {
-                source = YyCodeDocumentConverter.ToSource(YyCodeSerializer.Deserialize(source));
+                source = YyCodeDocumentConverter.ToSource(
+                    YyCodeSerializer.Deserialize(source),
+                    _debugLineMap);
             }
             catch (YyCodeFormatException exception)
             {
@@ -3347,10 +4560,18 @@ public partial class MainWindow : Window
         var cancellation = new CancellationTokenSource();
         _runCancellation = cancellation;
         OutputBox.Clear();
-        RunInfoText.Text = "正在运行…";
+        var isDebugRun = debugger is not null;
+        RunInfoText.Text = isDebugRun ? "调试运行…" : "正在运行…";
         SetRunningState(true);
-        SetStatus("程序运行中", WarningBrush);
+        SetStatus(isDebugRun ? "调试运行中" : "程序运行中", WarningBrush);
         var succeeded = false;
+
+        // 普通运行也挂探针,以便 F9 断点在运行中生效。
+        debugger ??= new YyDebugProbe(YyDebugMode.Run);
+        debugger.IsBreakpoint = line => _breakpoints.ContainsKey(line);
+        _debugProbe = debugger;
+        _debugSourceLines = source.Replace("\r\n", "\n").Split('\n');
+        debugger.Paused += pause => Dispatcher.BeginInvoke(() => OnDebugPaused(pause));
 
         try
         {
@@ -3358,9 +4579,9 @@ public partial class MainWindow : Window
                 source,
                 sourcePath,
                 line => Dispatcher.Invoke(() => AppendOutput(line)),
-                cancellation.Token));
+                cancellation.Token,
+                debugger));
 
-            RefreshOutline(silent: true);
             ShowVariables(result.Variables);
             var elapsed = Math.Max(0, result.Elapsed.TotalMilliseconds);
             AppendOutput(string.Empty);
@@ -3406,6 +4627,12 @@ public partial class MainWindow : Window
             if (ReferenceEquals(_runCancellation, cancellation))
             {
                 _runCancellation = null;
+            }
+
+            if (ReferenceEquals(_debugProbe, debugger))
+            {
+                _debugProbe = null;
+                _debugPaused = null;
             }
 
             cancellation.Dispose();
@@ -3462,7 +4689,7 @@ public partial class MainWindow : Window
         VariableList.ItemsSource = display.Length > 0 ? display : null;
         if (display.Length > 0)
         {
-            InspectorTabs.SelectedIndex = 1;
+            BottomTabs.SelectedIndex = 4;
         }
     }
 
@@ -3483,37 +4710,6 @@ public partial class MainWindow : Window
         };
     }
 
-    private void RefreshOutline(bool silent = false)
-    {
-        try
-        {
-            var program = YyRunner.CompileSource(Editor.Text, _currentDocument?.FilePath);
-            OutlineTree.Items.Clear();
-            var main = new TreeViewItem
-            {
-                Header = $"入口语句  ·  {program.Main.Statements.Count} 项",
-                IsExpanded = true
-            };
-            OutlineTree.Items.Add(main);
-
-            foreach (var function in program.Functions)
-            {
-                var parameters = string.Join(", ", function.Parameters.Select(parameter => parameter.Name));
-                OutlineTree.Items.Add(new TreeViewItem
-                {
-                    Header = $"{function.Name}({parameters})  ·  第 {function.Line} 行",
-                    Tag = function.Line
-                });
-            }
-        }
-        catch (YyDiagnostic)
-        {
-            if (!silent)
-            {
-                OutlineTree.Items.Clear();
-            }
-        }
-    }
 
     private void NavigateTo(int line, int column)
     {
@@ -3545,9 +4741,29 @@ public partial class MainWindow : Window
 
     private void UpdateDocumentIdentity()
     {
-        var fileName = _currentDocument?.DisplayName ?? "未命名.yyc";
         var dirty = _currentDocument?.IsDirty == true;
-        Title = $"{(dirty ? "● " : string.Empty)}{fileName} — 易语 Studio";
+        var prefix = dirty ? "● " : string.Empty;
+        if (_currentDocument is null)
+        {
+            Title = $"{prefix}易语 Studio - 目的平台: Windows";
+            return;
+        }
+
+        if (_currentDocument.IsStartPage)
+        {
+            Title = "易语 Studio - 目的平台: Windows - [起始页]";
+            return;
+        }
+
+        var formName = _currentDocument.IsForm
+            ? _designForm?.Name ?? _currentDocument.DisplayName
+            : GetAssociatedFormForCurrentDocument()?.Name;
+
+        Title = formName is null
+            ? $"{prefix}易语 Studio - 目的平台: Windows - [程序集: {_currentDocument.DisplayName}]"
+            : _currentDocument.IsForm
+                ? $"{prefix}易语 Studio - 目的平台: Windows - [窗口: {formName}]"
+                : $"{prefix}易语 Studio - 目的平台: Windows - [程序集: {_currentDocument.DisplayName} / {formName}]";
     }
 
     private void OnClearOutput(object sender, RoutedEventArgs e)
@@ -3622,17 +4838,506 @@ public partial class MainWindow : Window
             ExplorerSplitter.Visibility = Visibility.Collapsed;
             ExplorerColumn.MinWidth = 0;
             ExplorerColumn.Width = new GridLength(0);
-            ExplorerActivityButton.Background = Brushes.Transparent;
-            ExplorerActivityButton.BorderBrush = Brushes.Transparent;
         }
         else
         {
             ExplorerPanel.Visibility = Visibility.Visible;
             ExplorerSplitter.Visibility = Visibility.Visible;
             ExplorerColumn.MinWidth = 180;
-            ExplorerColumn.Width = _explorerWidth.Value > 0 ? _explorerWidth : new GridLength(240);
-            ExplorerActivityButton.Background = YyFormRenderer.Brush("#2D2D30");
-            ExplorerActivityButton.BorderBrush = YyFormRenderer.Brush("#007ACC");
+            ExplorerColumn.Width = _explorerWidth.Value > 0 ? _explorerWidth : new GridLength(252);
+        }
+    }
+
+    private void OnToggleToolboxPanel(object sender, RoutedEventArgs e)
+    {
+        if (InspectorPanel.Visibility == Visibility.Visible)
+        {
+            _inspectorWidth = InspectorColumn.Width;
+            InspectorPanel.Visibility = Visibility.Collapsed;
+            InspectorSplitter.Visibility = Visibility.Collapsed;
+            InspectorColumn.MinWidth = 0;
+            InspectorColumn.Width = new GridLength(0);
+        }
+        else
+        {
+            InspectorPanel.Visibility = Visibility.Visible;
+            InspectorSplitter.Visibility = Visibility.Visible;
+            InspectorColumn.MinWidth = 104;
+            InspectorColumn.Width = _inspectorWidth.Value > 0 ? _inspectorWidth : new GridLength(132);
+        }
+    }
+
+    private void OnToggleStandardToolbar(object sender, RoutedEventArgs e)
+    {
+        StandardToolbarRow.Visibility =
+            ToggleStandardToolbarMenuItem.IsChecked ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void OnToggleAlignToolbar(object sender, RoutedEventArgs e)
+    {
+        AlignToolbarRow.Visibility =
+            ToggleAlignToolbarMenuItem.IsChecked ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void OnToggleStatusBar(object sender, RoutedEventArgs e)
+    {
+        StatusBarRow.Visibility =
+            ToggleStatusBarMenuItem.IsChecked ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void OnShowWorkTab(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { Tag: string tag })
+        {
+            return;
+        }
+
+        ExplorerPanel.Visibility = Visibility.Visible;
+        if (tag == "支持库")
+        {
+            WorkTabs.SelectedIndex = 0;
+        }
+        else if (tag == "程序")
+        {
+            WorkTabs.SelectedIndex = 1;
+        }
+        else if (tag == "属性")
+        {
+            WorkTabs.SelectedIndex = 2;
+        }
+    }
+
+    private void OnOpenDataTableView(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { Tag: string kind })
+        {
+            ShowDataTableView(kind);
+        }
+    }
+
+    private void OnInsertFunctionClick(object sender, RoutedEventArgs e)
+    {
+        if (StructuredEditor.Visibility == Visibility.Visible)
+        {
+            StructuredEditor.InsertFunction();
+        }
+        else
+        {
+            SetStatus("请先打开 .yyc 代码文件。", WarningBrush);
+        }
+    }
+
+    private void OnInsertConstantClick(object sender, RoutedEventArgs e)
+    {
+        ShowDataTableView("常量表");
+    }
+
+    private void OnInsertLocalVariableClick(object sender, RoutedEventArgs e)
+    {
+        if (StructuredEditor.Visibility == Visibility.Visible)
+        {
+            StructuredEditor.InsertLocalVariable();
+        }
+        else
+        {
+            SetStatus("请先打开 .yyc 代码文件。", WarningBrush);
+        }
+    }
+
+    private void OnMenuEditorClick(object sender, RoutedEventArgs e)
+    {
+        MessageBox.Show(
+            this,
+            "菜单编辑器将在后续版本提供。\n当前可先在窗体属性中设置菜单。",
+            "菜单编辑器",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+    }
+
+    private void OnPrintClick(object sender, RoutedEventArgs e)
+    {
+        if (_currentDocument is null)
+        {
+            SetStatus("没有可打印的文档。", WarningBrush);
+            return;
+        }
+
+        var dialog = new PrintDialog();
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        var flow = new FlowDocument
+        {
+            FontFamily = new FontFamily("Consolas"),
+            FontSize = 11,
+            PagePadding = new Thickness(48),
+            PageWidth = dialog.PrintableAreaWidth
+        };
+        flow.Blocks.Add(new Paragraph(new Run(_currentDocument.DisplayName))
+        {
+            FontWeight = FontWeights.Bold,
+            FontSize = 14,
+            Margin = new Thickness(0, 0, 0, 12)
+        });
+        foreach (var line in _currentDocument.Text.Split('\n'))
+        {
+            flow.Blocks.Add(new Paragraph(new Run(line.TrimEnd('\r')))
+            {
+                Margin = new Thickness(0)
+            });
+        }
+
+        dialog.PrintDocument(
+            ((IDocumentPaginatorSource)flow).DocumentPaginator,
+            _currentDocument.DisplayName);
+        SetStatus($"已发送到打印机：{_currentDocument.DisplayName}", ReadyBrush);
+    }
+
+    private void OnAddResourceClick(object sender, RoutedEventArgs e)
+    {
+        if (_project is null)
+        {
+            ShowHint("请先打开项目，再向资源表添加资源。");
+            return;
+        }
+
+        if (sender is not MenuItem { Tag: string kind })
+        {
+            return;
+        }
+
+        var dialog = new OpenFileDialog
+        {
+            Title = $"添加{kind}资源",
+            Filter = kind == "图片"
+                ? "图片文件|*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.ico|所有文件|*.*"
+                : "声音文件|*.wav;*.mp3;*.mid;*.wma|所有文件|*.*"
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        var name = Path.GetFileNameWithoutExtension(dialog.FileName);
+        var existing = _project.ResourceTable
+            .Select(item => item.Name)
+            .ToHashSet(StringComparer.Ordinal);
+        var unique = name;
+        while (existing.Contains(unique))
+        {
+            unique += "_";
+        }
+
+        _project.ResourceTable.Add(new YyResourceEntry
+        {
+            Name = unique,
+            TypeName = kind,
+            File = dialog.FileName
+        });
+        _project.SaveManifest();
+        ShowDataTableView("资源表");
+        SetStatus($"已添加{kind}资源“{unique}”", ReadyBrush);
+    }
+
+    private void ApplySettings()
+    {
+        Editor.FontSize = _settings.EditorFontSize;
+        Editor.Options.IndentationSize = _settings.TabWidth;
+        SnapCheckBox.IsChecked = _settings.SnapGrid;
+    }
+
+    private void OnSystemConfigClick(object sender, RoutedEventArgs e)
+    {
+        var dialog = new SystemConfigDialog(_settings) { Owner = this };
+        if (dialog.ShowDialog() == true)
+        {
+            _settings.Save();
+            ApplySettings();
+            SetStatus("系统配置已保存", ReadyBrush);
+        }
+    }
+
+    private void OnSupportConfigClick(object sender, RoutedEventArgs e)
+    {
+        var dialog = new SupportConfigDialog(
+            StudioCatalog.Categories.Select(category => category.Name),
+            _settings.DisabledLibraries.ToHashSet(StringComparer.Ordinal))
+        {
+            Owner = this
+        };
+        if (dialog.ShowDialog() == true)
+        {
+            _settings.DisabledLibraries = dialog.CollectDisabled().ToList();
+            _settings.Save();
+            BuildSupportTree();
+            SetStatus("支持库配置已保存", ReadyBrush);
+        }
+    }
+
+    private void OnModuleManagerClick(object sender, RoutedEventArgs e)
+    {
+        var dialog = new ModuleManagerDialog(_workspacePath) { Owner = this };
+        dialog.ShowDialog();
+    }
+
+    private void OnCompileModuleClick(object sender, RoutedEventArgs e)
+    {
+        if (_currentDocument?.IsStructuredCode != true || StructuredEditor.Document is null)
+        {
+            ShowHint("请先打开 .yyc 代码文件，再编译为易模块。");
+            return;
+        }
+
+        var document = StructuredEditor.Document;
+        var exports = document.Functions.Where(function => function.IsExport || function.IsPublic).ToList();
+        if (exports.Count == 0)
+        {
+            MessageBox.Show(
+                this,
+                "当前程序集没有可导出的子程序。\n请在子程序表的“易包”或“公开”列设为“真”后重试。",
+                "编译为易模块",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "编译为易模块",
+            Filter = "易模块 (*.ec)|*.ec",
+            DefaultExt = ".ec",
+            AddExtension = true,
+            FileName = document.Name + ".ec",
+            InitialDirectory = !string.IsNullOrWhiteSpace(_workspacePath)
+                ? _workspacePath
+                : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            var module = YyModule.Compile(document, exports);
+            module.Save(dialog.FileName);
+            SetStatus($"易模块已生成：{Path.GetFileName(dialog.FileName)}", ReadyBrush);
+            MessageBox.Show(
+                this,
+                $"易模块编译完成：\n{dialog.FileName}\n\n共导出 {exports.Count} 个公开子程序。",
+                "编译为易模块",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            SetStatus("易模块编译失败", ErrorBrush);
+            MessageBox.Show(this, exception.Message, "编译为易模块",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void OnDatabaseDesignerClick(object sender, RoutedEventArgs e)
+    {
+        if (_project is null)
+        {
+            ShowHint("请先打开项目，再设计数据表。");
+            return;
+        }
+
+        var dialog = new DatabaseDesignerDialog(
+            _project.DatabaseTables,
+            () => _project.SaveManifest())
+        {
+            Owner = this
+        };
+        dialog.ShowDialog();
+        SetStatus("数据库结构已保存", ReadyBrush);
+    }
+
+    private void OnDataBindClick(object sender, RoutedEventArgs e)
+    {
+        if (_project is null)
+        {
+            ShowHint("请先打开项目，再设置数据绑定。");
+            return;
+        }
+
+        if (_designForm is null || _selectedControl is null)
+        {
+            ShowHint("请先在窗体设计器中选择一个控件，再设置数据绑定。");
+            return;
+        }
+
+        var dialog = new DataBindDialog(_selectedControl, _project.DatabaseTables) { Owner = this };
+        if (dialog.ShowDialog() == true)
+        {
+            PopulateDesignerProperties();
+            DesignerChanged();
+            SetStatus($"已更新 {_selectedControl.Name} 的数据绑定", ReadyBrush);
+        }
+    }
+
+    /// <summary>命令夹分类行:分类小图标 + 名称(对齐官方支持库夹)。</summary>
+    private static FrameworkElement CategoryHeader(string name)
+    {
+        var (glyph, color) = name switch
+        {
+            "流程控制" => ("◆", "#000080"),
+            "算术运算" => ("＋", "#008000"),
+            "逻辑比较" => ("?", "#800080"),
+            "位运算" => ("01", "#008080"),
+            "变量操作" => ("x", "#800000"),
+            "数组操作" => ("≣", "#000080"),
+            "环境存取" => ("⌂", "#808000"),
+            "拼音处理" => ("♪", "#800080"),
+            "文本操作" => ("A", "#008000"),
+            "字节集操作" => ("▤", "#008080"),
+            "数值转换" => ("#", "#800000"),
+            "时间操作" => ("◷", "#000080"),
+            "磁盘操作" => ("▣", "#808000"),
+            "文件读写" => ("≣", "#008000"),
+            "系统处理" => ("⚙", "#800080"),
+            "媒体播放" => ("▶", "#008080"),
+            "程序调试" => ("❚❚", "#800000"),
+            "其他" => ("…", "#808080"),
+            "数据库" => ("▦", "#000080"),
+            "网络通信" => ("◎", "#008000"),
+            "控制台操作" => (">_", "#800080"),
+            "数据类型" => ("T", "#008080"),
+            "常量" => ("c", "#800000"),
+            _ => ("●", "#808080")
+        };
+        var panel = new StackPanel { Orientation = Orientation.Horizontal };
+        panel.Children.Add(new TextBlock
+        {
+            Text = glyph,
+            Width = 18,
+            FontSize = 10,
+            FontWeight = FontWeights.Bold,
+            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(color)!),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = name,
+            FontSize = 12,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        return panel;
+    }
+
+    private void BuildSupportTree()
+    {
+        SupportTree.Items.Clear();
+        var root = new TreeViewItem
+        {
+            Header = "系统核心支持库",
+            IsExpanded = true
+        };
+        foreach (var category in StudioCatalog.Categories)
+        {
+            if (_settings.DisabledLibraries.Contains(category.Name))
+            {
+                continue;
+            }
+
+            var categoryItem = new TreeViewItem
+            {
+                Header = CategoryHeader(category.Name),
+                Tag = category
+            };
+            if (category.Commands.Count == 0)
+            {
+                categoryItem.Items.Add(new TreeViewItem
+                {
+                    Header = "（暂无命令）",
+                    Foreground = new SolidColorBrush(Color.FromRgb(128, 128, 128))
+                });
+            }
+            else
+            {
+                foreach (var command in category.Commands)
+                {
+                    categoryItem.Items.Add(new TreeViewItem
+                    {
+                        Header = command.Name,
+                        Tag = command
+                    });
+                }
+            }
+
+            root.Items.Add(categoryItem);
+        }
+
+        SupportTree.Items.Add(root);
+    }
+
+    private void OnSupportTreeSelectionChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+    {
+        switch (e.NewValue)
+        {
+            case TreeViewItem { Tag: BuiltinDoc command }:
+                ShowHint(command.Signature + "\n" + command.Description);
+                break;
+            case TreeViewItem { Tag: CommandCategory category }:
+                ShowHint(category.Commands.Count > 0
+                    ? "“" + category.Name + "”分类包含 " + category.Commands.Count + " 条命令：\n" +
+                      string.Join("、", category.Commands.Select(command => command.Name)) +
+                      "\n\n展开分类后双击命令即可插入代码。"
+                    : "“" + category.Name + "”分类暂无命令，后续版本补充。");
+                break;
+        }
+    }
+
+    private void OnSupportTreeDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount != 2)
+        {
+            return;
+        }
+
+        if (SupportTree.SelectedItem is not TreeViewItem { Tag: BuiltinDoc command })
+        {
+            return;
+        }
+
+        if (StructuredEditor.Visibility == Visibility.Visible)
+        {
+            StructuredEditor.InsertCommand(command.Name);
+            SetStatus($"已插入命令 {command.Name}()", ReadyBrush);
+            e.Handled = true;
+            return;
+        }
+
+        if (Editor.Visibility == Visibility.Visible &&
+            _currentDocument is not null)
+        {
+            Editor.Document.Insert(Editor.CaretOffset, command.Name);
+            Editor.Focus();
+        }
+    }
+
+    private void BuildWindowMenu()
+    {
+        WindowMenu.Items.Clear();
+        foreach (var document in _documents)
+        {
+            var item = new MenuItem
+            {
+                Header = document.DisplayName,
+                Tag = document,
+                IsChecked = ReferenceEquals(document, _currentDocument)
+            };
+            item.Click += (_, _) => DocumentTabs.SelectedItem = document;
+            WindowMenu.Items.Add(item);
+        }
+
+        if (WindowMenu.Items.Count == 0)
+        {
+            WindowMenu.Items.Add(new MenuItem { Header = "（无打开的窗口）", IsEnabled = false });
         }
     }
 
@@ -3655,6 +5360,10 @@ public partial class MainWindow : Window
 
     private sealed record VariableRow(string Key, string Value);
 
+    private sealed record SearchResultRow(int Line, string Text);
+
+    private sealed record ClipHistoryRow(string Text);
+
     private sealed record CodeSnippet(
         string InsertText,
         int CaretOffset,
@@ -3662,7 +5371,6 @@ public partial class MainWindow : Window
 
     private sealed record ResizeHandleTag(ResizeDirection Direction);
 
-    private sealed record ProjectControlLink(string FormPath, string ControlName);
 
     private sealed record ProjectEventLink(
         string FormPath,
