@@ -3,5 +3,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Yy.Language</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Yy.Sdk\Yy.Sdk.csproj" />
+  </ItemGroup>
 </Project>
 

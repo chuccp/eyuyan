@@ -167,6 +167,11 @@
                         xmlns:local="clr-namespace:Yy.Studio" />
     </Window.CommandBindings>
 
+    <Border x:Name="WindowFrame"
+            Background="{StaticResource WindowBrush}"
+            BorderBrush="#B8C0C8"
+            BorderThickness="1"
+            SnapsToDevicePixels="True">
     <DockPanel LastChildFill="True">
         <!-- ================= 自定义顶栏：窗口标题、菜单和窗口按钮共用一条操作栏 ================= -->
         <Border x:Name="WindowTitleBar"
@@ -1354,4 +1359,5 @@
             </Border>
         </Grid>
     </DockPanel>
+    </Border>
 </Window>

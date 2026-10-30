@@ -1,4 +1,5 @@
 using Yy.Language;
+using Yy.Language.Structured;
 
 var tests = new List<(string Name, Action Test)>
 {
@@ -15,6 +16,7 @@ var tests = new List<(string Name, Action Test)>
     ("入门示例工程", TestBeginnerExample),
     ("现代特性示例工程", TestModernExample),
     ("跨文件模块导入", TestModuleImport),
+    ("系统包导入", TestPackageImport),
     ("类型标注与赋值检查", TestTypedVariables),
     ("参数返回值类型检查", TestTypedFunctions),
     ("未知类型诊断", TestUnknownType),
@@ -34,7 +36,8 @@ var tests = new List<(string Name, Action Test)>
     ("目录文件列举", TestListDirectory),
     ("环境与时间命令", TestEnvironmentCommands),
     ("交换变量场景", TestSwapVariables),
-    ("调试断点暂停", TestDebugBreakpoint)
+    ("调试断点暂停", TestDebugBreakpoint),
+    ("控件 ID 上下文", TestControlIdContext)
 };
 
 var failures = 0;
@@ -209,6 +212,72 @@ static void TestModuleImport()
     var result = RunFile(path);
     True(result.Contains("欢迎，易语开发者！", StringComparison.Ordinal), "模块函数结果不正确。");
     True(result.Contains("折后价格：115.2", StringComparison.Ordinal), "模块默认参数结果不正确。");
+}
+
+static void TestPackageImport()
+{
+    Equal(1, Yy.Sdk.YySdk.Version);
+    Equal(4, Yy.Sdk.YySdk.Packages.Count);
+    True(
+        Yy.Sdk.YySdk.Packages.All(package => package.Members.Count > 0),
+        "每个系统 SDK 包都应声明成员。");
+
+    var program = YyRunner.Compile("""
+        .版本 1
+        .程序集 包测试
+        导入包 "系统.界面"
+        输出("包已导入")
+        """);
+    Equal("系统.界面", program.PackageImports.Single().Name);
+
+    var document = YyCodeDocumentConverter.FromSource(
+        ".版本 1\n.程序集 包测试\n导入包 \"系统.界面\"\n");
+    Equal("系统.界面", document.Packages.Single());
+    var source = YyCodeDocumentConverter.ToSource(document);
+    True(source.Contains("导入包 \"系统.界面\"", StringComparison.Ordinal), "包导入没有写回源码。");
+    var restored = YyCodeSerializer.Deserialize(YyCodeSerializer.Serialize(document));
+    Equal("系统.界面", restored.Packages.Single());
+
+    var temporaryDirectory = Path.Combine(
+        Path.GetTempPath(),
+        "yy-package-test-" + Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(temporaryDirectory);
+    try
+    {
+        var module = new YyCodeDocument { Name = "数据模块" };
+        module.Packages.Add(Yy.Sdk.YySdk.DataPackage);
+        File.WriteAllText(
+            Path.Combine(temporaryDirectory, "数据模块.yyc"),
+            YyCodeSerializer.Serialize(module));
+
+        var root = new YyCodeDocument { Name = "包入口" };
+        root.Packages.Add(Yy.Sdk.YySdk.CorePackage);
+        root.Imports.Add("数据模块.yyc");
+        var rootPath = Path.Combine(temporaryDirectory, "程序.yyc");
+        File.WriteAllText(rootPath, YyCodeSerializer.Serialize(root));
+
+        var merged = YyRunner.CompileFile(rootPath);
+        Equal(
+            "系统.基础,系统.数据",
+            string.Join(",", merged.PackageImports.Select(package => package.Name)));
+    }
+    finally
+    {
+        Directory.Delete(temporaryDirectory, recursive: true);
+    }
+
+    try
+    {
+        YyRunner.Compile("""
+            .版本 1
+            导入包 "不存在.包"
+            """);
+        throw new Exception("未知系统包应被拒绝。");
+    }
+    catch (YyDiagnostic diagnostic)
+    {
+        True(diagnostic.Message.Contains("找不到系统包", StringComparison.Ordinal), diagnostic.Message);
+    }
 }
 
 static void TestTypedVariables()
@@ -629,6 +698,24 @@ static void TestDebugBreakpoint()
     Equal("一\n二\n三\n四", string.Join("\n", lines));
     Equal(1, pausedLines.Count);
     Equal(5, pausedLines[0]);
+}
+
+static void TestControlIdContext()
+{
+    var controls = new Dictionary<string, object?>(StringComparer.Ordinal)
+    {
+        ["@id/主窗口/标题标签"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["文本"] = "控件上下文"
+        }
+    };
+    var output = new List<string>();
+    YyRunner.RunSource(
+        """输出(取控件("@id/主窗口/标题标签").文本)""",
+        null,
+        output.Add,
+        controlResolver: id => controls.TryGetValue(id, out var value) ? value : null);
+    Equal("控件上下文", string.Join("\n", output));
 }
 
 static (string Output, YyRunResult Result) Run(string source)

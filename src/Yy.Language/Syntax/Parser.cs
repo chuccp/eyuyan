@@ -6,6 +6,7 @@ public sealed class Parser
     private readonly string? _sourceName;
     private readonly List<Token> _tokens;
     private readonly List<ImportDeclaration> _imports = [];
+    private readonly List<PackageImportDeclaration> _packageImports = [];
     private readonly Dictionary<string, string> _metadata = new(StringComparer.Ordinal);
     private int _current;
 
@@ -54,6 +55,12 @@ public sealed class Parser
                 continue;
             }
 
+            if (CheckWord("导入包"))
+            {
+                _packageImports.Add(ParsePackageImport());
+                continue;
+            }
+
             mainStatements.Add(ParseStatement());
         }
 
@@ -63,7 +70,10 @@ public sealed class Parser
             _metadata,
             functions,
             _imports,
-            new BlockStatement(1, 1, mainStatements));
+            new BlockStatement(1, 1, mainStatements))
+        {
+            PackageImports = _packageImports
+        };
     }
 
     private FunctionDeclaration ParseFunction()
@@ -164,6 +174,37 @@ public sealed class Parser
         }
 
         var import = new ImportDeclaration(keyword.Line, keyword.Column, path.Text);
+        ConsumeLineEnd();
+        return import;
+    }
+
+    private PackageImportDeclaration ParsePackageImport()
+    {
+        var keyword = Advance();
+        if (!Check(TokenKind.String))
+        {
+            throw Error(Peek(), "“导入包”后需要包名字符串。");
+        }
+
+        var name = Advance();
+        if (!AtLineEnd)
+        {
+            throw Error(Peek(), "“导入包”语句末尾存在多余内容。");
+        }
+
+        if (Yy.Sdk.YySdk.FindPackage(name.Text) is null)
+        {
+            throw new YyDiagnostic(
+                $"找不到系统包“{name.Text}”。",
+                name.Line,
+                name.Column,
+                "可用包：" + string.Join(
+                    "、",
+                    Yy.Sdk.YySdk.Packages.Select(package => package.Name)),
+                _sourceName);
+        }
+
+        var import = new PackageImportDeclaration(keyword.Line, keyword.Column, name.Text);
         ConsumeLineEnd();
         return import;
     }

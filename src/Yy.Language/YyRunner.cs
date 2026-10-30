@@ -23,14 +23,18 @@ public static class YyRunner
         string source,
         Action<string>? output = null,
         CancellationToken cancellationToken = default,
-        YyDebugProbe? debugger = null)
+        YyDebugProbe? debugger = null,
+        Func<string, object?>? controlResolver = null,
+        IReadOnlyDictionary<string, object?>? initialVariables = null)
     {
         return RunProgram(
             ModuleLoader.CompileSource(source, null),
             output,
             cancellationToken,
             sourcePath: null,
-            debugger);
+            debugger,
+            controlResolver,
+            initialVariables);
     }
 
     public static YyRunResult RunSource(
@@ -38,28 +42,36 @@ public static class YyRunner
         string? sourcePath,
         Action<string>? output = null,
         CancellationToken cancellationToken = default,
-        YyDebugProbe? debugger = null)
+        YyDebugProbe? debugger = null,
+        Func<string, object?>? controlResolver = null,
+        IReadOnlyDictionary<string, object?>? initialVariables = null)
     {
         return RunProgram(
             ModuleLoader.CompileSource(source, sourcePath),
             output,
             cancellationToken,
             sourcePath,
-            debugger);
+            debugger,
+            controlResolver,
+            initialVariables);
     }
 
     public static YyRunResult RunFile(
         string path,
         Action<string>? output = null,
         CancellationToken cancellationToken = default,
-        YyDebugProbe? debugger = null)
+        YyDebugProbe? debugger = null,
+        Func<string, object?>? controlResolver = null,
+        IReadOnlyDictionary<string, object?>? initialVariables = null)
     {
         return RunProgram(
             ModuleLoader.CompileFile(Path.GetFullPath(path)),
             output,
             cancellationToken,
             Path.GetFullPath(path),
-            debugger);
+            debugger,
+            controlResolver,
+            initialVariables);
     }
 
     private static YyRunResult RunProgram(
@@ -67,7 +79,9 @@ public static class YyRunner
         Action<string>? output,
         CancellationToken cancellationToken,
         string? sourcePath,
-        YyDebugProbe? debugger = null)
+        YyDebugProbe? debugger = null,
+        Func<string, object?>? controlResolver = null,
+        IReadOnlyDictionary<string, object?>? initialVariables = null)
     {
         var started = DateTime.UtcNow;
         var diagnostics = YySemanticAnalyzer.Analyze(program, sourcePath);
@@ -76,7 +90,12 @@ public static class YyRunner
             throw diagnostics[0];
         }
 
-        var interpreter = new Interpreter(output, cancellationToken, debugger);
+        var interpreter = new Interpreter(
+            output,
+            cancellationToken,
+            debugger,
+            controlResolver,
+            initialVariables);
         var value = interpreter.Execute(program);
         return new YyRunResult(
             value,

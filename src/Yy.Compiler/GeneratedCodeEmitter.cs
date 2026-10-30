@@ -14,7 +14,7 @@ public sealed class GeneratedCodeEmitter
         "绝对值", "平方根", "幂", "最大", "最小", "随机数", "范围", "包含", "分割", "连接",
         "替换", "修剪", "转大写", "转小写", "取子文本", "追加", "插入", "移除", "排序",
         "倒序", "键集", "值集", "当前时间", "格式化时间", "JSON解析", "JSON生成",
-        "UTF8编码", "UTF8解码"
+        "UTF8编码", "UTF8解码", "取控件"
     ];
 
     private readonly StringBuilder _builder = new();
@@ -24,6 +24,7 @@ public sealed class GeneratedCodeEmitter
     private FunctionDeclaration? _currentFunction;
     private string _currentEnvironment = "__env";
     private string _projectDirectory = string.Empty;
+    private string _currentFormName = string.Empty;
     private int _indent;
     private int _temporary;
 
@@ -291,12 +292,15 @@ public sealed class GeneratedCodeEmitter
     private void EmitForm(YyProject project, YyProjectForm projectForm, int index)
     {
         var form = projectForm.Model;
+        _currentFormName = form.Name;
         Line($"internal sealed class YyForm_{index} : Window, IYyFormHost");
         Line("{");
         _indent++;
         Line("private readonly Dictionary<string, FrameworkElement> _yyControls = new(StringComparer.Ordinal);");
+        Line("private readonly Dictionary<string, FrameworkElement> _yyControlsById = new(StringComparer.Ordinal);");
         Line("private bool _yyEventRunning;");
         Line("public IReadOnlyDictionary<string, FrameworkElement> YyControls => _yyControls;");
+        Line("public IReadOnlyDictionary<string, FrameworkElement> YyControlsById => _yyControlsById;");
         Line();
         Line($"public YyForm_{index}()");
         Line("{");
@@ -381,6 +385,7 @@ public sealed class GeneratedCodeEmitter
         _indent--;
         Line("}");
         Line();
+        _currentFormName = string.Empty;
     }
 
     private void EmitControl(YyControlModel control)
@@ -461,6 +466,8 @@ public sealed class GeneratedCodeEmitter
         Line($"Canvas.SetTop({variable}, {Number(control.Y)});");
         Line($"canvas.Children.Add({variable});");
         Line($"_yyControls.Add({Quote(control.Name)}, {variable});");
+        Line(
+            $"_yyControlsById.Add({Quote(YyResourceIndex.ControlId(_currentFormName, control.Name))}, {variable});");
         if (control.Type == YyControlTypes.Button && !string.IsNullOrWhiteSpace(control.ClickEvent))
         {
             Line($"{variable}.Click += (_, _) => InvokeEvent({Quote(control.ClickEvent)});");
@@ -509,6 +516,8 @@ public sealed class GeneratedCodeEmitter
         Line($"Canvas.SetTop({host}, {Number(control.Y)});");
         Line($"canvas.Children.Add({host});");
         Line($"_yyControls.Add({Quote(control.Name)}, {host});");
+        Line(
+            $"_yyControlsById.Add({Quote(YyResourceIndex.ControlId(_currentFormName, control.Name))}, {host});");
     }
 
     private void EmitStatements(IReadOnlyList<Statement> statements, string environment)

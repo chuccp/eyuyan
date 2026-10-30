@@ -100,6 +100,7 @@ public partial class MainWindow : Window
     private static readonly IReadOnlyDictionary<string, CodeSnippet> CodeSnippets =
         new Dictionary<string, CodeSnippet>(StringComparer.Ordinal)
         {
+            ["导入包"] = new("导入包 \"系统.基础\"", 5, 5),
             ["子程序"] = new("子程序 名称(参数)\n    \n结束子程序", 4, 2),
             ["变量"] = new("变量 名称 = 值", 3, 2),
             ["如果"] = new("如果 条件 则\n    \n结束如果", 3, 2),
@@ -233,6 +234,7 @@ public partial class MainWindow : Window
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
+        ApplyNativeWindowFrame();
     }
 
     public void OpenStartupPath(string path)

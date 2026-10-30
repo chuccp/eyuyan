@@ -46,6 +46,7 @@
 | `src/Yy.Compiler/YyProject.Creation.cs` | 新项目和窗体三件套创建、默认模板 |
 | `src/Yy.Compiler/YyProject.Resources.cs` | 资源导入、分类复制、资源表校验和索引同步 |
 | `src/Yy.Compiler/Resources/YyResourceIndex.cs` | `ids.xml` 生成、标识解析和资源路径定位 |
+| `src/Yy.Sdk/YySdk.cs` | SDK 版本、系统包目录、界面上下文和跨 UI 技术契约 |
 
 ## 编译器与命令行
 

@@ -17,6 +17,8 @@ public sealed class YyFormPreviewWindow : Window
     private readonly string? _inlineCode;
     private readonly Dictionary<YyControlModel, FrameworkElement> _elements = [];
     private readonly Dictionary<string, string> _controlTextBaseline = [];
+    private readonly Dictionary<string, object?> _controlVariables = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, object?> _controlVariablesById = new(StringComparer.Ordinal);
     private readonly TextBlock _eventOutput;
     private CancellationTokenSource? _eventCancellation;
     private bool _closeEventHandled;
@@ -261,7 +263,8 @@ public sealed class YyFormPreviewWindow : Window
                 source,
                 codePath,
                 output.Enqueue,
-                _eventCancellation.Token));
+                _eventCancellation.Token,
+                controlResolver: ResolveControlById));
             ApplyControlValues(result.Variables);
             var lines = output.ToArray();
             _eventOutput.Text = lines.Length == 0
@@ -298,6 +301,8 @@ public sealed class YyFormPreviewWindow : Window
     {
         var builder = new StringBuilder();
         builder.AppendLine("' 预览器生成的窗体上下文");
+        _controlVariables.Clear();
+        _controlVariablesById.Clear();
         foreach (var control in _form.Controls)
         {
             var element = _elements[control];
@@ -308,16 +313,43 @@ public sealed class YyFormPreviewWindow : Window
             };
             var baseline = GetElementText(element);
             _controlTextBaseline[control.Name] = baseline;
+            var value = new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["名称"] = control.Name,
+                ["标题"] = baseline,
+                ["文本"] = baseline,
+                ["图片"] = control.Picture,
+                ["启用"] = element.IsEnabled,
+                ["可见"] = element.Visibility == Visibility.Visible,
+                ["选中"] = selected
+            };
+            _controlVariables[control.Name] = value;
+            _controlVariablesById[control.Name] = value;
+            var controlId = YyResourceIndex.ControlId(_form.Name, control.Name);
+            _controlVariablesById[controlId] = value;
             builder.AppendLine(
-                $"变量 {control.Name}: 对象 = {{名称: {Quote(control.Name)}, 标题: {Quote(baseline)}, 文本: {Quote(baseline)}, 图片: {Quote(control.Picture)}, 启用: {BooleanText(element.IsEnabled)}, 可见: {BooleanText(element.Visibility == Visibility.Visible)}, 选中: {BooleanText(selected)}}}");
+                $"变量 {control.Name}: 对象 = 取控件({Quote(controlId)})");
         }
 
-        builder.AppendLine(
-            $"变量 窗口: 对象 = {{名称: {Quote(_form.Name)}, 标题: {Quote(Title)}, 宽: {_form.Width.ToString(System.Globalization.CultureInfo.InvariantCulture)}, 高: {_form.Height.ToString(System.Globalization.CultureInfo.InvariantCulture)}}}");
+        var window = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["名称"] = _form.Name,
+            ["标题"] = Title,
+            ["宽"] = _form.Width,
+            ["高"] = _form.Height
+        };
+        _controlVariables["窗口"] = window;
+        _controlVariablesById[_form.Name] = window;
+        var formId = YyResourceIndex.FormId(_form.Name);
+        _controlVariablesById[formId] = window;
+        builder.AppendLine($"变量 窗口: 对象 = 取控件({Quote(formId)})");
         builder.AppendLine(code);
         builder.AppendLine(eventName + "()");
         return builder.ToString();
     }
+
+    private object? ResolveControlById(string id) =>
+        _controlVariablesById.TryGetValue(id, out var value) ? value : null;
 
     private void ApplyControlValues(IReadOnlyDictionary<string, object?> variables)
     {

@@ -11,6 +11,7 @@ namespace Yy.Compiler.Runtime;
 public interface IYyFormHost
 {
     IReadOnlyDictionary<string, FrameworkElement> YyControls { get; }
+    IReadOnlyDictionary<string, FrameworkElement> YyControlsById { get; }
 }
 
 public sealed class ScriptRuntimeException(string message) : Exception(message);
@@ -336,6 +337,7 @@ public static class ScriptRuntime
                 _ => throw new ScriptRuntimeException("该值没有长度")
             }),
             "类型" => TypeName(arguments[0]),
+            "取控件" => FindControl(Format(arguments[0])),
             "文本" => arguments.Length == 0 ? string.Empty : Format(arguments[0]),
             "数字" => ParseNumber(arguments[0]),
             "整数" => Math.Truncate(ParseNumber(arguments[0])),
@@ -390,6 +392,16 @@ public static class ScriptRuntime
                 Convert.FromBase64String(Format(arguments[0]))),
             _ => throw new ScriptRuntimeException($"未知内置函数“{name}”")
         };
+    }
+
+    private static FrameworkElement FindControl(string id)
+    {
+        if (CurrentForm?.YyControlsById.TryGetValue(id, out var control) == true)
+        {
+            return control;
+        }
+
+        throw new ScriptRuntimeException($"没有找到标识为“{id}”的界面控件");
     }
 
     public static void EnsureType(object? value, string? typeName, string target)

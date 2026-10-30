@@ -45,6 +45,9 @@ internal static class ModuleLoader
         var loading = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var loaded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var parsed = new Dictionary<string, YyProgram>(StringComparer.OrdinalIgnoreCase);
+        var packageImports = new List<PackageImportDeclaration>();
+        var packageNames = new HashSet<string>(StringComparer.Ordinal);
+        IncludePackages(rootProgram);
 
         if (rootPath is not null)
         {
@@ -63,10 +66,14 @@ internal static class ModuleLoader
             rootProgram.Metadata,
             functions,
             [],
-            rootProgram.Main);
+            rootProgram.Main)
+        {
+            PackageImports = packageImports
+        };
 
         void IncludeImports(YyProgram program, string modulePath)
         {
+            IncludePackages(program);
             var baseDirectory = Path.GetDirectoryName(modulePath)
                 ?? throw new YyDiagnostic("无法确定模块所在目录", 1, 1, sourceName: modulePath);
 
@@ -152,6 +159,17 @@ internal static class ModuleLoader
                 loaded.Add(importPath);
                 loading.Remove(importPath);
                 AddFunctions(imported.Functions, importPath);
+            }
+        }
+
+        void IncludePackages(YyProgram program)
+        {
+            foreach (var package in program.PackageImports)
+            {
+                if (packageNames.Add(package.Name))
+                {
+                    packageImports.Add(package);
+                }
             }
         }
 

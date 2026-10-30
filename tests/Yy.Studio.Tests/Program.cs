@@ -48,6 +48,17 @@ Run("界面 XML 与生成关系分离", () =>
 
     var binding = YyFormBindingSerializer.Create(form, "测试窗口.yyx", "测试窗口.yyc");
     var bindingText = YyFormBindingSerializer.Serialize(binding);
+    True(
+        !bindingText.Contains("<yy:", StringComparison.Ordinal),
+        "生成关系必须是纯代码，不应包含 XML 元素。");
+    True(
+        bindingText.Contains("导入包 \"系统.界面\"", StringComparison.Ordinal),
+        "生成关系应声明界面 SDK 包。");
+    True(
+        bindingText.Contains(
+            "绑定(\"@id/测试窗口/编辑框2\", \"文本改变\", \"文本框_文本改变\")",
+            StringComparison.Ordinal),
+        "生成关系没有通过控件 ID 绑定事件。");
     var restoredBinding = YyFormBindingSerializer.Deserialize(bindingText);
     YyFormBindingSerializer.ApplyTo(restored, restoredBinding);
     Equal("测试窗口_载入", restored.LoadEvent);
@@ -55,6 +66,7 @@ Run("界面 XML 与生成关系分离", () =>
     Equal("文本框_文本改变", restored.Controls[1].TextChangedEvent);
 
     var userCode = YyFormCompanionFiles.CreateUserCodeDocument(form, restoredBinding);
+    Equal(Yy.Sdk.YySdk.UiPackage, userCode.Packages.Single());
     True(
         userCode.Functions.Any(function => function.Name == "文本框_文本改变"),
         "用户代码应只获得事件入口。");

@@ -16,14 +16,15 @@ internal static class Builtins
         "倒序", "键集", "值集", "当前时间", "格式化时间", "JSON解析", "JSON生成",
         "UTF8编码", "UTF8解码", "取文本左边", "取文本右边", "取文本中间",
         "取环境变量", "取运行目录", "取启动时间", "延时",
-        "文件存在", "取目录文件", "删除文件", "读文件", "写文件", "断点"
+        "文件存在", "取目录文件", "删除文件", "读文件", "写文件", "断点", "取控件"
     ];
 
     public static void Install(
         Environment globals,
         Action<object?> write,
         CancellationToken cancellationToken,
-        YyDebugProbe? probe = null)
+        YyDebugProbe? probe = null,
+        Func<string, object?>? controlResolver = null)
     {
         Add("输出", 0, int.MaxValue, args =>
         {
@@ -62,6 +63,12 @@ internal static class Builtins
         }));
         Add("类型", 1, 1, args => Interpreter.TypeName(args[0]));
         Add("文本", 0, 1, args => args.Length == 0 ? string.Empty : Interpreter.Format(args[0]));
+        Add("取控件", 1, 1, args =>
+        {
+            var id = RequireString(args[0], "取控件");
+            return controlResolver?.Invoke(id)
+                ?? throw new YyRuntimeError($"没有找到标识为“{id}”的界面控件", 1, 1);
+        });
         Add("数字", 1, 1, args => ToNumber(args[0]));
         Add("整数", 1, 1, args => Math.Truncate(ToNumber(args[0])));
         Add("小数", 1, 2, args =>

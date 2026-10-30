@@ -19,6 +19,7 @@ public sealed class CompletionData(
     public object Description => description;
     public double Priority => kind switch
     {
+        CompletionKind.Package => 4.2,
         CompletionKind.Component => 4,
         CompletionKind.Parameter => 3.8,
         CompletionKind.Variable => 3.7,
@@ -63,6 +64,7 @@ public sealed class CompletionData(
 public enum CompletionKind
 {
     Snippet,
+    Package,
     Builtin,
     Keyword,
     Component,

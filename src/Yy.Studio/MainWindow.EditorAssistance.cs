@@ -21,6 +21,7 @@ using System.Xml;
 using Yy.Studio.Properties;
 using Yy.Language;
 using Yy.Language.Syntax;
+using Yy.Sdk;
 using Yy.Studio.Forms;
 using Yy.Language.Structured;
 using Yy.Studio.Structured;
@@ -197,6 +198,21 @@ public partial class MainWindow : Window
         };
         var data = _completionWindow.CompletionList.CompletionData;
         var known = new HashSet<string>(StringComparer.Ordinal);
+        if (IsPackageImportContext(editor.Text, editor.CaretOffset))
+        {
+            foreach (var package in YySdk.Packages)
+            {
+                data.Add(new CompletionData(
+                    package.Name,
+                    $"系统 SDK 包 · {package.Description}",
+                    CompletionKind.Package));
+            }
+
+            _completionWindow.Show();
+            _completionWindow.Closed += (_, _) => _completionWindow = null;
+            return;
+        }
+
         var form = GetAssociatedFormForCurrentDocument();
         var memberOwner = TryGetMemberOwnerName(editor.Text, editor.CaretOffset);
         if (form is not null && memberOwner is not null)
@@ -330,6 +346,29 @@ public partial class MainWindow : Window
 
         _completionWindow.Show();
         _completionWindow.Closed += (_, _) => _completionWindow = null;
+    }
+
+    private static bool IsPackageImportContext(string text, int caretOffset)
+    {
+        var caret = Math.Clamp(caretOffset, 0, text.Length);
+        var lineStart = caret == 0 ? 0 : text.LastIndexOf('\n', caret - 1) + 1;
+        var lineEnd = text.IndexOf('\n', caret);
+        if (lineEnd < 0)
+        {
+            lineEnd = text.Length;
+        }
+
+        var prefix = text[lineStart..caret];
+        var trimmed = prefix.TrimStart();
+        if (trimmed.Length <= "导入包".Length ||
+            !trimmed.StartsWith("导入包", StringComparison.Ordinal) ||
+            !char.IsWhiteSpace(trimmed["导入包".Length]))
+        {
+            return false;
+        }
+
+        return prefix.Count(character => character == '"') == 1 &&
+               text.AsSpan(caret, lineEnd - caret).IndexOf('"') < 0;
     }
 
     private YyFormModel? GetAssociatedFormForCurrentDocument()

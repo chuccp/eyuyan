@@ -209,7 +209,10 @@ public sealed class ProjectCompiler
             entryProgram.Metadata,
             functions,
             [],
-            entryProgram.Main);
+            entryProgram.Main)
+        {
+            PackageImports = entryProgram.PackageImports
+        };
     }
 
     private static YyProgram ReadProgram(string path)

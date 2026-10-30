@@ -3,6 +3,7 @@
     <Project Path="src/Yy.CompilerRuntime/Yy.CompilerRuntime.csproj" />
     <Project Path="src/Yy.Compiler/Yy.Compiler.csproj" />
     <Project Path="src/Yy.Language/Yy.Language.csproj" />
+    <Project Path="src/Yy.Sdk/Yy.Sdk.csproj" />
     <Project Path="src/Yy.Studio/Yy.Studio.csproj" />
   </Folder>
   <Folder Name="/tests/">

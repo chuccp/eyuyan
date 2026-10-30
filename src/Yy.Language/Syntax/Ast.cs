@@ -8,12 +8,20 @@ public sealed record YyProgram(
     IReadOnlyDictionary<string, string> Metadata,
     IReadOnlyList<FunctionDeclaration> Functions,
     IReadOnlyList<ImportDeclaration> Imports,
-    BlockStatement Main) : YyNode(Line, Column);
+    BlockStatement Main) : YyNode(Line, Column)
+{
+    public IReadOnlyList<PackageImportDeclaration> PackageImports { get; init; } = [];
+}
 
 public sealed record ImportDeclaration(
     int Line,
     int Column,
     string Path) : YyNode(Line, Column);
+
+public sealed record PackageImportDeclaration(
+    int Line,
+    int Column,
+    string Name) : YyNode(Line, Column);
 
 public sealed record ParameterDeclaration(
     string Name,

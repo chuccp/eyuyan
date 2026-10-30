@@ -26,6 +26,11 @@ public static class YyCodeSerializer
             root.Add(new XElement(Namespace + "引入", new XAttribute("路径", import)));
         }
 
+        foreach (var package in document.Packages)
+        {
+            root.Add(new XElement(Namespace + "导入包", new XAttribute("名称", package)));
+        }
+
         foreach (var function in document.Functions)
         {
             var functionElement = new XElement(
@@ -146,6 +151,9 @@ public static class YyCodeSerializer
         {
             switch (element.Name.LocalName)
             {
+                case "导入包":
+                    document.Packages.Add(RequiredAttribute(element, "名称"));
+                    break;
                 case "引入":
                     document.Imports.Add(RequiredAttribute(element, "路径"));
                     break;

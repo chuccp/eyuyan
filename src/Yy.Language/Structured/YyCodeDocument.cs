@@ -8,6 +8,7 @@ public sealed class YyCodeDocument
 {
     public string Name { get; set; } = "程序集";
     public string Remark { get; set; } = string.Empty;
+    public List<string> Packages { get; } = [];
     public List<string> Imports { get; } = [];
     public List<YyCodeStatement> MainStatements { get; } = [];
     public List<YyCodeFunction> Functions { get; } = [];
@@ -101,6 +102,7 @@ public static class YyCodeDocumentConverter
             Name = program.Metadata.GetValueOrDefault("程序集", "程序集")
         };
         document.Imports.AddRange(program.Imports.Select(import => import.Path));
+        document.Packages.AddRange(program.PackageImports.Select(package => package.Name));
         document.MainStatements.AddRange(program.Main.Statements.Select(ConvertStatement));
         foreach (var function in program.Functions)
         {
@@ -132,12 +134,17 @@ public static class YyCodeDocumentConverter
         var builder = new StringBuilder();
         builder.AppendLine(".版本 1");
         builder.Append(".程序集 ").AppendLine(document.Name);
+        foreach (var package in document.Packages.Where(value => !string.IsNullOrWhiteSpace(value)))
+        {
+            builder.Append("导入包 ").AppendLine(Quote(package));
+        }
+
         foreach (var import in document.Imports.Where(value => !string.IsNullOrWhiteSpace(value)))
         {
             builder.Append("引入 ").AppendLine(Quote(import));
         }
 
-        if (document.Imports.Count > 0)
+        if (document.Packages.Count > 0 || document.Imports.Count > 0)
         {
             builder.AppendLine();
         }

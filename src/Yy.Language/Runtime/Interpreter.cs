@@ -17,13 +17,26 @@ internal sealed partial class Interpreter
     private int _callDepth;
     private int _steps;
 
-    public Interpreter(Action<string>? write, CancellationToken cancellationToken, YyDebugProbe? probe = null)
+    public Interpreter(
+        Action<string>? write,
+        CancellationToken cancellationToken,
+        YyDebugProbe? probe = null,
+        Func<string, object?>? controlResolver = null,
+        IReadOnlyDictionary<string, object?>? initialVariables = null)
     {
         _write = write ?? (_ => { });
         _cancellationToken = cancellationToken;
         _probe = probe;
         _snapshot = () => _globals.Snapshot();
-        Builtins.Install(_globals, Emit, cancellationToken, probe);
+        if (initialVariables is not null)
+        {
+            foreach (var (name, value) in initialVariables)
+            {
+                _globals.Define(name, value);
+            }
+        }
+
+        Builtins.Install(_globals, Emit, cancellationToken, probe, controlResolver);
     }
 
     public IReadOnlyDictionary<string, object?> Globals => _globals.Snapshot();
