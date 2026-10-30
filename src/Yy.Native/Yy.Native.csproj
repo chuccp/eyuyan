@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Yy.Native</RootNamespace>
+    <AssemblyName>Yy.Native</AssemblyName>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Yy.Compiler\Yy.Compiler.csproj" />
+    <ProjectReference Include="..\Yy.Language\Yy.Language.csproj" />
+    <ProjectReference Include="..\Yy.Sdk\Yy.Sdk.csproj" />
+  </ItemGroup>
+</Project>

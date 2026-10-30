@@ -25,9 +25,6 @@ public sealed class StudioConfiguration
     [JsonPropertyName("窗体设计器")]
     public StudioDesignerConfiguration Designer { get; set; } = new();
 
-    [JsonPropertyName("编译")]
-    public StudioBuildConfiguration Build { get; set; } = new();
-
     [JsonPropertyName("支持库")]
     public StudioLibraryConfiguration Libraries { get; set; } = new();
 
@@ -138,12 +135,6 @@ public sealed class StudioConfiguration
         if (Editor.TabWidth is < 1 or > 16)
         {
             throw new InvalidDataException("编辑器制表宽度必须在 1 到 16 之间。");
-        }
-
-        Build ??= new StudioBuildConfiguration();
-        if (Build.TargetRid is not ("win-x64" or "win-arm64"))
-        {
-            throw new InvalidDataException("编译目标平台必须是 win-x64 或 win-arm64。");
         }
 
         Libraries ??= new StudioLibraryConfiguration();
@@ -267,12 +258,6 @@ public sealed class StudioDesignerConfiguration
 {
     [JsonPropertyName("吸附网格")]
     public bool SnapGrid { get; set; } = true;
-}
-
-public sealed class StudioBuildConfiguration
-{
-    [JsonPropertyName("目标平台")]
-    public string TargetRid { get; set; } = "win-x64";
 }
 
 public sealed class StudioLibraryConfiguration

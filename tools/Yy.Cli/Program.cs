@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using Yy.Compiler;
+using Yy.Native;
 
 return await CliApplication.RunAsync(args);
 
@@ -18,7 +19,8 @@ internal static class CliApplication
         {
             return args[0].ToLowerInvariant() switch
             {
-                "build" => await BuildAsync(args[1..]),
+                "build" => BuildNative(args[1..]),
+                "native" => BuildNative(args[1..]),
                 "check" => Check(args[1..]),
                 "run" => await RunProjectAsync(args[1..]),
                 "version" or "--version" or "-v" => PrintVersion(),
@@ -27,34 +29,52 @@ internal static class CliApplication
         }
         catch (Exception exception) when (
             exception is InvalidDataException or IOException or UnauthorizedAccessException
-                or ArgumentException or InvalidOperationException)
+                or ArgumentException or InvalidOperationException or NativeCompileException)
         {
             Console.Error.WriteLine("yy: " + exception.Message);
             return 1;
         }
     }
 
-    private static async Task<int> BuildAsync(string[] args)
+    private static int BuildNative(string[] args)
     {
-        var options = CommandOptions.Parse(args);
-        var project = LoadProject(options.Input);
-        var output = Path.GetFullPath(
-            options.Output ?? Path.Combine(Environment.CurrentDirectory, project.OutputName));
-        EnsureExeExtension(ref output);
-        var compiler = new ProjectCompiler();
-        await compiler.CompileAsync(
-            project,
-            output,
-            options.SelfContained,
-            options.Rid,
-            new Progress<string>(Console.WriteLine));
-        Console.WriteLine($"已生成：{output}");
+        var options = NativeOptions.Parse(args);
+        var input = Path.GetFullPath(options.Input);
+        NativeBuildResult result;
+        if (Directory.Exists(input) ||
+            string.Equals(Path.GetExtension(input), ".yyproj", StringComparison.OrdinalIgnoreCase))
+        {
+            var project = LoadProject(input);
+            var output = Path.GetFullPath(
+                options.Output ?? Path.Combine(project.DirectoryPath, project.OutputName));
+            EnsureExeExtension(ref output);
+            result = NativeCompiler.CompileProject(project, output);
+        }
+        else
+        {
+            if (!File.Exists(input) ||
+                !string.Equals(Path.GetExtension(input), ".yyc", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException("yy native 需要一个 .yyc 源文件、.yyproj 或项目目录。");
+            }
+
+            var output = Path.GetFullPath(
+                options.Output ??
+                Path.Combine(
+                    Path.GetDirectoryName(input) ?? Environment.CurrentDirectory,
+                    Path.GetFileNameWithoutExtension(input) + ".exe"));
+            EnsureExeExtension(ref output);
+            result = NativeCompiler.CompileFile(input, output);
+        }
+
+        Console.WriteLine(
+            $"已生成原生程序：{result.OutputPath} · {result.ImageSize} 字节");
         return 0;
     }
 
     private static int Check(string[] args)
     {
-        var options = CommandOptions.Parse(args, allowBuildOptions: false);
+        var options = NativeOptions.Parse(args);
         var project = LoadProject(options.Input);
         new ProjectCompiler().Validate(project);
         Console.WriteLine(
@@ -65,7 +85,7 @@ internal static class CliApplication
 
     private static async Task<int> RunProjectAsync(string[] args)
     {
-        var options = CommandOptions.Parse(args);
+        var options = NativeOptions.Parse(args);
         var project = LoadProject(options.Input);
         var temporaryDirectory = Path.Combine(
             Path.GetTempPath(),
@@ -74,13 +94,7 @@ internal static class CliApplication
         try
         {
             var output = Path.Combine(temporaryDirectory, project.OutputName);
-            var compiler = new ProjectCompiler();
-            await compiler.CompileAsync(
-                project,
-                output,
-                options.SelfContained,
-                options.Rid,
-                new Progress<string>(Console.WriteLine));
+            NativeCompiler.CompileProject(project, output);
             Console.WriteLine($"运行：{output}");
             using var process = Process.Start(new ProcessStartInfo
             {
@@ -147,85 +161,59 @@ internal static class CliApplication
             易语命令行编译器
 
             用法：
-              yy build <工程.yyproj|目录> [-o 输出.exe] [--framework-dependent] [--rid RID]
+              yy build <工程.yyproj|目录> [-o 输出.exe]
+              yy native <源码.yyc|工程.yyproj|目录> [-o 输出.exe]
               yy check <工程.yyproj|目录>
-              yy run <工程.yyproj|目录> [--framework-dependent] [--rid RID]
+              yy run <工程.yyproj|目录>
               yy version
 
             示例：
-              yy build examples/示例.yyproj -o Dist/易语示例.exe
-              yy check examples/示例.yyproj
-              yy run examples/MCP资源演示
+              yy build examples/原生窗体 -o Dist/原生窗体.exe
+              yy native examples/Sources/原生入门.yyc -o Dist/原生入门.exe
+              yy check examples/原生窗体
+              yy run examples/原生窗体
 
-            默认输出自包含 Windows x64 单文件。--framework-dependent 生成需要
-            .NET 10 Desktop Runtime 的精简版本。
+            build/native 使用自研 Win64/PE 后端，不生成 C#、C++、Rust 或 LLVM IR，
+            编译结果不依赖 .NET 或 C Runtime。
             """);
     }
 
-    private sealed record CommandOptions(
-        string Input,
-        string? Output,
-        bool SelfContained,
-        string Rid)
+    private sealed record NativeOptions(string Input, string? Output)
     {
-        public static CommandOptions Parse(
-            string[] args,
-            bool allowBuildOptions = true)
+        public static NativeOptions Parse(string[] args)
         {
             string? input = null;
             string? output = null;
-            var selfContained = true;
-            var rid = "win-x64";
             for (var index = 0; index < args.Length; index++)
             {
-                var argument = args[index];
-                switch (argument)
+                if (args[index] is "-o" or "--output")
                 {
-                    case "-o" or "--output" when allowBuildOptions:
-                        output = RequireValue(args, ref index, argument);
-                        break;
-                    case "--framework-dependent" when allowBuildOptions:
-                        selfContained = false;
-                        break;
-                    case "--self-contained" when allowBuildOptions:
-                        selfContained = true;
-                        break;
-                    case "--rid" when allowBuildOptions:
-                        rid = RequireValue(args, ref index, argument);
-                        break;
-                    default:
-                        if (argument.StartsWith('-'))
-                        {
-                            throw new ArgumentException("未知选项：" + argument);
-                        }
+                    if (++index >= args.Length)
+                    {
+                        throw new ArgumentException("-o 缺少输出路径。");
+                    }
 
-                        if (input is not null)
-                        {
-                            throw new ArgumentException("只能指定一个工程文件或目录。");
-                        }
-
-                        input = argument;
-                        break;
+                    output = args[index];
+                    continue;
                 }
+
+                if (args[index].StartsWith('-'))
+                {
+                    throw new ArgumentException("未知选项：" + args[index]);
+                }
+
+                if (input is not null)
+                {
+                    throw new ArgumentException("只能指定一个 .yyc 源文件。");
+                }
+
+                input = args[index];
             }
 
-            if (string.IsNullOrWhiteSpace(input))
-            {
-                throw new ArgumentException("缺少工程文件或目录。");
-            }
-
-            return new CommandOptions(input, output, selfContained, rid);
-        }
-
-        private static string RequireValue(string[] args, ref int index, string option)
-        {
-            if (index + 1 >= args.Length)
-            {
-                throw new ArgumentException($"{option} 缺少参数。");
-            }
-
-            index++;
-            return args[index];
+            return string.IsNullOrWhiteSpace(input)
+                ? throw new ArgumentException("缺少源码、工程或目录。")
+                : new NativeOptions(input, output);
         }
     }
+
 }

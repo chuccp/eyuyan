@@ -287,21 +287,9 @@
             </MenuItem>
 
             <MenuItem Header="_C编译" Style="{StaticResource TopMenuItem}">
-                <MenuItem Header="编译到目的操作系统">
-                    <MenuItem x:Name="TargetOsWinX64MenuItem" Header="Windows x64"
-                              Tag="win-x64" IsCheckable="True" IsChecked="True"
-                              Click="OnCompileTargetOsClick" />
-                    <MenuItem x:Name="TargetOsWinArm64MenuItem" Header="Windows ARM64"
-                              Tag="win-arm64" IsCheckable="True"
-                              Click="OnCompileTargetOsClick" />
-                    <MenuItem Header="Linux x64" Tag="linux-x64" Click="OnCompileTargetOsClick" />
-                    <MenuItem Header="macOS ARM64" Tag="osx-arm64" Click="OnCompileTargetOsClick" />
-                </MenuItem>
-                <Separator />
-                <MenuItem Header="编译" InputGestureText="F7"
+                <MenuItem Header="编译原生 EXE" InputGestureText="F7"
                           Command="{x:Static local:MainWindow.CompileProjectCommand}"
                           xmlns:local="clr-namespace:Yy.Studio" />
-                <MenuItem Header="独立编译" Click="OnStandaloneCompileClick" />
                 <Separator />
                 <MenuItem Header="编译为易模块" Click="OnCompileModuleClick" />
             </MenuItem>

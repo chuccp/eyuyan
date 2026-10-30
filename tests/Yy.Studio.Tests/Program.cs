@@ -8,6 +8,7 @@ using Yy.Compiler.Forms;
 using Yy.Studio.Forms;
 using Yy.Language.Structured;
 using Yy.Studio.Structured;
+using Yy.Native;
 
 var failures = 0;
 
@@ -319,11 +320,39 @@ Run("项目清单读取", () =>
         "窗体图标没有写入资源标识。");
 });
 
-Run("IDE 与命令行编译器程序集分离", () =>
+Run("看图软件示例工程", () =>
+{
+    var directory = Path.Combine(Directory.GetCurrentDirectory(), "examples", "看图软件");
+    var project = YyProject.LoadForDirectory(directory);
+    True(project is not null, "应找到看图软件工程清单。");
+    Equal("看图软件", project!.Name);
+    Equal(3, project.ResourceTable.Count);
+    var code = File.ReadAllText(project.Forms[0].CodePath!);
+    True(code.Contains("取控件(\"@id/_启动窗口/路径框\")", StringComparison.Ordinal),
+        "看图软件没有通过资源 ID 访问控件。");
+    True(!code.Contains("路径框.文本", StringComparison.Ordinal),
+        "看图软件仍残留直接控件名访问。");
+});
+
+Run("唯一原生应用编译器", () =>
 {
     Equal("Yy.Compiler", typeof(YyProject).Assembly.GetName().Name);
     Equal("Yy.Compiler", typeof(ProjectCompiler).Assembly.GetName().Name);
+    Equal("Yy.Native", typeof(NativeCompiler).Assembly.GetName().Name);
     Equal("YyStudio", typeof(YyFormPreviewWindow).Assembly.GetName().Name);
+    True(
+        typeof(ProjectCompiler).GetMethod("CompileAsync") is null,
+        "ProjectCompiler 仍暴露旧的托管应用编译入口。");
+    True(
+        typeof(ProjectCompiler).Assembly.GetType("Yy.Compiler.GeneratedCodeEmitter") is null,
+        "编译器仍包含 C# 应用代码生成器。");
+    True(
+        AppDomain.CurrentDomain.GetAssemblies().All(assembly =>
+            !string.Equals(
+                assembly.GetName().Name,
+                "Yy.CompilerRuntime",
+                StringComparison.Ordinal)),
+        "仍加载了旧的 C# 编译运行时。");
 });
 
 Run("完整项目骨架", () =>
@@ -787,7 +816,7 @@ static void True(bool condition, string message)
 
 static void TestCompiledExe()
 {
-    var projectDirectory = Path.Combine(Directory.GetCurrentDirectory(), "examples");
+    var projectDirectory = Path.Combine(Directory.GetCurrentDirectory(), "examples", "原生窗体");
     var project = YyProject.LoadForDirectory(projectDirectory)
         ?? throw new Exception("找不到示例项目。");
     var outputPath = Path.Combine(
@@ -795,10 +824,9 @@ static void TestCompiledExe()
         "yy-compiled-" + Guid.NewGuid().ToString("N") + ".exe");
     try
     {
-        var compiler = new ProjectCompiler();
-        compiler.CompileAsync(project, outputPath).GetAwaiter().GetResult();
+        NativeCompiler.CompileProject(project, outputPath);
         True(File.Exists(outputPath), "编译后没有生成 EXE。");
-        True(new FileInfo(outputPath).Length > 10_000_000, "编译后的 EXE 大小异常。");
+        True(new FileInfo(outputPath).Length < 100_000, "原生 EXE 体积异常。");
 
         using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
         {
@@ -817,36 +845,17 @@ static void TestCompiledExe()
                 }
             }
 
-            True(process.MainWindowTitle == "客户登记", $"编译程序窗口标题异常：{process.MainWindowTitle}");
+            True(process.MainWindowTitle == "原生 Win32 窗口", $"原生程序窗口标题异常：{process.MainWindowTitle}");
             True(process.Responding, "编译程序没有响应。");
             var window = AutomationElement.FromHandle(process.MainWindowHandle);
-            var input = window.FindFirst(
+            var button = window.FindFirst(
                 TreeScope.Descendants,
-                new PropertyCondition(
-                    AutomationElement.ControlTypeProperty,
-                    ControlType.Edit));
-            True(input is not null, "编译程序中没有找到输入框。");
-            ((ValuePattern)input!.GetCurrentPattern(ValuePattern.Pattern))
-                .SetValue("编译客户");
+                new PropertyCondition(AutomationElement.NameProperty, "点击我"));
+            True(button is not null, "原生程序中没有找到按钮。");
+            ((InvokePattern)button!.GetCurrentPattern(InvokePattern.Pattern)).Invoke();
             Thread.Sleep(500);
-            var texts = window.FindAll(
-                TreeScope.Descendants,
-                new PropertyCondition(
-                    AutomationElement.ControlTypeProperty,
-                    ControlType.Text));
-            True(
-                texts.Cast<AutomationElement>().Any(element =>
-                    element.Current.Name.Contains("你好，编译客户", StringComparison.Ordinal)),
-                "编译后的文本改变事件没有更新标题控件。");
-            var saveButton = window.FindFirst(
-                TreeScope.Descendants,
-                new PropertyCondition(AutomationElement.NameProperty, "保存客户"));
-            True(saveButton is not null, "编译程序中没有找到保存按钮。");
-            ((InvokePattern)saveButton!.GetCurrentPattern(InvokePattern.Pattern)).Invoke();
-            Thread.Sleep(1000);
-            var value = ((ValuePattern)input.GetCurrentPattern(ValuePattern.Pattern))
-                .Current.Value;
-            Equal("已保存：编译客户", value);
+            process.Refresh();
+            Equal("Win32 事件已执行", process.MainWindowTitle);
         }
         finally
         {

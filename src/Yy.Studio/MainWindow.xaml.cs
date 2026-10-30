@@ -171,7 +171,6 @@ public partial class MainWindow : Window
         ConfigureEditor();
         ApplyConfiguredShortcuts();
         ApplySettings();
-        UpdateCompileTargetChecks();
         StudioTrace.Write("ConfigureEditor complete");
         WindowMenu.SubmenuOpened += (_, _) => BuildWindowMenu();
         var clipTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(700) };

@@ -9,5 +9,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Yy.Compiler\Yy.Compiler.csproj" />
+    <ProjectReference Include="..\..\src\Yy.Native\Yy.Native.csproj" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,48 @@
+{
+  "格式版本": 1,
+  "名称": "看图软件",
+  "包名": "demo.看图软件",
+  "源码目录": "Sources",
+  "资源目录": "Resources",
+  "入口": "Sources/Program.yyc",
+  "输出": "看图软件.exe",
+  "启动窗体": "_启动窗口",
+  "源码": [
+    "Sources/Program.yyc",
+    "Sources/Forms/看图软件.yyc"
+  ],
+  "窗体": [
+    "Sources/Forms/看图软件.yyx"
+  ],
+  "资源": [
+    "Resources/images/1.png",
+    "Resources/images/2.png",
+    "Resources/images/3.png"
+  ],
+  "资源标识": "Resources/ids.xml",
+  "引用": [],
+  "全局变量": null,
+  "常量表": null,
+  "资源表": [
+    {
+      "名称": "图片1",
+      "类型": "图片",
+      "文件": "Resources/images/1.png",
+      "备注": ""
+    },
+    {
+      "名称": "图片2",
+      "类型": "图片",
+      "文件": "Resources/images/2.png",
+      "备注": ""
+    },
+    {
+      "名称": "图片3",
+      "类型": "图片",
+      "文件": "Resources/images/3.png",
+      "备注": ""
+    }
+  ],
+  "Dll命令": null,
+  "数据库": null
+}

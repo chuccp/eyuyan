@@ -11,6 +11,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Yy.Language\Yy.Language.csproj" />
     <ProjectReference Include="..\Yy.Compiler\Yy.Compiler.csproj" />
+    <ProjectReference Include="..\Yy.Native\Yy.Native.csproj" />
     <PackageReference Include="AvalonEdit" Version="6.3.1.120" />
   </ItemGroup>
   <ItemGroup>

@@ -76,18 +76,28 @@ Resources/
 ## IDE 与命令行工具分离
 
 - `src/Yy.Studio` 只负责 WPF IDE 和用户交互，输出 `YyStudio.exe`。
-- `src/Yy.Compiler` 负责工程模型、窗体协议、资源索引、代码生成和构建流程，不得引用 WPF 或 Studio。
+- `src/Yy.Compiler` 负责工程模型、窗体协议、资源索引和源码汇总，不得引用 WPF 或 Studio。
 - `tools/Yy.Cli` 只引用 `Yy.Compiler`，输出 `yy.exe`，提供 `build`、`check`、`run` 和 `version` 子命令。
 - IDE 的编译按钮与 `yy.exe` 必须调用同一个 `ProjectCompiler`，不得维护两套编译逻辑。
 - 命令行编译必须能独立于 Studio 界面运行，适合脚本、CI 和批处理。
 - 发布产物至少包含 `YyStudio.exe`、`yy.exe` 和示例目标程序，文档必须明确各自职责。
+
+## 自研原生后端
+
+- `src/Yy.Native` 必须直接生成 Win64 机器码和 PE32+，不得通过 LLVM、C++、Rust 或 C# 作为应用代码的中间语言。
+- 编译产品不得链接 C Runtime、CLR 或 WPF；系统调用通过 PE 导入表直接连接 Windows DLL。
+- 不得恢复 C# 窗体宿主、CLR 启动器或“原生不支持时回退托管后端”的兼容分支。
+- 顶层语句构成隐式主程序，不要求用户声明 `main`。
+- 原生后端扩展顺序为控制台语言核心、原生值运行时、数组/对象、资源、Win32 窗口与控件。
+- 原生能力必须由真实 EXE 回归测试验证，包括 PE 结构、导入表、输出、控制流、子程序、体积和退出码。
+- 引导编译器可以暂时由 C# 实现；后端、ABI 和输出格式必须保持独立，以支持后续易语自举。
 
 ## Studio 配置
 
 - 可编辑配置统一保存为 `YyStudio.json`，不得继续向 `settings.json` 添加用户配置项。
 - 配置查找顺序为 `--config`、用户配置目录、可执行文件旁便携配置、默认值。
 - 配置必须包含当前 `格式版本: 1`，未知结构和非法取值范围应给出明确诊断。
-- MCP、编辑器、窗体设计、编译目标、支持库和快捷键都必须从同一配置模型读取。
+- MCP、编辑器、窗体设计、支持库和快捷键都必须从同一配置模型读取。
 - 快捷键必须验证动作名称、按键格式和冲突；空数组表示显式停用。
 - IDE 内设置窗口采用 JetBrains 风格双栏导航，提供“应用”“取消”“确定”。
 - 修改 MCP 监听参数后要求重启 Studio；快捷键和编辑器外观应即时刷新。
@@ -136,7 +146,7 @@ Resources/
 - 系统包通过顶层 `导入包 "包名"` 声明；根源码与被引入模块的依赖合并后使用。
 - 项目源码目录包通过顶层 `引入 "项目包名.子目录"` 导入，编辑器在引号内提供目录候选。
 - 包名必须经过 SDK 目录校验，编辑器在 `导入包 "` 上下文提供包候选。
-- 界面 SDK 采用类似 Swing 的分层契约，但公开层不得引用 WPF；具体窗口由 Studio 和编译运行时适配。
+- 界面 SDK 采用类似 Swing 的分层契约，但公开层不得引用 WPF；Studio 只负责设计预览，编译产物只通过 Win32 原生后端适配。
 - 用户界面访问以 `取控件("@id/...")` 和稳定资源 ID 为准，控件名称只作为显示标签。
 - 当前已按导入包控制内置函数可见性；外部包、语义版本、类型/成员级隔离仍需后续实现，新增能力时必须同步格式、补全、诊断、文档和测试。
 
@@ -163,6 +173,7 @@ Resources/
 ```powershell
 dotnet build .\Eyuyan.slnx
 dotnet run --project .\tests\Yy.Language.Tests\Yy.Language.Tests.csproj
+dotnet run --project .\tests\Yy.Native.Tests\Yy.Native.Tests.csproj
 dotnet run --project .\tests\Yy.Studio.Tests\Yy.Studio.Tests.csproj
 ```
 

@@ -19,6 +19,21 @@ public static class YyRunner
     public static YyProgram CompileSource(string source, string? sourcePath) =>
         ModuleLoader.CompileSource(source, sourcePath);
 
+    public static YyProgram ValidateFile(string path)
+    {
+        var fullPath = Path.GetFullPath(path);
+        var program = CompileFile(fullPath);
+        ThrowFirstDiagnostic(program, fullPath);
+        return program;
+    }
+
+    public static YyProgram ValidateSource(string source, string? sourcePath)
+    {
+        var program = CompileSource(source, sourcePath);
+        ThrowFirstDiagnostic(program, sourcePath);
+        return program;
+    }
+
     public static YyRunResult Run(
         string source,
         Action<string>? output = null,
@@ -84,11 +99,7 @@ public static class YyRunner
         IReadOnlyDictionary<string, object?>? initialVariables = null)
     {
         var started = DateTime.UtcNow;
-        var diagnostics = YySemanticAnalyzer.Analyze(program, sourcePath);
-        if (diagnostics.Count > 0)
-        {
-            throw diagnostics[0];
-        }
+        ThrowFirstDiagnostic(program, sourcePath);
 
         var interpreter = new Interpreter(
             output,
@@ -102,6 +113,15 @@ public static class YyRunner
             new ReadOnlyDictionary<string, object?>(
                 new Dictionary<string, object?>(interpreter.Globals, StringComparer.Ordinal)),
             DateTime.UtcNow - started);
+    }
+
+    private static void ThrowFirstDiagnostic(YyProgram program, string? sourcePath)
+    {
+        var diagnostics = YySemanticAnalyzer.Analyze(program, sourcePath);
+        if (diagnostics.Count > 0)
+        {
+            throw diagnostics[0];
+        }
     }
 }
 

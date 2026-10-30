@@ -37,10 +37,10 @@
 
 ## 当前能力
 
-- C# / WPF 原生 Windows IDE，无 Electron、无 WebView。
+- WPF 原生 Windows IDE，无 Electron、无 WebView；编译产物使用自研 Win64/Win32 后端。
 - 编辑器与命令行编译器分离：`YyStudio.exe` 负责 IDE，`yy.exe` 负责构建、检查和运行。
 - 中文标识符、函数、递归、默认参数、类型标注、数组、对象和异常处理。
-- AST 解析器、解释执行器、C# 代码生成器和跨文件诊断。
+- AST 解析器、IDE 解释执行器、Win64 机器码生成器和跨文件诊断。
 - `.yyproj` 项目管理、模块引入、资源表、常量表和数据表。
 - 新建项目必须填写项目名和包名，源码固定在 `Sources/`，资源固定在 `Resources/`。
 - 源码子目录可按 `引入 "项目包名.子目录"` 作为目录包导入。
@@ -49,7 +49,8 @@
 - 自动关系文件使用可读的易语声明代码和 `@id/...` 标识，不使用 XML 保存事件。
 - JDK 式系统 SDK 包边界、`导入包` 上下文补全和 Swing 式跨 UI 技术契约。
 - 易语言式代码窗口和纯代码模式共用同一份用户代码。
-- 项目可编译为 Windows 单文件 EXE。
+- 项目可编译为不依赖 .NET、CLR、WPF 或 CRT 的 Win64 单文件 EXE。
+- `yy build` 和 `yy native` 使用同一个原生后端，顶层语句直接作为隐式主程序。
 - 条件、`当`循环、`计次循环`、`遍历`、`跳出`和`继续`。
 - JSON、文本、集合、文件、时间等内置命令。
 - UTF-8 文件、行列诊断、运行输出和可取消执行。
@@ -89,20 +90,25 @@ dotnet run --project .\src\Yy.Studio\Yy.Studio.csproj
 `yy` 是不加载 WPF 和 IDE 的命令行编译器。开发时可以直接运行：
 
 ```powershell
-dotnet run --project .\tools\Yy.Cli -- check .\examples\示例.yyproj
-dotnet run --project .\tools\Yy.Cli -- build .\examples\示例.yyproj -o .\artifacts\示例.exe
+dotnet run --project .\tools\Yy.Cli -- check .\examples\原生窗体
+dotnet run --project .\tools\Yy.Cli -- build .\examples\原生窗体 -o .\artifacts\原生窗体.exe
+dotnet run --project .\tools\Yy.Cli -- native .\examples\Sources\原生入门.yyc -o .\artifacts\原生入门.exe
+dotnet run --project .\tools\Yy.Cli -- native .\examples\原生窗体 -o .\artifacts\原生窗体.exe
 dotnet run --project .\tools\Yy.Cli -- run .\examples\MCP资源演示
 ```
 
 发布后使用 `yy.exe`：
 
 ```powershell
-yy build <工程.yyproj|目录> [-o 输出.exe] [--framework-dependent] [--rid RID]
+yy build <工程.yyproj|目录> [-o 输出.exe]
+yy native <源码.yyc|工程.yyproj|目录> [-o 输出.exe]
 yy check <工程.yyproj|目录>
 yy run <工程.yyproj|目录>
 ```
 
 `YyStudio.exe` 仅负责可视化编辑和 IDE 内操作；脚本、CI 和批处理可直接调用 `yy.exe`。命令行编译目前需要开发机安装 .NET 10 SDK。
+
+`yy build` 与 `yy native` 使用自研 Win64 指令生成器和 PE32+ 写出器，不经过 C#、C++、Rust 或 LLVM。顶层语句就是隐式主程序，不需要声明 `main`。当前原生后端覆盖文本/整数输出、变量、算术、控制流、基础子程序，以及 Win32 原生窗口、按钮、输入框、静态文本和按钮事件。数组、对象、JSON、异常和资源嵌入仍在补齐；未实现能力会直接给出编译诊断，不会回退到 C#/WPF。详见 [原生后端](docs/native-backend.md)。
 
 ## 系统 SDK 与包导入
 
@@ -133,7 +139,7 @@ Studio 的可编辑配置保存在 `%APPDATA%\YyStudio\YyStudio.json`。首次�
 
 - MCP 启用状态、端口、自动寻找端口和尝试次数。
 - 编辑器字号、制表宽度和窗体吸附网格。
-- 默认编译目标平台与停用支持库。
+- 停用支持库。
 - 新建、打开、保存、编译、运行、调试、补全、帮助、注释和行编辑快捷键。
 
 设置窗口采用 JetBrains 风格双栏布局。也可以在启动时指定配置：
@@ -182,7 +188,8 @@ YyStudio.exe --mcp-stdio
 ```text
 artifacts\publish\YyStudio\YyStudio.exe
 artifacts\publish\yy\yy.exe
-artifacts\samples\易语示例.exe
+artifacts\samples\原生入门.exe
+artifacts\samples\原生窗体.exe
 ```
 
 构建脚本会运行语言测试和编译链烟雾测试，然后生成 Windows x64 自包含版本。
@@ -193,8 +200,8 @@ artifacts\samples\易语示例.exe
 .\build-lite.ps1
 ```
 
-输出包含 `artifacts\publish\win-x64-framework-dependent\YyStudio.exe` 和
-`artifacts\publish\yy-framework-dependent\yy.exe`。
+输出包含 `artifacts\publish\YyStudio-lite\YyStudio.exe` 和
+`artifacts\publish\yy-lite\yy.exe`。框架依赖仅指 IDE 和命令行工具自身；它们生成的用户程序仍然是独立的原生 EXE。
 
 ## 工程结构
 
@@ -228,8 +235,8 @@ Resources/
 
 ```text
 src/Yy.Language/          词法、语法树、解析器、解释器和中文标准库
-src/Yy.Compiler/          项目模型、窗体协议、资源索引、代码生成和编译器
-src/Yy.CompilerRuntime/   编译应用使用的值、控件与标准库运行时
+src/Yy.Compiler/          项目模型、窗体协议、资源索引和源码汇总
+src/Yy.Native/            自研 Win64 指令生成与 PE32+ 写出器
 src/Yy.Sdk/               系统包、UI 契约和 SDK 版本
 src/Yy.Studio/            WPF 原生 IDE
 tools/Yy.Cli/             yy.exe 命令行入口
@@ -257,7 +264,7 @@ docs/                     格式、架构、编辑器和路线图文档
 
 ## 设计原则
 
-1. **Windows 原生优先**：桌面端使用 WPF，保持原生窗口、输入和文件系统体验。
+1. **Windows 原生优先**：IDE 使用 WPF；用户程序只生成链接系统 DLL 的 Win64/Win32 可执行文件。
 2. **中文优先**：标识符、关键字、诊断和工程文件都适合中文开发。
 3. **界面与逻辑分离**：XML、自动关系代码和用户代码各自承担单一职责。
 4. **可视化与纯代码并存**：同一工程可以使用窗体设计器，也可以直接编辑完整源码。

@@ -23,6 +23,7 @@ using Yy.Language;
 using Yy.Language.Syntax;
 using Yy.Studio.Forms;
 using Yy.Language.Structured;
+using Yy.Native;
 using Yy.Studio.Structured;
 
 
@@ -358,68 +359,55 @@ public partial class MainWindow : Window
             return;
         }
 
-        OpenDocument(_project.EntryPath);
-        var succeeded = await RunDocumentAsync();
-        if (!succeeded || string.IsNullOrWhiteSpace(_project.StartupForm))
+        if (!SaveDocumentsForBuild())
         {
             return;
         }
 
-        var startupForm = _project.Forms.FirstOrDefault(form =>
-            string.Equals(form.Model.Name, _project.StartupForm, StringComparison.Ordinal));
-        if (startupForm is null)
+        var output = Path.Combine(
+            Path.GetTempPath(),
+            "yy-native-run-" + Guid.NewGuid().ToString("N") + ".exe");
+        try
         {
-            return;
+            _project = YyProject.LoadForDirectory(_project.DirectoryPath)
+                ?? throw new InvalidDataException("项目清单已经不存在。");
+            SetStatus("正在编译原生项目…", WarningBrush);
+            await Task.Run(() => NativeCompiler.CompileProject(_project, output));
+            SetStatus("正在运行原生项目", ReadyBrush);
+            using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = output,
+                WorkingDirectory = _project.DirectoryPath,
+                UseShellExecute = false
+            }) ?? throw new InvalidOperationException("无法启动原生项目。");
+            await process.WaitForExitAsync();
+            SetStatus("原生项目已退出", ReadyBrush);
         }
-
-        var preview = new YyFormPreviewWindow(startupForm.Model, startupForm.FormPath)
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or
+                InvalidDataException or NativeCompileException or InvalidOperationException)
         {
-            Owner = this
-        };
-        preview.Show();
+            SetStatus("原生项目运行失败", ErrorBrush);
+            MessageBox.Show(exception.Message, "运行项目", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(output);
+            }
+            catch (IOException)
+            {
+            }
+        }
     }
 
     private async void OnCompileProject(object sender, ExecutedRoutedEventArgs e)
     {
-        await CompileProjectAsync(selfContained: false);
+        await CompileProjectAsync();
     }
 
-    private async void OnStandaloneCompileClick(object sender, RoutedEventArgs e)
-    {
-        await CompileProjectAsync(selfContained: true);
-    }
-
-    private void OnCompileTargetOsClick(object sender, RoutedEventArgs e)
-    {
-        if (sender is not MenuItem { Tag: string rid })
-        {
-            return;
-        }
-
-        if (!rid.StartsWith("win-", StringComparison.Ordinal))
-        {
-            MessageBox.Show(
-                this,
-                "生成的应用基于 WPF 界面,目的操作系统目前仅支持 Windows。\nLinux/macOS 目标将在后续版本提供。",
-                "编译到目的操作系统",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-            return;
-        }
-
-        Configuration.Build.TargetRid = rid;
-        Configuration.Save();
-        UpdateCompileTargetChecks();
-        SetStatus($"目的操作系统:{(rid == "win-arm64" ? "Windows ARM64" : "Windows x64")}", ReadyBrush);
-    }
-
-    private void UpdateCompileTargetChecks()
-    {
-        TargetOsWinX64MenuItem.IsChecked = Configuration.Build.TargetRid == "win-x64";
-        TargetOsWinArm64MenuItem.IsChecked = Configuration.Build.TargetRid == "win-arm64";
-    }
-
-    private async Task CompileProjectAsync(bool selfContained)
+    private async Task CompileProjectAsync()
     {
         if (_project is null)
         {
@@ -449,7 +437,7 @@ public partial class MainWindow : Window
 
         var dialog = new SaveFileDialog
         {
-            Title = selfContained ? "独立编译为 Windows 可执行文件" : "编译为 Windows 可执行文件",
+            Title = "编译原生 Win32 可执行文件",
             Filter = "Windows 应用 (*.exe)|*.exe",
             DefaultExt = ".exe",
             AddExtension = true,
@@ -462,27 +450,22 @@ public partial class MainWindow : Window
         }
 
         SetStatus("正在编译项目…", WarningBrush);
-        var progress = new Progress<string>(message => SetStatus(message, WarningBrush));
         try
         {
-            var compiler = new ProjectCompiler();
-            var output = await compiler.CompileAsync(
-                _project,
-                dialog.FileName,
-                selfContained,
-                Configuration.Build.TargetRid,
-                progress);
-            SetStatus("EXE 编译完成", ReadyBrush);
+            var output = await Task.Run(() =>
+                NativeCompiler.CompileProject(_project, dialog.FileName));
+            SetStatus("原生 EXE 编译完成", ReadyBrush);
             MessageBox.Show(
-                selfContained
-                    ? $"独立编译完成：\n{output}\n\n可以直接双击运行，不需要源码目录或 .NET 运行时。"
-                    : $"编译完成：\n{output}\n\n目标机器需要安装 .NET 桌面运行时才能运行。",
+                $"原生编译完成：\n{output.OutputPath}\n\n" +
+                $"PE 大小：{output.ImageSize} 字节\n" +
+                "直接调用 kernel32/user32，不使用 .NET、WPF 或 C Runtime。",
                 "编译完成",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
         catch (Exception exception) when (
-            exception is InvalidOperationException or IOException or UnauthorizedAccessException)
+            exception is InvalidOperationException or IOException or
+                UnauthorizedAccessException or NativeCompileException)
         {
             SetStatus("EXE 编译失败", ErrorBrush);
             MessageBox.Show(

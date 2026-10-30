@@ -1,184 +1,53 @@
-using System.Diagnostics;
 using System.IO;
 using System.Text;
 using Yy.Language;
 using Yy.Language.Syntax;
-using Yy.Language.Structured;
 
 namespace Yy.Compiler;
 
+/// <summary>项目源码、窗体和事件的语义汇总。实际 EXE 由 Yy.Native 生成。</summary>
 public sealed class ProjectCompiler
 {
-    /// <summary>加载并校验项目源码、窗体和事件关系，不执行二进制发布。</summary>
-    public void Validate(YyProject project) => _ = BuildProgram(project);
+    public void Validate(YyProject project) => _ = LoadProgram(project);
 
-    public async Task<string> CompileAsync(
-        YyProject project,
-        string outputPath,
-        bool selfContained = true,
-        string rid = "win-x64",
-        IProgress<string>? progress = null,
-        CancellationToken cancellationToken = default)
-    {
-        var repositoryRoot = FindRepositoryRoot()
-            ?? throw new InvalidOperationException(
-                "找不到易语源码仓库。编译需要项目编译器源码，请从仓库运行 IDE。");
-        var runtimeProject = Path.Combine(
-            repositoryRoot,
-            "src",
-            "Yy.CompilerRuntime",
-            "Yy.CompilerRuntime.csproj");
-        if (!File.Exists(runtimeProject))
-        {
-            throw new InvalidOperationException($"找不到编译运行时项目：{runtimeProject}");
-        }
-
-        progress?.Report("编译项目代码与窗体…");
-        var program = BuildProgram(project);
-        var generatedSource = GeneratedCodeEmitter.Generate(project, program);
-        var temporaryRoot = Path.Combine(
-            Path.GetTempPath(),
-            "yy-compile-" + Guid.NewGuid().ToString("N"));
-        var generatedDirectory = Path.Combine(temporaryRoot, "GeneratedApp");
-        var publishDirectory = Path.Combine(temporaryRoot, "publish");
-        Directory.CreateDirectory(generatedDirectory);
-
-        try
-        {
-            File.WriteAllText(
-                Path.Combine(generatedDirectory, "GeneratedApp.cs"),
-                generatedSource,
-                new UTF8Encoding(false));
-            var generatedProject = Path.Combine(generatedDirectory, "GeneratedApp.csproj");
-            File.WriteAllText(generatedProject, CreateGeneratedProject(runtimeProject), new UTF8Encoding(false));
-            Directory.CreateDirectory(publishDirectory);
-
-            progress?.Report(selfContained
-                ? $"正在把生成代码编译为独立 Windows 二进制（{rid}）…"
-                : $"正在把生成代码编译为 Windows 二进制（{rid}）…");
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = "dotnet",
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            };
-            startInfo.ArgumentList.Add("publish");
-            startInfo.ArgumentList.Add(generatedProject);
-            startInfo.ArgumentList.Add("-c");
-            startInfo.ArgumentList.Add("Release");
-            startInfo.ArgumentList.Add("-r");
-            startInfo.ArgumentList.Add(rid);
-            startInfo.ArgumentList.Add("--self-contained");
-            startInfo.ArgumentList.Add(selfContained ? "true" : "false");
-            startInfo.ArgumentList.Add("-p:PublishSingleFile=true");
-            startInfo.ArgumentList.Add("-p:IncludeNativeLibrariesForSelfExtract=true");
-            if (selfContained)
-            {
-                startInfo.ArgumentList.Add("-p:EnableCompressionInSingleFile=true");
-            }
-
-            startInfo.ArgumentList.Add("-p:DebugType=None");
-            startInfo.ArgumentList.Add("-p:DebugSymbols=false");
-            startInfo.ArgumentList.Add("-o");
-            startInfo.ArgumentList.Add(publishDirectory);
-
-            using var process = Process.Start(startInfo)
-                ?? throw new InvalidOperationException("无法启动 dotnet 编译器。");
-            var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-            var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
-            try
-            {
-                await process.WaitForExitAsync(cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                if (!process.HasExited)
-                {
-                    process.Kill(entireProcessTree: true);
-                }
-
-                throw;
-            }
-
-            var stdout = await stdoutTask;
-            var stderr = await stderrTask;
-            if (process.ExitCode != 0)
-            {
-                var details = string.Join(
-                    Environment.NewLine,
-                    new[] { stdout, stderr }.Where(value => !string.IsNullOrWhiteSpace(value)));
-                throw new InvalidOperationException(
-                    $"二进制编译失败（退出码 {process.ExitCode}）：\n{details}");
-            }
-
-            var compiledExe = Path.Combine(publishDirectory, "YyCompiledApplication.exe");
-            if (!File.Exists(compiledExe))
-            {
-                throw new InvalidOperationException("编译命令完成，但没有找到输出 EXE。");
-            }
-
-            var outputDirectory = Path.GetDirectoryName(Path.GetFullPath(outputPath))
-                ?? throw new IOException("无法确定 EXE 输出目录。");
-            Directory.CreateDirectory(outputDirectory);
-            File.Copy(compiledExe, outputPath, overwrite: true);
-            progress?.Report($"编译完成：{outputPath}");
-            return Path.GetFullPath(outputPath);
-        }
-        finally
-        {
-            try
-            {
-                if (Directory.Exists(temporaryRoot))
-                {
-                    Directory.Delete(temporaryRoot, recursive: true);
-                }
-            }
-            catch (IOException)
-            {
-                // Output has already been copied; cleanup is best effort.
-            }
-        }
-    }
-
-    private static YyProgram BuildProgram(YyProject project)
+    public static YyProgram LoadProgram(YyProject project)
     {
         var entryProgram = ReadProgram(project.EntryPath);
         var functions = entryProgram.Functions.ToList();
         var names = functions
             .Select(function => function.Name)
             .ToHashSet(StringComparer.Ordinal);
-        var packageImports = entryProgram.PackageImports
+        var packageNames = entryProgram.PackageImports
             .Select(package => package.Name)
             .ToHashSet(StringComparer.Ordinal);
-        var mergedPackageImports = entryProgram.PackageImports.ToList();
+        var packageImports = entryProgram.PackageImports.ToList();
 
         foreach (var form in project.Forms)
         {
-            if (form.CodePath is not null)
+            if (form.CodePath is null)
             {
-                var codeProgram = ReadProgram(form.CodePath);
-                foreach (var package in codeProgram.PackageImports)
-                {
-                    if (packageImports.Add(package.Name))
-                    {
-                        mergedPackageImports.Add(package);
-                    }
-                }
+                continue;
+            }
 
-                foreach (var function in codeProgram.Functions)
+            var codeProgram = ReadProgram(form.CodePath);
+            foreach (var package in codeProgram.PackageImports)
+            {
+                if (packageNames.Add(package.Name))
                 {
-                    if (!names.Add(function.Name))
-                    {
-                        throw new InvalidDataException(
-                            $"子程序“{function.Name}”在项目源码与窗体用户代码中重复定义。");
-                    }
-
-                    functions.Add(function);
+                    packageImports.Add(package);
                 }
             }
 
+            foreach (var function in codeProgram.Functions)
+            {
+                if (!names.Add(function.Name))
+                {
+                    throw new InvalidDataException(
+                        $"子程序“{function.Name}”在项目源码与窗体用户代码中重复定义。");
+                }
+
+                functions.Add(function);
+            }
         }
 
         foreach (var form in project.Forms)
@@ -223,7 +92,7 @@ public sealed class ProjectCompiler
             [],
             entryProgram.Main)
         {
-            PackageImports = mergedPackageImports
+            PackageImports = packageImports
         };
     }
 
@@ -236,54 +105,5 @@ public sealed class ProjectCompiler
 
         var content = File.ReadAllText(path, new UTF8Encoding(false, true));
         return YyRunner.CompileSource(content, path);
-    }
-
-    private static string CreateGeneratedProject(string runtimeProject)
-    {
-        var escapedRuntimeProject = System.Security.SecurityElement.Escape(runtimeProject)
-            ?? runtimeProject;
-        return $"""
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <OutputType>WinExe</OutputType>
-                <TargetFramework>net10.0-windows</TargetFramework>
-                <UseWPF>true</UseWPF>
-                <Nullable>enable</Nullable>
-                <ImplicitUsings>enable</ImplicitUsings>
-                <AssemblyName>YyCompiledApplication</AssemblyName>
-                <RootNamespace>YyCompiledApplication</RootNamespace>
-                <ApplicationIcon>{System.Security.SecurityElement.Escape(
-                    Path.Combine(FindRepositoryRoot()!, "assets", "YyStudio.ico"))}</ApplicationIcon>
-              </PropertyGroup>
-              <ItemGroup>
-                <ProjectReference Include="{escapedRuntimeProject}" />
-              </ItemGroup>
-            </Project>
-            """;
-    }
-
-    private static string? FindRepositoryRoot()
-    {
-        var candidates = new[]
-        {
-            AppContext.BaseDirectory,
-            Directory.GetCurrentDirectory()
-        };
-
-        foreach (var candidate in candidates)
-        {
-            var directory = new DirectoryInfo(candidate);
-            for (var depth = 0; directory is not null && depth < 10; depth++)
-            {
-                if (File.Exists(Path.Combine(directory.FullName, "Eyuyan.slnx")))
-                {
-                    return directory.FullName;
-                }
-
-                directory = directory.Parent;
-            }
-        }
-
-        return null;
     }
 }

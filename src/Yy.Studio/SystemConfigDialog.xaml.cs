@@ -36,11 +36,6 @@ public partial class SystemConfigDialog : Window
         FontSizeBox.Text = _configuration.Editor.FontSize.ToString("0.#");
         TabWidthBox.Text = _configuration.Editor.TabWidth.ToString();
         SnapGridCheck.IsChecked = _configuration.Designer.SnapGrid;
-        TargetRidCombo.SelectedIndex =
-            string.Equals(_configuration.Build.TargetRid, "win-arm64", StringComparison.Ordinal)
-                ? 1
-                : 0;
-
         McpEnabledCheck.IsChecked = _configuration.Mcp.Enabled;
         McpPortBox.Text = _configuration.Mcp.Port.ToString();
         McpAutoPortCheck.IsChecked = _configuration.Mcp.AutoFindAvailablePort;
@@ -58,7 +53,6 @@ public partial class SystemConfigDialog : Window
 
         EditorPanel.Visibility = category == "Editor" ? Visibility.Visible : Visibility.Collapsed;
         DesignerPanel.Visibility = category == "Designer" ? Visibility.Visible : Visibility.Collapsed;
-        BuildPanel.Visibility = category == "Build" ? Visibility.Visible : Visibility.Collapsed;
         McpPanel.Visibility = category == "Mcp" ? Visibility.Visible : Visibility.Collapsed;
         ShortcutsPanel.Visibility = category == "Shortcuts" ? Visibility.Visible : Visibility.Collapsed;
         FilesPanel.Visibility = category == "Files" ? Visibility.Visible : Visibility.Collapsed;
@@ -66,7 +60,6 @@ public partial class SystemConfigDialog : Window
         {
             "Editor" => "编辑器",
             "Designer" => "外观与窗体",
-            "Build" => "编译",
             "Mcp" => "MCP 服务",
             "Shortcuts" => "快捷键",
             _ => "配置文件"
@@ -91,8 +84,6 @@ public partial class SystemConfigDialog : Window
             _configuration.Editor.FontSize = fontSize;
             _configuration.Editor.TabWidth = tabWidth;
             _configuration.Designer.SnapGrid = SnapGridCheck.IsChecked == true;
-            _configuration.Build.TargetRid =
-                (TargetRidCombo.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "win-x64";
             _configuration.Mcp.Enabled = McpEnabledCheck.IsChecked == true;
             _configuration.Mcp.Port = mcpPort;
             _configuration.Mcp.AutoFindAvailablePort = McpAutoPortCheck.IsChecked == true;

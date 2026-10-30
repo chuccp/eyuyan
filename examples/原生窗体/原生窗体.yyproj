@@ -1,0 +1,20 @@
+{
+  "格式版本": 1,
+  "名称": "原生窗体",
+  "包名": "demo.nativeui",
+  "源码目录": "Sources",
+  "资源目录": "Resources",
+  "入口": "Sources/Program.yyc",
+  "输出": "原生窗体.exe",
+  "启动窗体": "_启动窗口",
+  "源码": [
+    "Sources/Program.yyc",
+    "Sources/Forms/MainForm.yyc"
+  ],
+  "窗体": [
+    "Sources/Forms/MainForm.yyx"
+  ],
+  "资源": [],
+  "资源标识": "Resources/ids.xml",
+  "引用": []
+}

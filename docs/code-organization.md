@@ -49,18 +49,20 @@
 | `src/Yy.Compiler/Resources/YyResourceIndex.cs` | `ids.xml` 生成、标识解析和资源路径定位 |
 | `src/Yy.Sdk/YySdk.cs` | SDK 版本、系统包目录、界面上下文和跨 UI 技术契约 |
 | `src/Yy.Language/ProjectPackageResolver.cs` | 把 `项目包名.目录` 解析为 `Sources/` 下的目录包 |
+| `src/Yy.Native/NativeEmitter.cs` | 易语 AST 到 Win64 指令的原生代码生成 |
+| `src/Yy.Native/NativeAssembly.cs` | 机器码、数据段和重定位缓冲 |
+| `src/Yy.Native/NativePeWriter.cs` | PE32+、节表、导入表和原生 EXE 写出 |
 
 ## 编译器与命令行
 
 | 项目或文件 | 职责 |
 |---|---|
-| `src/Yy.Compiler` | 无 WPF 依赖的工程协议、窗体模型、资源索引、AST 汇总和代码生成 |
-| `src/Yy.Compiler/ProjectCompiler.cs` | 校验项目、生成 C#、调用 .NET 发布链 |
-| `src/Yy.Compiler/GeneratedCodeEmitter.cs` | 将易语 AST 和窗体模型生成 C# |
+| `src/Yy.Compiler` | 无 WPF 依赖的工程协议、窗体模型、资源索引和 AST 汇总 |
+| `src/Yy.Compiler/ProjectCompiler.cs` | 校验项目并汇总入口、窗体和模块源码 |
 | `tools/Yy.Cli` | `yy.exe` 命令行入口 |
-| `tools/Yy.Cli/Program.cs` | `build`、`check`、`run`、`version` 子命令 |
+| `tools/Yy.Cli/Program.cs` | `build`、`native`、`check`、`run`、`version` 子命令 |
 
-`YyStudio` 引用 `Yy.Compiler` 提供 IDE 内编译；`Yy.Cli` 只引用 `Yy.Compiler`，不得引用 `Yy.Studio` 或 WPF。
+`YyStudio` 和 `Yy.Cli` 都通过 `Yy.Native` 编译应用；`Yy.Cli` 不得引用 `Yy.Studio` 或 WPF。Studio 的 WPF 代码只实现 IDE 与设计预览，不会进入编译产物。
 
 ## 体积门槛
 
