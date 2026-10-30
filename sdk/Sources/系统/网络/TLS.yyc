@@ -1,0 +1,15 @@
+.程序集 系统_网络_TLS
+' 系统包：系统.网络.TLS
+' 规划包。TLS、证书、SNI 和 ALPN 接口正在实现。
+
+结构体 TLS选项
+    服务器名称: 文本
+    验证证书: 逻辑
+    允许协议: 数组
+结束结构体
+
+接口 TLS客户端
+    子程序 连接(地址: 文本, 选项: TLS选项): 任意
+结束接口
+
+' Win32 实现：Schannel、CertVerifyCertificateChainPolicy。

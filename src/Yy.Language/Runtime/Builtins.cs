@@ -16,7 +16,8 @@ internal static class Builtins
         "倒序", "键集", "值集", "当前时间", "格式化时间", "JSON解析", "JSON生成",
         "UTF8编码", "UTF8解码", "取文本左边", "取文本右边", "取文本中间",
         "取环境变量", "取运行目录", "取启动时间", "延时",
-        "文件存在", "取目录文件", "删除文件", "读文件", "写文件", "断点", "取控件"
+        "文件存在", "取目录文件", "删除文件", "读文件", "写文件", "断点", "取控件",
+        "运行程序"
     ];
 
     public static void Install(
@@ -305,6 +306,19 @@ internal static class Builtins
         {
             File.WriteAllText(RequireString(args[0], "写文件"), Interpreter.Format(args[1]));
             return true;
+        });
+        Add("运行程序", 1, 2, args =>
+        {
+            var fileName = RequireString(args[0], "运行程序");
+            var arguments = args.Length > 1 ? Interpreter.Format(args[1]) : string.Empty;
+            using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = fileName,
+                Arguments = arguments,
+                UseShellExecute = false
+            }) ?? throw new YyRuntimeError($"无法启动程序“{fileName}”", 1, 1);
+            process.WaitForExit();
+            return (double)process.ExitCode;
         });
 
         // 程序调试:在调试器中执行到此处时于下一条语句暂停

@@ -92,7 +92,9 @@ public sealed class ProjectCompiler
             [],
             entryProgram.Main)
         {
-            PackageImports = packageImports
+            PackageImports = packageImports,
+            Structs = entryProgram.Structs,
+            Interfaces = entryProgram.Interfaces
         };
     }
 

@@ -39,6 +39,7 @@ internal sealed partial class NativeEmitter
         ]
     };
     private readonly Dictionary<string, FunctionDeclaration> _functions;
+    private readonly HashSet<string> _declaredObjectTypes;
     private readonly Dictionary<string, string> _functionLabels =
         new(StringComparer.Ordinal);
     private int _labelSequence;
@@ -57,6 +58,10 @@ internal sealed partial class NativeEmitter
         _functions = program.Functions.ToDictionary(
             function => function.Name,
             StringComparer.Ordinal);
+        _declaredObjectTypes = program.Structs
+            .Select(structure => structure.Name)
+            .Concat(program.Interfaces.Select(contract => contract.Name))
+            .ToHashSet(StringComparer.Ordinal);
         foreach (var function in program.Functions)
         {
             _functionLabels[function.Name] = "__fn_" + function.Name;
@@ -69,6 +74,7 @@ internal sealed partial class NativeEmitter
         _trueLabel = _data.AddUtf8String("真");
         _falseLabel = _data.AddUtf8String("假");
         PrepareFileRuntime();
+        PrepareProcessRuntime();
         if (_form is not null)
         {
             PrepareWin32Data();
@@ -91,6 +97,7 @@ internal sealed partial class NativeEmitter
         EmitArrayRuntime();
         EmitCloneString();
         EmitFileRuntime();
+        EmitProcessRuntime();
         EmitConversionRuntime();
         if (_form is not null)
         {
@@ -586,6 +593,12 @@ internal sealed partial class NativeEmitter
         {
             return;
         }
+
+        if (TryEmitProcessBuiltin(call, context))
+        {
+            return;
+        }
+
 
         if (identifier.Name == "数字" && call.Arguments.Count == 1)
         {

@@ -1,6 +1,5 @@
 using Yy.Language;
 using Yy.Language.Structured;
-
 var tests = new List<(string Name, Action Test)>
 {
     ("基础输出", TestOutput),
@@ -295,7 +294,7 @@ static void TestPackageImport()
 {
     Equal(1, Yy.Sdk.YySdk.Version);
     Equal(21, Yy.Sdk.YySdk.Packages.Count);
-    Equal(6, Yy.Sdk.YySdk.Packages.Count(package => package.IsImportable));
+    Equal(7, Yy.Sdk.YySdk.Packages.Count(package => package.IsImportable));
     True(Yy.Sdk.YySdk.IsPackageName("demo.app"), "点分隔包名应有效。");
     True(!Yy.Sdk.YySdk.IsPackageName("demo..app"), "空包路径段应被拒绝。");
     True(!Yy.Sdk.YySdk.IsPackageName("1demo"), "数字开头的包名应被拒绝。");
@@ -378,37 +377,46 @@ static void TestPackageImport()
         """);
     Equal(4, corePackages.PackageImports.Count);
 }
-
 static void TestPackageVisibility()
 {
+    var defaultOutput = new List<string>();
+    YyRunner.RunSource(
+        """
+        .程序集 默认引用
+        输出("核心包默认可见")
+        """,
+        null,
+        defaultOutput.Add);
+    Equal("核心包默认可见", string.Join("\n", defaultOutput));
+
     try
     {
         YyRunner.RunSource(
             """
-            .程序集 未导入
-            输出("不应该全局可见")
+            .程序集 平台包未导入
+            文件存在("notepad.exe")
             """,
             null);
-        throw new Exception("未导入的基础函数不应可用。");
+        throw new Exception("未导入的平台包函数不应可用。");
     }
     catch (YyDiagnostic diagnostic)
     {
         True(diagnostic.Message.Contains("没有导入", StringComparison.Ordinal), diagnostic.Message);
         True(
-            diagnostic.Hint?.Contains("系统.基础", StringComparison.Ordinal) == true,
+            diagnostic.Hint?.Contains("系统.文件", StringComparison.Ordinal) == true,
             diagnostic.Hint ?? "缺少包名提示。");
     }
 
     var output = new List<string>();
     YyRunner.RunSource(
         """
-        .程序集 已导入
-        导入包 "系统.基础"
-        输出("可见")
+        .程序集 平台包显式导入
+        导入包 "系统.文件"
+        输出("平台包可见")
         """,
         null,
         output.Add);
-    Equal("可见", string.Join("\n", output));
+    Equal("平台包可见", string.Join("\n", output));
 }
 
 static void TestTypedVariables()

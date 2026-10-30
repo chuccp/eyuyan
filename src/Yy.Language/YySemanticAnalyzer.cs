@@ -18,6 +18,9 @@ internal sealed class YySemanticAnalyzer
     private readonly List<YyDiagnostic> _diagnostics = [];
     private readonly Dictionary<string, FunctionDeclaration> _functions =
         new(StringComparer.Ordinal);
+    private readonly Dictionary<string, StructDeclaration> _structs =
+        new(StringComparer.Ordinal);
+    private readonly HashSet<string> _interfaces = new(StringComparer.Ordinal);
     private readonly HashSet<string> _predeclaredGlobals = new(StringComparer.Ordinal);
     private readonly HashSet<string> _importedPackages;
     private readonly HashSet<string> _visibleBuiltins;
@@ -29,15 +32,26 @@ internal sealed class YySemanticAnalyzer
     {
         _program = program;
         _rootSourceName = rootSourceName;
-        _importedPackages = program.PackageImports
-            .Select(package => package.Name)
-            .ToHashSet(StringComparer.Ordinal);
+        _importedPackages = new HashSet<string>(
+            Yy.Sdk.YySdk.ResolveEnabledPackages(
+                program.PackageImports.Select(package => package.Name)),
+            StringComparer.Ordinal);
         _visibleBuiltins = Builtins.FunctionNames
             .Where(name => Yy.Sdk.YySdk.IsBuiltinAvailable(name, _importedPackages))
             .ToHashSet(StringComparer.Ordinal);
         foreach (var function in program.Functions)
         {
             _functions[function.Name] = function;
+        }
+
+        foreach (var structure in program.Structs)
+        {
+            _structs[structure.Name] = structure;
+        }
+
+        foreach (var contract in program.Interfaces)
+        {
+            _interfaces.Add(contract.Name);
         }
     }
 
@@ -524,6 +538,58 @@ internal sealed class YySemanticAnalyzer
     {
         if (expected is null || expected == Any || actual == Any ||
             string.Equals(expected, actual, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (_structs.TryGetValue(expected, out var structure))
+        {
+            if (actual != Object && actual != Any)
+            {
+                Report(node, $"{target}需要结构体“{expected}”");
+                return;
+            }
+
+            if (node is ObjectExpression obj)
+            {
+                foreach (var field in structure.Fields)
+                {
+                    if (!obj.Properties.Any(property =>
+                            string.Equals(property.Key, field.Name, StringComparison.Ordinal)))
+                    {
+                        Report(node, $"{target}缺少结构体字段“{field.Name}”");
+                    }
+                }
+
+                foreach (var property in obj.Properties)
+                {
+                    var field = structure.Fields.FirstOrDefault(item =>
+                        string.Equals(item.Name, property.Key, StringComparison.Ordinal));
+                    if (field is null)
+                    {
+                        Report(property.Value, $"{target}不包含字段“{property.Key}”");
+                        continue;
+                    }
+
+                    CheckAssignable(field.TypeName, Infer(property.Value), property.Value,
+                        $"字段“{field.Name}”");
+                }
+            }
+
+            return;
+        }
+
+        if (_interfaces.Contains(expected))
+        {
+            if (actual != Object && actual != Any)
+            {
+                Report(node, $"{target}需要接口“{expected}”");
+            }
+
+            return;
+        }
+
+        if (expected is not null && !YyTypeSystem.IsKnown(expected))
         {
             return;
         }

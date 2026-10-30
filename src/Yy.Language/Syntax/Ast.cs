@@ -11,7 +11,29 @@ public sealed record YyProgram(
     BlockStatement Main) : YyNode(Line, Column)
 {
     public IReadOnlyList<PackageImportDeclaration> PackageImports { get; init; } = [];
+    public IReadOnlyList<StructDeclaration> Structs { get; init; } = [];
+    public IReadOnlyList<InterfaceDeclaration> Interfaces { get; init; } = [];
 }
+
+public sealed record StructFieldDeclaration(string Name, string TypeName);
+
+public sealed record StructDeclaration(
+    int Line,
+    int Column,
+    string Name,
+    IReadOnlyList<StructFieldDeclaration> Fields,
+    IReadOnlyList<string> Interfaces) : YyNode(Line, Column);
+
+public sealed record InterfaceMethodDeclaration(
+    string Name,
+    IReadOnlyList<ParameterDeclaration> Parameters,
+    string? ReturnType);
+
+public sealed record InterfaceDeclaration(
+    int Line,
+    int Column,
+    string Name,
+    IReadOnlyList<InterfaceMethodDeclaration> Methods) : YyNode(Line, Column);
 
 public sealed record ImportDeclaration(
     int Line,

@@ -35,7 +35,7 @@ public static class YyTypeSystem
             "对象" => value is IReadOnlyDictionary<string, object?>,
             "日期" => value is DateTime,
             "空" => value is null,
-            _ => false
+            _ => value is IReadOnlyDictionary<string, object?>
         };
     }
 

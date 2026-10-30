@@ -52,6 +52,7 @@
 | `src/Yy.Native/NativeEmitter.cs` | 易语 AST 到 Win64 指令的原生代码生成 |
 | `src/Yy.Native/NativeEmitter.Collections.cs` | 原生数组、索引、遍历和追加 |
 | `src/Yy.Native/NativeEmitter.FileRuntime.cs` | UTF-8/Win32 文件、目录和路径转换 |
+| `src/Yy.Native/NativeEmitter.ProcessRuntime.cs` | Win32 子进程、等待和退出码 |
 | `src/Yy.Native/NativeEmitter.ConversionRuntime.cs` | 整数与文本运行期转换 |
 | `src/Yy.Native/NativeEmitter.Loops.cs` | 原生当循环和计次循环 |
 | `src/Yy.Native/NativeEmitter.TextRuntime.cs` | 堆分配文本、拼接、复制和比较运行时 |

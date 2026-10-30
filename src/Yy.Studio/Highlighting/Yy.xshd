@@ -25,6 +25,13 @@
       <Word>函数</Word>
       <Word>引入</Word>
       <Word>导入包</Word>
+      <Word>结构体</Word>
+      <Word>记录</Word>
+      <Word>结束结构体</Word>
+      <Word>结束记录</Word>
+      <Word>接口</Word>
+      <Word>结束接口</Word>
+      <Word>实现</Word>
       <Word>结束子程序</Word>
       <Word>结束函数</Word>
       <Word>变量</Word>
@@ -86,7 +93,6 @@
       <Word>JSON解析</Word>
       <Word>JSON生成</Word>
       <Word>当前时间</Word>
-      <Word>记录</Word>
     </Keywords>
 
     <Rule color="Number">\b\d+(\.\d+)?\b</Rule>

@@ -139,10 +139,10 @@ public static class YySdk
         new(
             ProcessPackage,
             YyPackageKind.Platform,
-            YyPackageStatus.Planned,
+            YyPackageStatus.Preview,
             "命令行、环境、标准流、子进程和退出码。",
-            ["命令行参数", "启动进程", "等待进程", "标准输出", "标准错误", "退出码"],
-            [],
+            ["运行程序", "等待进程", "退出码"],
+            ["运行程序"],
             [CorePackage, FilePackage]),
         new(
             DiagnosticPackage,
@@ -242,12 +242,27 @@ public static class YySdk
             [BuildPackage, DiagnosticPackage, SerializationPackage])
     ];
 
+    /// <summary>语言核心包默认可见；平台包仍需显式导入。</summary>
+    public static IReadOnlyList<string> DefaultPackages { get; } =
+        Packages
+            .Where(package =>
+                package.Status == YyPackageStatus.Preview &&
+                package.Kind == YyPackageKind.LanguageCore)
+            .Select(package => package.Name)
+            .ToArray();
+
     public static YyPackageDefinition? FindPackage(string name) =>
         Packages.FirstOrDefault(package =>
             string.Equals(package.Name, name.Trim(), StringComparison.Ordinal));
 
     public static bool IsImportable(string name) =>
         FindPackage(name)?.IsImportable == true;
+
+    public static IReadOnlySet<string> ResolveEnabledPackages(
+        IEnumerable<string> imports) =>
+        DefaultPackages
+            .Concat(imports)
+            .ToHashSet(StringComparer.Ordinal);
 
     /// <summary>包名使用点分隔标识符，例如 app、demo.app、公司.产品.模块。</summary>
     public static bool IsPackageName(string value)

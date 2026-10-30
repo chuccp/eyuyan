@@ -156,6 +156,12 @@ internal sealed class NativeCodeBuffer
         EmitInt32(displacement);
     }
 
+    public void LeaRaxRbp(int displacement)
+    {
+        Emit(0x48, 0x8D, 0x85);
+        EmitInt32(displacement);
+    }
+
     public void LeaRcxRbp(int displacement)
     {
         Emit(0x48, 0x8D, 0x8D);
@@ -258,10 +264,13 @@ internal sealed class NativeCodeBuffer
 
     public void LoadRaxFromRcx() => Emit(0x48, 0x8B, 0x01);
     public void LoadEaxFromRcx() => Emit(0x8B, 0x01);
+    public void LoadR8FromRcx() => Emit(0x4C, 0x8B, 0x01);
     public void LoadRdxFromRcx() => Emit(0x48, 0x8B, 0x11);
     public void MovRcxRax() => Emit(0x48, 0x89, 0xC1);
     public void MovRdxRax() => Emit(0x48, 0x89, 0xC2);
+    public void MovRaxRdx() => Emit(0x48, 0x89, 0xD0);
     public void MovR8Rax() => Emit(0x49, 0x89, 0xC0);
+    public void MovR9Rax() => Emit(0x49, 0x89, 0xC1);
     public void AddRcxByte(byte value) => Emit(0x48, 0x83, 0xC1, value);
     public void AddRdxByte(byte value) => Emit(0x48, 0x83, 0xC2, value);
     public void AddRaxRcx() => Emit(0x48, 0x01, 0xC8);
@@ -335,6 +344,7 @@ internal sealed class NativeCodeBuffer
         Emit(0x48, 0x89, 0x91);
         EmitInt32(displacement);
     }
+
     public void MovRdxR11SubR10() => Emit(0x4C, 0x89, 0xDA, 0x4C, 0x29, 0xD2);
     public void MovR8R10() => Emit(0x4D, 0x89, 0xD0);
     public void IncRax() => Emit(0x48, 0xFF, 0xC0);

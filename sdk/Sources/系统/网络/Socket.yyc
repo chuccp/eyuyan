@@ -1,0 +1,16 @@
+.程序集 系统_网络_Socket
+' 系统包：系统.网络.Socket
+' 规划包。TCP、UDP 和 DNS 接口正在实现。
+
+结构体 Socket地址
+    主机: 文本
+    端口: 数字
+结束结构体
+
+接口 Socket客户端
+    子程序 连接(地址: Socket地址): 任意
+    子程序 发送(数据: 文本): 数字
+    子程序 接收(最大字节: 数字): 文本
+结束接口
+
+' Win32 实现：WSAStartup、getaddrinfo、socket、connect、send、recv。

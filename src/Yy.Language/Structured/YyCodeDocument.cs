@@ -10,8 +10,30 @@ public sealed class YyCodeDocument
     public string Remark { get; set; } = string.Empty;
     public List<string> Packages { get; } = [];
     public List<string> Imports { get; } = [];
+    public List<YyCodeStruct> Structs { get; } = [];
+    public List<YyCodeInterface> Interfaces { get; } = [];
     public List<YyCodeStatement> MainStatements { get; } = [];
     public List<YyCodeFunction> Functions { get; } = [];
+}
+
+public sealed class YyCodeStruct
+{
+    public string Name { get; set; } = "结构体";
+    public List<string> Interfaces { get; } = [];
+    public List<(string Name, string TypeName)> Fields { get; } = [];
+}
+
+public sealed class YyCodeInterface
+{
+    public string Name { get; set; } = "接口";
+    public List<YyCodeInterfaceMethod> Methods { get; } = [];
+}
+
+public sealed class YyCodeInterfaceMethod
+{
+    public string Name { get; set; } = "方法";
+    public string ReturnType { get; set; } = string.Empty;
+    public List<YyCodeParameter> Parameters { get; } = [];
 }
 
 public sealed class YyCodeFunction
@@ -103,6 +125,35 @@ public static class YyCodeDocumentConverter
         };
         document.Imports.AddRange(program.Imports.Select(import => import.Path));
         document.Packages.AddRange(program.PackageImports.Select(package => package.Name));
+        foreach (var structure in program.Structs)
+        {
+            var converted = new YyCodeStruct { Name = structure.Name };
+            converted.Interfaces.AddRange(structure.Interfaces);
+            converted.Fields.AddRange(structure.Fields.Select(field => (field.Name, field.TypeName)));
+            document.Structs.Add(converted);
+        }
+
+        foreach (var contract in program.Interfaces)
+        {
+            var converted = new YyCodeInterface { Name = contract.Name };
+            foreach (var method in contract.Methods)
+            {
+                var convertedMethod = new YyCodeInterfaceMethod
+                {
+                    Name = method.Name,
+                    ReturnType = method.ReturnType ?? string.Empty
+                };
+                convertedMethod.Parameters.AddRange(method.Parameters.Select(parameter =>
+                    new YyCodeParameter
+                    {
+                        Name = parameter.Name,
+                        TypeName = parameter.TypeName ?? string.Empty
+                    }));
+                converted.Methods.Add(convertedMethod);
+            }
+
+            document.Interfaces.Add(converted);
+        }
         document.MainStatements.AddRange(program.Main.Statements.Select(ConvertStatement));
         foreach (var function in program.Functions)
         {
@@ -141,6 +192,47 @@ public static class YyCodeDocumentConverter
         foreach (var import in document.Imports.Where(value => !string.IsNullOrWhiteSpace(value)))
         {
             builder.Append("引入 ").AppendLine(Quote(import));
+        }
+
+        foreach (var structure in document.Structs)
+        {
+            builder.Append("结构体 ").Append(structure.Name);
+            if (structure.Interfaces.Count > 0)
+            {
+                builder.Append(" 实现 ").Append(string.Join(", ", structure.Interfaces));
+            }
+
+            builder.AppendLine();
+            foreach (var (name, typeName) in structure.Fields)
+            {
+                builder.Append("    ").Append(name).Append(": ").AppendLine(typeName);
+            }
+
+            builder.AppendLine("结束结构体");
+            builder.AppendLine();
+        }
+
+        foreach (var contract in document.Interfaces)
+        {
+            builder.Append("接口 ").AppendLine(contract.Name);
+            foreach (var method in contract.Methods)
+            {
+                var parameters = string.Join(", ", method.Parameters.Select(parameter =>
+                    parameter.Name + (string.IsNullOrWhiteSpace(parameter.TypeName)
+                        ? string.Empty
+                        : ": " + parameter.TypeName)));
+                builder.Append("    子程序 ").Append(method.Name)
+                    .Append('(').Append(parameters).Append(')');
+                if (!string.IsNullOrWhiteSpace(method.ReturnType))
+                {
+                    builder.Append(": ").Append(method.ReturnType);
+                }
+
+                builder.AppendLine();
+            }
+
+            builder.AppendLine("结束接口");
+            builder.AppendLine();
         }
 
         builder.AppendLine();

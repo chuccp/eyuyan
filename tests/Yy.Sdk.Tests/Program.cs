@@ -8,6 +8,8 @@ Run("SDK 包依赖图", VerifyDependencies);
 Run("自举功能包", VerifyBootstrapPackages);
 Run("未实现包禁止导入", VerifyPlannedPackageRejected);
 Run("原生界面 SDK 契约", VerifyUiContract);
+Run("系统 SDK 源码文件", VerifyPackageSources);
+Run("结构体与接口语法", VerifyStructsAndInterfaces);
 
 if (failures > 0)
 {
@@ -99,7 +101,6 @@ static void VerifyBootstrapPackages()
     [
         YySdk.MemoryPackage,
         YySdk.EncodingPackage,
-        YySdk.ProcessPackage,
         YySdk.DiagnosticPackage,
         YySdk.SerializationPackage,
         YySdk.InteropPackage,
@@ -118,6 +119,13 @@ static void VerifyBootstrapPackages()
         True(YySdk.FindPackage(name) is { Status: YyPackageStatus.Planned },
             $"缺少规划中的自举包：{name}");
     }
+
+    True(YySdk.FindPackage(YySdk.ProcessPackage) is
+        {
+            Status: YyPackageStatus.Preview,
+            IsImportable: true
+        },
+        "进程包应已升级为可导入预览包。");
 
     var http = YySdk.FindPackage(YySdk.HttpPackage)!;
     True(http.Dependencies.Contains(YySdk.NetworkPackage), "HTTP 包缺少网络基础依赖。");
@@ -165,6 +173,46 @@ static void VerifyUiContract()
     True(
         typeof(IYyUiHost).GetInterfaces().Contains(typeof(IYyContext)),
         "界面宿主必须实现上下文契约。");
+}
+
+static void VerifyPackageSources()
+{
+    var root = Path.Combine(Directory.GetCurrentDirectory(), "sdk", "Sources");
+    foreach (var package in YySdk.Packages)
+    {
+        var relative = package.Name.Replace('.', Path.DirectorySeparatorChar) + ".yyc";
+        var path = Path.Combine(root, relative);
+        True(File.Exists(path), $"SDK 包缺少源码文件：{relative}");
+        YyRunner.CompileSource(File.ReadAllText(path), path);
+    }
+
+    True(YySdk.DefaultPackages.Count == 4, "语言核心默认包数量应为 4。");
+    True(YySdk.DefaultPackages.Contains(YySdk.CorePackage), "基础包应默认引用。");
+    True(YySdk.DefaultPackages.Contains(YySdk.CollectionPackage), "集合包应默认引用。");
+    True(!YySdk.DefaultPackages.Contains(YySdk.FilePackage), "文件包不应默认引用。");
+}
+
+static void VerifyStructsAndInterfaces()
+{
+    var output = new List<string>();
+    var result = YyRunner.RunSource(
+        """
+        .程序集 结构体测试
+        接口 可问候
+            子程序 问候(): 文本
+        结束接口
+        结构体 学生 实现 可问候
+            姓名: 文本
+            年龄: 数字
+        结束结构体
+        变量 张三: 学生 = {姓名: "张三", 年龄: 18}
+        输出(张三.姓名)
+        """,
+        "struct-test.yyc",
+        output.Add);
+    True(
+        string.Equals(string.Join("\n", output), "张三", StringComparison.Ordinal),
+        "结构体字段没有正确读取。");
 }
 
 static void True(bool condition, string message)

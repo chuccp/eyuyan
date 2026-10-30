@@ -11,7 +11,9 @@ Run("原生 PE 与文本输出", TestHello);
 Run("原生整数、循环和条件", TestCoreLanguage);
 Run("原生数组、索引、遍历与追加", TestArrays);
 Run("原生对象与属性", TestObjects);
+Run("原生结构体", TestStructs);
 Run("原生文件读写与目录列举", TestFiles);
+Run("原生子进程与退出码", TestProcess);
 Run("原生子程序与隐式主程序", TestFunctions);
 Run("隐式入口与无 CLR 依赖", TestImplicitEntry);
 Run("原生 Win32 窗口与按钮事件", TestWin32Window);
@@ -243,6 +245,58 @@ static void TestFiles()
         var output = Path.Combine(directory, "files.exe");
         NativeCompiler.CompileFile(source, output);
         Equal("真\r\n你好，文件\r\n1\r\n假\r\n", RunExe(output));
+    }
+    finally
+    {
+        Directory.Delete(directory, recursive: true);
+    }
+}
+
+static void TestStructs()
+{
+    var directory = CreateDirectory();
+    try
+    {
+        var source = WriteSource(
+            directory,
+            """
+            .程序集 原生结构体
+            结构体 学生
+                姓名: 文本
+                年龄: 数字
+            结束结构体
+            变量 张三: 学生 = {姓名: "张三", 年龄: 18}
+            输出(张三.姓名)
+            张三.年龄 = 19
+            输出(张三.年龄)
+            """);
+        var output = Path.Combine(directory, "struct.exe");
+        NativeCompiler.CompileFile(source, output);
+        Equal("张三\r\n19\r\n", RunExe(output));
+    }
+    finally
+    {
+        Directory.Delete(directory, recursive: true);
+    }
+}
+
+static void TestProcess()
+{
+    var directory = CreateDirectory();
+    try
+    {
+        var source = WriteSource(
+            directory,
+            """
+            .程序集 原生进程
+            导入包 "系统.基础"
+            导入包 "系统.进程"
+
+            输出(运行程序("cmd.exe", "/c exit 7"))
+            """);
+        var output = Path.Combine(directory, "process.exe");
+        NativeCompiler.CompileFile(source, output);
+        Equal("7\r\n", RunExe(output));
     }
     finally
     {

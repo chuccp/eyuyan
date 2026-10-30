@@ -45,6 +45,8 @@ internal sealed partial class NativeEmitter
                 NativeValueKind.Integer,
             CallExpression { Callee: IdentifierExpression { Name: "文本" } } =>
                 NativeValueKind.Text,
+            CallExpression { Callee: IdentifierExpression { Name: "运行程序" } } =>
+                NativeValueKind.Integer,
             CallExpression { Callee: IdentifierExpression identifier } when
                 _functions.TryGetValue(identifier.Name, out var function) =>
                 FunctionKind(function),
@@ -84,6 +86,7 @@ internal sealed partial class NativeEmitter
             "逻辑" => NativeValueKind.Boolean,
             "数组" => NativeValueKind.Array,
             "对象" => NativeValueKind.Object,
+            not null when _declaredObjectTypes.Contains(typeName) => NativeValueKind.Object,
             _ => FailKind(node, $"原生后端暂不支持类型“{typeName}”")
         };
 

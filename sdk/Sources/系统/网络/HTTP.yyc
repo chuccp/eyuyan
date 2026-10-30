@@ -1,0 +1,24 @@
+.程序集 系统_网络_HTTP
+' 系统包：系统.网络.HTTP
+' 规划包。HTTP 客户端、代理和流式下载接口正在实现。
+
+结构体 HTTP请求
+    方法: 文本
+    地址: 文本
+    请求头: 对象
+    正文: 文本
+结束结构体
+
+结构体 HTTP响应
+    状态码: 数字
+    响应头: 对象
+    正文: 文本
+结束结构体
+
+接口 HTTP客户端
+    子程序 HTTP请求(请求: HTTP请求): HTTP响应
+    子程序 下载文件(地址: 文本, 路径: 文本): 逻辑
+结束接口
+
+' Win32 实现：WinHTTP 的 WinHttpOpen、WinHttpOpenRequest、
+' WinHttpSendRequest、WinHttpReceiveResponse 和 WinHttpReadData。

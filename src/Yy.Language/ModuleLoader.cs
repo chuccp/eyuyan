@@ -68,7 +68,9 @@ internal static class ModuleLoader
             [],
             rootProgram.Main)
         {
-            PackageImports = packageImports
+            PackageImports = packageImports,
+            Structs = rootProgram.Structs,
+            Interfaces = rootProgram.Interfaces
         };
 
         void IncludeImports(YyProgram program, string modulePath)

@@ -1,12 +1,14 @@
 namespace Yy.Language.Syntax;
 
-public sealed class Parser
+public sealed partial class Parser
 {
     private readonly string _source;
     private readonly string? _sourceName;
     private readonly List<Token> _tokens;
     private readonly List<ImportDeclaration> _imports = [];
     private readonly List<PackageImportDeclaration> _packageImports = [];
+    private readonly List<StructDeclaration> _structs = [];
+    private readonly List<InterfaceDeclaration> _interfaces = [];
     private readonly Dictionary<string, string> _metadata = new(StringComparer.Ordinal);
     private int _current;
 
@@ -61,6 +63,18 @@ public sealed class Parser
                 continue;
             }
 
+            if (CheckWord("结构体") || CheckWord("记录"))
+            {
+                _structs.Add(ParseStruct());
+                continue;
+            }
+
+            if (CheckWord("接口"))
+            {
+                _interfaces.Add(ParseInterface());
+                continue;
+            }
+
             mainStatements.Add(ParseStatement());
         }
 
@@ -72,7 +86,9 @@ public sealed class Parser
             _imports,
             new BlockStatement(1, 1, mainStatements))
         {
-            PackageImports = _packageImports
+            PackageImports = _packageImports,
+            Structs = _structs,
+            Interfaces = _interfaces
         };
     }
 
@@ -389,6 +405,12 @@ public sealed class Parser
         if (YyTypeSystem.IsKnown(token.Text))
         {
             return YyTypeSystem.CanonicalName(token.Text);
+        }
+
+        if (_structs.Any(item => string.Equals(item.Name, token.Text, StringComparison.Ordinal)) ||
+            _interfaces.Any(item => string.Equals(item.Name, token.Text, StringComparison.Ordinal)))
+        {
+            return token.Text;
         }
 
         throw new YyDiagnostic(
