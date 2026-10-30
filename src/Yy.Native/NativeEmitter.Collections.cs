@@ -201,6 +201,14 @@ internal sealed partial class NativeEmitter
             return field.ArrayElementKind;
         }
 
+        if (expression is CallExpression
+            {
+                Callee: IdentifierExpression { Name: "取目录文件" }
+            })
+        {
+            return NativeValueKind.Text;
+        }
+
         return NativeValueKind.Integer;
     }
 }

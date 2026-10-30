@@ -455,4 +455,5 @@ internal static partial class NativeUiProbe
 
     internal static void ClickButton(IntPtr button) =>
         _ = SendMessageNative(button, 0x00F5, IntPtr.Zero, IntPtr.Zero);
+
 }
