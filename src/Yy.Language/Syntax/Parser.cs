@@ -199,7 +199,8 @@ public sealed class Parser
             throw Error(Peek(), "“导入包”语句末尾存在多余内容。");
         }
 
-        if (Yy.Sdk.YySdk.FindPackage(name.Text) is null)
+        var package = Yy.Sdk.YySdk.FindPackage(name.Text);
+        if (package is null)
         {
             throw new YyDiagnostic(
                 $"找不到系统包“{name.Text}”。",
@@ -207,7 +208,19 @@ public sealed class Parser
                 name.Column,
                 "可用包：" + string.Join(
                     "、",
-                    Yy.Sdk.YySdk.Packages.Select(package => package.Name)),
+                    Yy.Sdk.YySdk.Packages
+                        .Where(item => item.IsImportable)
+                        .Select(item => item.Name)),
+                _sourceName);
+        }
+
+        if (!package.IsImportable)
+        {
+            throw new YyDiagnostic(
+                $"系统包“{package.Name}”已登记，但尚未实现。",
+                name.Line,
+                name.Column,
+                "该包已纳入 SDK 路线图，实现完成前不能导入。",
                 _sourceName);
         }
 

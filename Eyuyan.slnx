@@ -9,6 +9,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/Yy.Language.Tests/Yy.Language.Tests.csproj" />
     <Project Path="tests/Yy.Native.Tests/Yy.Native.Tests.csproj" />
+    <Project Path="tests/Yy.Sdk.Tests/Yy.Sdk.Tests.csproj" />
     <Project Path="tests/Yy.Studio.Tests/Yy.Studio.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">

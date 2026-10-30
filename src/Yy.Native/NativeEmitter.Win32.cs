@@ -30,7 +30,8 @@ internal sealed partial class NativeEmitter
                  {
                      "RegisterClassExW", "CreateWindowExW",
                      "ShowWindow", "UpdateWindow", "GetMessageW", "TranslateMessage",
-                     "DispatchMessageW", "DefWindowProcW", "PostQuitMessage", "SetWindowTextW"
+                     "DispatchMessageW", "DefWindowProcW", "PostQuitMessage", "SetWindowTextW",
+                     "GetWindowTextW"
                  })
         {
             AddImport("user32.dll", name);
@@ -38,6 +39,16 @@ internal sealed partial class NativeEmitter
 
         AddImport("kernel32.dll", "GetModuleHandleW");
         AddImport("kernel32.dll", "ExitProcess");
+        AddImport("kernel32.dll", "MultiByteToWideChar");
+        AddImport("kernel32.dll", "WideCharToMultiByte");
+        _uiWideTextBufferLabel = "ui_wide_text_buffer";
+        _data.Align(8);
+        _data.MarkLabel(_uiWideTextBufferLabel);
+        _data.AddZeroes(8192);
+        _uiUtf8TextBufferLabel = "ui_utf8_text_buffer";
+        _data.Align(8);
+        _data.MarkLabel(_uiUtf8TextBufferLabel);
+        _data.AddZeroes(8192);
         _windowClassLabel = _data.AddUtf16String("YyNativeWindow_" + _form.Name);
         _windowTitleLabel = _data.AddUtf16String(_form.Title);
         _windowHandleLabel = AddHandleSlot("ui_window_" + _form.Name);
@@ -288,15 +299,26 @@ internal sealed partial class NativeEmitter
             Fail(member, "原生 UI 当前只支持设置控件“文本/标题”");
         }
 
-        if (value is not LiteralExpression { Value: string text })
+        if (Infer(value, context) != NativeValueKind.Text)
         {
-            Fail(value, "原生 UI 当前只支持把文本常量写入控件");
+            Fail(value, "原生 UI 当前只支持把文本值写入控件");
             return false;
         }
 
-        _code.LeaRdxRip("data:" + _data.AddUtf16String(text));
-        _code.LoadRcxRip("data:" + handle);
-        _code.CallImport("import:SetWindowTextW");
+        if (value is LiteralExpression { Value: string text })
+        {
+            _code.LeaRdxRip("data:" + _data.AddUtf16String(text));
+            _code.LoadRcxRip("data:" + handle);
+            _code.CallImport("import:SetWindowTextW");
+            return true;
+        }
+
+        _code.LoadRaxRip("data:" + handle);
+        _code.PushRax();
+        EmitExpression(value, context);
+        _code.MovRdxRax();
+        _code.Pop(NativeRegister.Rcx);
+        _code.CallCode("__yy_write_control_text");
         return true;
     }
 

@@ -47,9 +47,14 @@
 | `src/Yy.Compiler/YyProject.Creation.cs` | 新项目和窗体三件套创建、默认模板 |
 | `src/Yy.Compiler/YyProject.Resources.cs` | 资源导入、分类复制、资源表校验和索引同步 |
 | `src/Yy.Compiler/Resources/YyResourceIndex.cs` | `ids.xml` 生成、标识解析和资源路径定位 |
-| `src/Yy.Sdk/YySdk.cs` | SDK 版本、系统包目录、界面上下文和跨 UI 技术契约 |
+| `src/Yy.Sdk/YySdk.cs` | SDK 版本、包成熟度与依赖目录、原生句柄和无装箱界面契约 |
 | `src/Yy.Language/ProjectPackageResolver.cs` | 把 `项目包名.目录` 解析为 `Sources/` 下的目录包 |
 | `src/Yy.Native/NativeEmitter.cs` | 易语 AST 到 Win64 指令的原生代码生成 |
+| `src/Yy.Native/NativeEmitter.Collections.cs` | 原生数组、索引、遍历和追加 |
+| `src/Yy.Native/NativeEmitter.FileRuntime.cs` | UTF-8/Win32 文件、目录和路径转换 |
+| `src/Yy.Native/NativeEmitter.Loops.cs` | 原生当循环和计次循环 |
+| `src/Yy.Native/NativeEmitter.TextRuntime.cs` | 堆分配文本、拼接、复制和比较运行时 |
+| `src/Yy.Native/NativeEmitter.Win32Text.cs` | Win32 控件文本编解码、读取和写入 |
 | `src/Yy.Native/NativeAssembly.cs` | 机器码、数据段和重定位缓冲 |
 | `src/Yy.Native/NativePeWriter.cs` | PE32+、节表、导入表和原生 EXE 写出 |
 

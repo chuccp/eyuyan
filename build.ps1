@@ -2,6 +2,7 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $tests = Join-Path $root "tests\Yy.Language.Tests\Yy.Language.Tests.csproj"
 $nativeTests = Join-Path $root "tests\Yy.Native.Tests\Yy.Native.Tests.csproj"
+$sdkTests = Join-Path $root "tests\Yy.Sdk.Tests\Yy.Sdk.Tests.csproj"
 $studioTests = Join-Path $root "tests\Yy.Studio.Tests\Yy.Studio.Tests.csproj"
 $compilerCli = Join-Path $root "tools\Yy.Cli\Yy.Cli.csproj"
 $nativeSampleExe = Join-Path $root "artifacts\samples\原生入门.exe"
@@ -14,6 +15,8 @@ Write-Host "运行语言内核测试..."
 dotnet run --project $tests -c Release
 Write-Host "运行原生后端测试..."
 dotnet run --project $nativeTests -c Release
+Write-Host "运行 SDK 包测试..."
+dotnet run --project $sdkTests -c Release
 $env:YY_COMPILE_SMOKE = "1"
 try {
     dotnet run --project $studioTests -c Release

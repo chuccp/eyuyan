@@ -7,7 +7,9 @@ internal enum NativeValueKind
 {
     Integer,
     Text,
-    Boolean
+    Boolean,
+    Array,
+    Object
 }
 
 internal sealed record NativeGeneration(
@@ -26,7 +28,11 @@ internal sealed partial class NativeEmitter
     private readonly Dictionary<string, HashSet<string>> _imports =
         new(StringComparer.OrdinalIgnoreCase)
     {
-        ["kernel32.dll"] = ["GetStdHandle", "WriteFile", "ExitProcess"]
+        ["kernel32.dll"] =
+        [
+            "GetStdHandle", "WriteFile", "ExitProcess", "GetProcessHeap", "HeapAlloc",
+            "lstrcmpA"
+        ]
     };
     private readonly Dictionary<string, FunctionDeclaration> _functions;
     private readonly Dictionary<string, string> _functionLabels =
@@ -58,6 +64,7 @@ internal sealed partial class NativeEmitter
         _newlineLabel = _data.AddUtf8String("\r\n");
         _trueLabel = _data.AddUtf8String("真");
         _falseLabel = _data.AddUtf8String("假");
+        PrepareFileRuntime();
         if (_form is not null)
         {
             PrepareWin32Data();
@@ -73,9 +80,18 @@ internal sealed partial class NativeEmitter
         EmitWriteBuffer();
         EmitPrintString();
         EmitPrintInteger();
+        EmitAllocate();
+        EmitCopyBytes();
+        EmitConcatString();
+        EmitCompareString();
+        EmitArrayRuntime();
+        EmitCloneString();
+        EmitFileRuntime();
         if (_form is not null)
         {
             EmitWindowProcedure();
+            EmitReadControlText();
+            EmitWriteControlText();
         }
         return new NativeGeneration(
             _code,
@@ -199,6 +215,12 @@ internal sealed partial class NativeEmitter
                     context.AddSlot(loop.VariableName);
                     CollectVariables(loop.Body, context);
                     break;
+                case ForEachStatement loop:
+                    context.AddSlot(loop.VariableName);
+                    context.AddSlot(ForeachSlotName(loop, "collection"));
+                    context.AddSlot(ForeachSlotName(loop, "index"));
+                    CollectVariables(loop.Body, context);
+                    break;
                 case TryStatement attempt:
                     CollectVariables(attempt.TryBlock, context);
                     if (attempt.CatchBlock is not null)
@@ -226,9 +248,21 @@ internal sealed partial class NativeEmitter
             case VariableStatement variable:
                 EmitExpression(variable.Initializer, context);
                 _code.StoreRaxToRbp(context.Slots[variable.Name]);
-                context.Types[variable.Name] = variable.DeclaredType is null
+                var kind = variable.DeclaredType is null
                     ? Infer(variable.Initializer, context)
                     : ParseType(variable.DeclaredType, statement);
+                context.Types[variable.Name] = kind;
+                if (kind == NativeValueKind.Array)
+                {
+                    context.ArrayElementTypes[variable.Name] =
+                        InferArrayElement(variable.Initializer, context);
+                }
+                else if (kind == NativeValueKind.Object &&
+                         TryGetObjectShape(variable.Initializer, context) is { } objectShape)
+                {
+                    context.ObjectShapes[variable.Name] = objectShape;
+                }
+
                 break;
             case AssignStatement assignment:
                 EmitAssignment(assignment, context);
@@ -244,6 +278,9 @@ internal sealed partial class NativeEmitter
                 break;
             case CountLoopStatement loop:
                 EmitCountLoop(loop, context);
+                break;
+            case ForEachStatement loop:
+                EmitForEach(loop, context);
                 break;
             case ReturnStatement @return:
                 if (@return.Value is null)
@@ -290,13 +327,29 @@ internal sealed partial class NativeEmitter
         {
             EmitExpression(assignment.Value, context);
             _code.StoreRaxToRbp(context.Slot(identifier.Name, assignment));
+            var kind = Infer(assignment.Value, context);
+            context.Types[identifier.Name] = kind;
+            if (kind == NativeValueKind.Array)
+            {
+                context.ArrayElementTypes[identifier.Name] =
+                    InferArrayElement(assignment.Value, context);
+            }
+            else if (kind == NativeValueKind.Object &&
+                     TryGetObjectShape(assignment.Value, context) is { } objectShape)
+            {
+                context.ObjectShapes[identifier.Name] = objectShape;
+            }
+
             return;
         }
 
-        if (assignment.Target is MemberExpression member &&
-            TryEmitControlPropertyAssignment(member, assignment.Value, context))
+        if (assignment.Target is MemberExpression member)
         {
-            return;
+            if (TryEmitObjectPropertyAssignment(member, assignment.Value, context) ||
+                TryEmitControlPropertyAssignment(member, assignment.Value, context))
+            {
+                return;
+            }
         }
 
         Fail(assignment, "原生后端暂不支持此赋值目标");
@@ -320,51 +373,6 @@ internal sealed partial class NativeEmitter
         _code.MarkLabel(endLabel);
     }
 
-    private void EmitWhile(WhileStatement loop, NativeContext context)
-    {
-        var start = NewLabel("while_start");
-        var end = NewLabel("while_end");
-        context.Loops.Push(new NativeLoop(start, end));
-        _code.MarkLabel(start);
-        EmitExpression(loop.Condition, context);
-        _code.TestRaxRax();
-        _code.JumpIfZero(end);
-        EmitBlock(loop.Body, context);
-        _code.Jmp(start);
-        _code.MarkLabel(end);
-        context.Loops.Pop();
-    }
-
-    private void EmitCountLoop(CountLoopStatement loop, NativeContext context)
-    {
-        var slot = context.Slot(loop.VariableName, loop);
-        var start = NewLabel("count_start");
-        var update = NewLabel("count_update");
-        var end = NewLabel("count_end");
-        EmitExpression(loop.Start, context);
-        _code.StoreRaxToRbp(slot);
-        context.Types[loop.VariableName] = NativeValueKind.Integer;
-        context.Loops.Push(new NativeLoop(update, end));
-        _code.MarkLabel(start);
-        EmitExpression(loop.End, context);
-        _code.PushRax();
-        _code.LoadRaxFromRbp(slot);
-        _code.Pop(NativeRegister.Rcx);
-        _code.CmpRaxRcx();
-        _code.JumpIfGreater(end);
-        EmitBlock(loop.Body, context);
-        _code.MarkLabel(update);
-        EmitExpression(loop.Step, context);
-        _code.PushRax();
-        _code.LoadRaxFromRbp(slot);
-        _code.Pop(NativeRegister.Rcx);
-        _code.AddRaxRcx();
-        _code.StoreRaxToRbp(slot);
-        _code.Jmp(start);
-        _code.MarkLabel(end);
-        context.Loops.Pop();
-    }
-
     private void EmitExpression(Expression expression, NativeContext context)
     {
         switch (expression)
@@ -374,6 +382,15 @@ internal sealed partial class NativeEmitter
                 break;
             case IdentifierExpression identifier:
                 _code.LoadRaxFromRbp(context.Slot(identifier.Name, identifier));
+                break;
+            case ArrayExpression array:
+                EmitArrayLiteral(array, context);
+                break;
+            case ObjectExpression obj:
+                EmitObjectLiteral(obj, context);
+                break;
+            case IndexExpression index:
+                EmitArrayIndex(index, context);
                 break;
             case UnaryExpression unary:
                 EmitExpression(unary.Operand, context);
@@ -397,6 +414,10 @@ internal sealed partial class NativeEmitter
                 break;
             case CallExpression call:
                 EmitCall(call, context);
+                break;
+            case MemberExpression member when TryEmitObjectPropertyRead(member, context):
+                break;
+            case MemberExpression member when TryEmitControlPropertyRead(member, context):
                 break;
             default:
                 Fail(expression, "当前原生后端暂不支持此表达式");
@@ -437,6 +458,40 @@ internal sealed partial class NativeEmitter
 
         var leftKind = Infer(binary.Left, context);
         var rightKind = Infer(binary.Right, context);
+        if (binary.Operator == "+" &&
+            leftKind == NativeValueKind.Text &&
+            rightKind == NativeValueKind.Text)
+        {
+            EmitExpression(binary.Left, context);
+            _code.PushRax();
+            EmitExpression(binary.Right, context);
+            _code.MovRdxRax();
+            _code.Pop(NativeRegister.Rcx);
+            _code.CallCode("__yy_concat_string");
+            context.LastKind = NativeValueKind.Text;
+            return;
+        }
+
+        if (binary.Operator is "==" or "!=" &&
+            leftKind == NativeValueKind.Text &&
+            rightKind == NativeValueKind.Text)
+        {
+            EmitExpression(binary.Left, context);
+            _code.PushRax();
+            EmitExpression(binary.Right, context);
+            _code.MovRdxRax();
+            _code.Pop(NativeRegister.Rcx);
+            _code.CallCode("__yy_compare_string");
+            if (binary.Operator == "!=")
+            {
+                _code.TestRaxRax();
+                _code.SetConditional("==");
+            }
+
+            context.LastKind = NativeValueKind.Boolean;
+            return;
+        }
+
         if (leftKind != NativeValueKind.Integer ||
             rightKind != NativeValueKind.Integer)
         {
@@ -521,15 +576,28 @@ internal sealed partial class NativeEmitter
             return;
         }
 
+        if (TryEmitFileBuiltin(call, context))
+        {
+            return;
+        }
+
         if (identifier.Name == "长度" && call.Arguments.Count == 1)
         {
             EmitExpression(call.Arguments[0], context);
-            if (Infer(call.Arguments[0], context) == NativeValueKind.Text)
+            var argumentKind = Infer(call.Arguments[0], context);
+            if (argumentKind is NativeValueKind.Text or NativeValueKind.Array)
             {
+                _code.MovRcxRax();
                 _code.LoadRaxFromRcx();
             }
 
             context.LastKind = NativeValueKind.Integer;
+            return;
+        }
+
+        if (identifier.Name == "追加")
+        {
+            EmitArrayAppend(call, context);
             return;
         }
 
@@ -692,16 +760,37 @@ internal sealed partial class NativeEmitter
             LiteralExpression { Value: string } => NativeValueKind.Text,
             LiteralExpression { Value: bool } => NativeValueKind.Boolean,
             LiteralExpression { Value: double } => NativeValueKind.Integer,
+            ArrayExpression => NativeValueKind.Array,
+            ObjectExpression => NativeValueKind.Object,
+            IndexExpression index => InferArrayElement(index, context),
+            MemberExpression member when TryGetObjectField(member, context) is { } field =>
+                field.Kind,
             IdentifierExpression identifier when context.Types.TryGetValue(identifier.Name, out var kind) =>
                 kind,
+            MemberExpression
+            {
+                Member: "文本" or "标题",
+                Target: CallExpression
+                {
+                    Callee: IdentifierExpression { Name: "取控件" }
+                }
+            } => NativeValueKind.Text,
             UnaryExpression { Operator: "非" or "!" } => NativeValueKind.Boolean,
             UnaryExpression => NativeValueKind.Integer,
             BinaryExpression binary when binary.Operator is
                 "==" or "!=" or "<" or "<=" or ">" or ">=" or "且" or "&&" or "或" or "||" =>
                 NativeValueKind.Boolean,
-            BinaryExpression => NativeValueKind.Integer,
+            BinaryExpression binary => InferBinaryKind(binary, context),
             CallExpression { Callee: IdentifierExpression { Name: "长度" } } =>
                 NativeValueKind.Integer,
+            CallExpression { Callee: IdentifierExpression { Name: "追加" } } =>
+                NativeValueKind.Array,
+            CallExpression { Callee: IdentifierExpression { Name: "文件存在" or "删除文件" or "写文件" } } =>
+                NativeValueKind.Boolean,
+            CallExpression { Callee: IdentifierExpression { Name: "读文件" } } =>
+                NativeValueKind.Text,
+            CallExpression { Callee: IdentifierExpression { Name: "取目录文件" } } =>
+                NativeValueKind.Array,
             CallExpression { Callee: IdentifierExpression identifier } when
                 _functions.TryGetValue(identifier.Name, out var function) =>
                 FunctionKind(function),
@@ -709,11 +798,27 @@ internal sealed partial class NativeEmitter
             _ => FailKind(expression)
         };
 
+    private NativeValueKind InferBinaryKind(
+        BinaryExpression binary,
+        NativeContext context)
+    {
+        if (binary.Operator == "+" &&
+            Infer(binary.Left, context) == NativeValueKind.Text &&
+            Infer(binary.Right, context) == NativeValueKind.Text)
+        {
+            return NativeValueKind.Text;
+        }
+
+        return NativeValueKind.Integer;
+    }
+
     private NativeValueKind FunctionKind(FunctionDeclaration function) =>
         function.ReturnType switch
         {
             "文本" => NativeValueKind.Text,
             "逻辑" => NativeValueKind.Boolean,
+            "数组" => NativeValueKind.Array,
+            "对象" => NativeValueKind.Object,
             _ => NativeValueKind.Integer
         };
 
@@ -723,6 +828,8 @@ internal sealed partial class NativeEmitter
             null or "" or "数字" => NativeValueKind.Integer,
             "文本" => NativeValueKind.Text,
             "逻辑" => NativeValueKind.Boolean,
+            "数组" => NativeValueKind.Array,
+            "对象" => NativeValueKind.Object,
             _ => FailKind(node, $"原生后端暂不支持类型“{typeName}”")
         };
 
@@ -748,6 +855,10 @@ internal sealed class NativeContext(FunctionDeclaration? function)
 
     public FunctionDeclaration? Function { get; } = function;
     public Dictionary<string, NativeValueKind> Types { get; } =
+        new(StringComparer.Ordinal);
+    public Dictionary<string, NativeValueKind> ArrayElementTypes { get; } =
+        new(StringComparer.Ordinal);
+    public Dictionary<string, NativeObjectShape> ObjectShapes { get; } =
         new(StringComparer.Ordinal);
     public Stack<NativeLoop> Loops { get; } = new();
     public string? EndLabel { get; set; }

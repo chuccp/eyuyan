@@ -294,7 +294,8 @@ static void TestProjectPackageImport()
 static void TestPackageImport()
 {
     Equal(1, Yy.Sdk.YySdk.Version);
-    Equal(6, Yy.Sdk.YySdk.Packages.Count);
+    Equal(21, Yy.Sdk.YySdk.Packages.Count);
+    Equal(6, Yy.Sdk.YySdk.Packages.Count(package => package.IsImportable));
     True(Yy.Sdk.YySdk.IsPackageName("demo.app"), "点分隔包名应有效。");
     True(!Yy.Sdk.YySdk.IsPackageName("demo..app"), "空包路径段应被拒绝。");
     True(!Yy.Sdk.YySdk.IsPackageName("1demo"), "数字开头的包名应被拒绝。");
@@ -302,13 +303,17 @@ static void TestPackageImport()
         Yy.Sdk.YySdk.Packages.All(package => package.Members.Count > 0),
         "每个系统 SDK 包都应声明成员。");
     Equal(
-        4,
+        8,
         Yy.Sdk.YySdk.Packages.Count(package =>
             package.Kind == Yy.Sdk.YyPackageKind.LanguageCore));
     Equal(
-        2,
+        11,
         Yy.Sdk.YySdk.Packages.Count(package =>
             package.Kind == Yy.Sdk.YyPackageKind.Platform));
+    Equal(
+        2,
+        Yy.Sdk.YySdk.Packages.Count(package =>
+            package.Kind == Yy.Sdk.YyPackageKind.Tooling));
 
     var program = YyRunner.Compile("""
         .程序集 包测试

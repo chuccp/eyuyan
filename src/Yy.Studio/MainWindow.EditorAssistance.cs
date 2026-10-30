@@ -221,11 +221,11 @@ public partial class MainWindow : Window
 
         if (IsPackageImportContext(editor.Text, editor.CaretOffset))
         {
-            foreach (var package in YySdk.Packages)
+            foreach (var package in YySdk.Packages.Where(item => item.IsImportable))
             {
                 data.Add(new CompletionData(
                     package.Name,
-                    $"系统 SDK 包 · {package.Description}",
+                    $"系统 SDK 包 · {package.StatusText} · {package.Description}",
                     CompletionKind.Package));
             }
 

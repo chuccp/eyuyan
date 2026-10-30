@@ -79,6 +79,7 @@ internal sealed class NativeCodeBuffer
     public void Ret() => Emit(0xC3);
 
     public void PushRax() => Emit(0x50);
+    public void PushRcx() => Emit(0x51);
 
     public void Pop(NativeRegister register)
     {
@@ -161,6 +162,12 @@ internal sealed class NativeCodeBuffer
         EmitInt32(displacement);
     }
 
+    public void LeaRdxRbp(int displacement)
+    {
+        Emit(0x48, 0x8D, 0x95);
+        EmitInt32(displacement);
+    }
+
     public void StoreRaxToRbp(int displacement)
     {
         Emit(0x48, 0x89, 0x85);
@@ -197,6 +204,24 @@ internal sealed class NativeCodeBuffer
         EmitInt32(displacement);
     }
 
+    public void MovRcxRbp(int displacement)
+    {
+        Emit(0x48, 0x8B, 0x8D);
+        EmitInt32(displacement);
+    }
+
+    public void MovRdxRbp(int displacement)
+    {
+        Emit(0x48, 0x8B, 0x95);
+        EmitInt32(displacement);
+    }
+
+    public void MovR8Rbp(int displacement)
+    {
+        Emit(0x4C, 0x8B, 0x85);
+        EmitInt32(displacement);
+    }
+
     public void StoreRegisterToRbp(NativeRegister register, int displacement)
     {
         switch (register)
@@ -220,12 +245,16 @@ internal sealed class NativeCodeBuffer
     }
 
     public void LoadRaxFromRcx() => Emit(0x48, 0x8B, 0x01);
+    public void LoadEaxFromRcx() => Emit(0x8B, 0x01);
     public void LoadRdxFromRcx() => Emit(0x48, 0x8B, 0x11);
     public void MovRcxRax() => Emit(0x48, 0x89, 0xC1);
     public void MovRdxRax() => Emit(0x48, 0x89, 0xC2);
     public void MovR8Rax() => Emit(0x49, 0x89, 0xC0);
     public void AddRcxByte(byte value) => Emit(0x48, 0x83, 0xC1, value);
+    public void AddRdxByte(byte value) => Emit(0x48, 0x83, 0xC2, value);
     public void AddRaxRcx() => Emit(0x48, 0x01, 0xC8);
+    public void AddRcxRax() => Emit(0x48, 0x01, 0xC1);
+    public void AddRaxRax() => Emit(0x48, 0x01, 0xC0);
     public void SubRaxRcx() => Emit(0x48, 0x29, 0xC8);
     public void ImulRaxRcx() => Emit(0x48, 0x0F, 0xAF, 0xC1);
     public void Cqo() => Emit(0x48, 0x99);
@@ -234,6 +263,7 @@ internal sealed class NativeCodeBuffer
     public void NegRax() => Emit(0x48, 0xF7, 0xD8);
     public void NotRax() => Emit(0x48, 0xF7, 0xD0);
     public void TestRaxRax() => Emit(0x48, 0x85, 0xC0);
+    public void TestR8R8() => Emit(0x4D, 0x85, 0xC0);
     public void TestRcxRcx() => Emit(0x48, 0x85, 0xC9);
     public void CmpRaxRcx() => Emit(0x48, 0x39, 0xC8);
     public void CmpRcxRax() => Emit(0x48, 0x39, 0xC1);
@@ -258,6 +288,8 @@ internal sealed class NativeCodeBuffer
         Emit(0x41, 0xC6, 0x02, value);
     }
 
+    public void StoreZeroWordRcx() => Emit(0x66, 0xC7, 0x01, 0, 0);
+
     public void StoreByteR10Rdx()
     {
         Emit(0x41, 0x88, 0x12);
@@ -272,14 +304,34 @@ internal sealed class NativeCodeBuffer
     public void MovR11R10() => Emit(0x4D, 0x89, 0xD3);
     public void IncR10() => Emit(0x49, 0xFF, 0xC2);
     public void IncR11() => Emit(0x49, 0xFF, 0xC3);
+    public void IncRcx() => Emit(0x48, 0xFF, 0xC1);
+    public void IncRdx() => Emit(0x48, 0xFF, 0xC2);
+    public void DecR8() => Emit(0x49, 0xFF, 0xC8);
     public void DecR10() => Emit(0x49, 0xFF, 0xCA);
     public void AddDl(byte value) => Emit(0x80, 0xC2, value);
     public void XorEdxEdx() => Emit(0x31, 0xD2);
     public void MovRcxR10() => Emit(0x4C, 0x89, 0xD1);
+    public void MovAlPtrRdx() => Emit(0x8A, 0x02);
+    public void MovPtrRcxAl() => Emit(0x88, 0x01);
+    public void MovRaxRcxIndexed() => Emit(0x48, 0x8B, 0x04, 0x01);
+    public void StoreRdxAtRcxRax() => Emit(0x48, 0x89, 0x14, 0x01);
+    public void ShlRax3() => Emit(0x48, 0xC1, 0xE0, 0x03);
+    public void CmpRaxRdx() => Emit(0x48, 0x39, 0xD0);
+
+    public void StoreRdxAtRcxOffset(int displacement)
+    {
+        Emit(0x48, 0x89, 0x91);
+        EmitInt32(displacement);
+    }
     public void MovRdxR11SubR10() => Emit(0x4C, 0x89, 0xDA, 0x4C, 0x29, 0xD2);
     public void MovR8R10() => Emit(0x4D, 0x89, 0xD0);
     public void IncRax() => Emit(0x48, 0xFF, 0xC0);
+    public void DecRax() => Emit(0x48, 0xFF, 0xC8);
+    public void DecRcx() => Emit(0x48, 0xFF, 0xC9);
+    public void IncR8() => Emit(0x49, 0xFF, 0xC0);
+    public void AddRaxByte(byte value) => Emit(0x48, 0x83, 0xC0, value);
     public void AddRaxImmediate(byte value) => Emit(0x48, 0x83, 0xC0, value);
+    public void StoreRcxAtRax() => Emit(0x48, 0x89, 0x08);
     public void StoreZeroRsp32() => Emit(0x48, 0xC7, 0x44, 0x24, 0x20, 0, 0, 0, 0);
     public void EmitRaw(params byte[] bytes) => Emit(bytes);
     public void EmitRawInt32(int value) => EmitInt32(value);
@@ -341,6 +393,7 @@ internal sealed class NativeCodeBuffer
     }
 
     public void MovEaxEdx() => Emit(0x89, 0xD0);
+    public void MovEaxEax() => Emit(0x89, 0xC0);
     public void MovEaxR8D() => Emit(0x44, 0x89, 0xC0);
 
     public void AndEax(int value)
@@ -452,6 +505,7 @@ internal sealed class NativeDataBuffer
         var bytes = Encoding.UTF8.GetBytes(value);
         _bytes.AddRange(BitConverter.GetBytes((long)bytes.Length));
         _bytes.AddRange(bytes);
+        _bytes.Add(0);
         return name;
     }
 
