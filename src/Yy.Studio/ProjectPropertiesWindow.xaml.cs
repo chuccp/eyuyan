@@ -14,6 +14,7 @@ public partial class ProjectPropertiesWindow : Window
         InitializeComponent();
         _project = project;
         ProjectNameBox.Text = project.Name;
+        PackageNameBox.Text = project.PackageName;
         ProjectPathBox.Text = project.ProjectPath;
         OutputNameBox.Text = project.OutputName;
         EntrySourceBox.ItemsSource = project.SourcePaths
@@ -27,7 +28,7 @@ public partial class ProjectPropertiesWindow : Window
         StartupFormBox.Text = project.StartupForm;
         ProjectSummaryText.Text =
             $"包含 {project.SourcePaths.Count} 个源码文件、{project.Forms.Count} 个窗体和 {project.Resources.Count} 个资源。\n" +
-            "修改保存后会更新项目清单并重新加载项目。";
+            $"项目包：{project.PackageName}；命名导入格式：{project.PackageName}.子目录。";
     }
 
     public YyProject? UpdatedProject { get; private set; }
@@ -52,6 +53,7 @@ public partial class ProjectPropertiesWindow : Window
 
             _project.UpdateSettings(
                 ProjectNameBox.Text,
+                PackageNameBox.Text,
                 entry,
                 OutputNameBox.Text,
                 StartupFormBox.Text);

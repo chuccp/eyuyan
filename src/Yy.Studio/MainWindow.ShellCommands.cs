@@ -138,18 +138,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnToggleStandardToolbar(object sender, RoutedEventArgs e)
-    {
-        StandardToolbarRow.Visibility =
-            ToggleStandardToolbarMenuItem.IsChecked ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    private void OnToggleAlignToolbar(object sender, RoutedEventArgs e)
-    {
-        AlignToolbarRow.Visibility =
-            ToggleAlignToolbarMenuItem.IsChecked ? Visibility.Visible : Visibility.Collapsed;
-    }
-
     private void OnToggleStatusBar(object sender, RoutedEventArgs e)
     {
         StatusBarRow.Visibility =
@@ -328,7 +316,6 @@ public partial class MainWindow : Window
     {
         Editor.FontSize = Configuration.Editor.FontSize;
         Editor.Options.IndentationSize = Configuration.Editor.TabWidth;
-        SnapCheckBox.IsChecked = Configuration.Designer.SnapGrid;
     }
 
     private void OnSystemConfigClick(object sender, RoutedEventArgs e)

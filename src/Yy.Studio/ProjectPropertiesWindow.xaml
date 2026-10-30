@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="项目属性"
         Width="620"
-        Height="500"
+        Height="570"
         MinWidth="520"
         MinHeight="420"
         WindowStartupLocation="CenterOwner"
@@ -37,6 +37,13 @@
                          Background="#1E1E1E"
                          BorderBrush="{StaticResource BorderBrush}" />
 
+                <TextBlock Text="包名" Foreground="{StaticResource MutedBrush}" FontSize="10" />
+                <TextBox x:Name="PackageNameBox"
+                         Margin="0,5,0,14"
+                         Padding="8,6"
+                         Background="#1E1E1E"
+                         BorderBrush="{StaticResource BorderBrush}" />
+
                 <TextBlock Text="项目文件" Foreground="{StaticResource MutedBrush}" FontSize="10" />
                 <TextBox x:Name="ProjectPathBox"
                          Margin="0,5,0,14"
@@ -45,6 +52,34 @@
                          Background="#252526"
                          Foreground="{StaticResource MutedBrush}"
                          BorderBrush="{StaticResource BorderBrush}" />
+
+                <Grid Margin="0,0,0,14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="14" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="源码目录" Foreground="{StaticResource MutedBrush}" FontSize="10" />
+                        <TextBox Text="Sources/"
+                                 Margin="0,5,0,0"
+                                 Padding="8,6"
+                                 IsReadOnly="True"
+                                 Background="#252526"
+                                 Foreground="{StaticResource MutedBrush}"
+                                 BorderBrush="{StaticResource BorderBrush}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="资源目录" Foreground="{StaticResource MutedBrush}" FontSize="10" />
+                        <TextBox Text="Resources/"
+                                 Margin="0,5,0,0"
+                                 Padding="8,6"
+                                 IsReadOnly="True"
+                                 Background="#252526"
+                                 Foreground="{StaticResource MutedBrush}"
+                                 BorderBrush="{StaticResource BorderBrush}" />
+                    </StackPanel>
+                </Grid>
 
                 <Grid>
                     <Grid.ColumnDefinitions>

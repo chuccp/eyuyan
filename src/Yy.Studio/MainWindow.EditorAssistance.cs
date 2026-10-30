@@ -198,6 +198,27 @@ public partial class MainWindow : Window
         };
         var data = _completionWindow.CompletionList.CompletionData;
         var known = new HashSet<string>(StringComparer.Ordinal);
+        if (IsSourceImportContext(editor.Text, editor.CaretOffset))
+        {
+            foreach (var (text, description) in GetProjectPackageCompletions())
+            {
+                if (known.Add(text))
+                {
+                    data.Add(new CompletionData(
+                        text,
+                        description,
+                        CompletionKind.Package));
+                }
+            }
+
+            if (data.Count > 0)
+            {
+                _completionWindow.Show();
+                _completionWindow.Closed += (_, _) => _completionWindow = null;
+                return;
+            }
+        }
+
         if (IsPackageImportContext(editor.Text, editor.CaretOffset))
         {
             foreach (var package in YySdk.Packages)
@@ -349,6 +370,15 @@ public partial class MainWindow : Window
     }
 
     private static bool IsPackageImportContext(string text, int caretOffset)
+        => IsQuotedDirectiveContext(text, caretOffset, "导入包");
+
+    private static bool IsSourceImportContext(string text, int caretOffset)
+        => IsQuotedDirectiveContext(text, caretOffset, "引入");
+
+    private static bool IsQuotedDirectiveContext(
+        string text,
+        int caretOffset,
+        string directive)
     {
         var caret = Math.Clamp(caretOffset, 0, text.Length);
         var lineStart = caret == 0 ? 0 : text.LastIndexOf('\n', caret - 1) + 1;
@@ -360,15 +390,56 @@ public partial class MainWindow : Window
 
         var prefix = text[lineStart..caret];
         var trimmed = prefix.TrimStart();
-        if (trimmed.Length <= "导入包".Length ||
-            !trimmed.StartsWith("导入包", StringComparison.Ordinal) ||
-            !char.IsWhiteSpace(trimmed["导入包".Length]))
+        if (trimmed.Length <= directive.Length ||
+            !trimmed.StartsWith(directive, StringComparison.Ordinal) ||
+            !char.IsWhiteSpace(trimmed[directive.Length]))
         {
             return false;
         }
 
         return prefix.Count(character => character == '"') == 1 &&
                text.AsSpan(caret, lineEnd - caret).IndexOf('"') < 0;
+    }
+
+    private IEnumerable<(string Text, string Description)> GetProjectPackageCompletions()
+    {
+        if (_project is null || !Directory.Exists(_project.SourceRootPath))
+        {
+            yield break;
+        }
+
+        foreach (var directory in Directory
+                     .EnumerateDirectories(
+                         _project.SourceRootPath,
+                         "*",
+                         SearchOption.AllDirectories)
+                     .OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+        {
+            var relative = Path.GetRelativePath(_project.SourceRootPath, directory)
+                .Replace('\\', '/');
+            if (relative.Split('/').Contains("Forms", StringComparer.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var hasSource = Directory
+                .EnumerateFiles(directory, "*.yyc", SearchOption.TopDirectoryOnly)
+                .Any(path =>
+                    !Path.GetFileName(path).EndsWith(
+                        ".Designer.yyc",
+                        StringComparison.OrdinalIgnoreCase));
+            if (!hasSource)
+            {
+                continue;
+            }
+
+            var package = _project.PackageName +
+                "." +
+                string.Join(".", relative.Split('/'));
+            yield return (
+                package,
+                $"源码目录包 · {YyProject.SourceDirectoryName}/{relative}");
+        }
     }
 
     private YyFormModel? GetAssociatedFormForCurrentDocument()

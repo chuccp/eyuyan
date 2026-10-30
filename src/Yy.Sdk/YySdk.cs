@@ -41,6 +41,24 @@ public static class YySdk
     public static YyPackageDefinition? FindPackage(string name) =>
         Packages.FirstOrDefault(package =>
             string.Equals(package.Name, name.Trim(), StringComparison.Ordinal));
+
+    /// <summary>包名使用点分隔标识符，例如 app、demo.app、公司.产品.模块。</summary>
+    public static bool IsPackageName(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        return value
+            .Split('.', StringSplitOptions.None)
+            .All(IsPackageSegment);
+    }
+
+    private static bool IsPackageSegment(string value) =>
+        value.Length > 0 &&
+        (char.IsLetter(value[0]) || value[0] == '_') &&
+        value.Skip(1).All(character => char.IsLetterOrDigit(character) || character == '_');
 }
 
 /// <summary>窗口和控件访问的上下文契约。</summary>

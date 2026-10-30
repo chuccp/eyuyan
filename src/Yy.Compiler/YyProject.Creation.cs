@@ -10,12 +10,22 @@ namespace Yy.Compiler;
 /// </summary>
 public sealed partial class YyProject
 {
-    public static YyProject CreateProject(string projectPath, string projectName)
+    public static YyProject CreateProject(
+        string projectPath,
+        string projectName,
+        string packageName)
     {
         if (string.IsNullOrWhiteSpace(projectName) ||
             !YyFormSerializer.IsIdentifier(projectName))
         {
             throw new ArgumentException("项目名称必须是中文、英文、数字或下划线组成的标识符。", nameof(projectName));
+        }
+
+        if (!Yy.Sdk.YySdk.IsPackageName(packageName))
+        {
+            throw new ArgumentException(
+                "包名必须由点分隔的中文、英文、数字或下划线标识符组成。",
+                nameof(packageName));
         }
 
         var fullProjectPath = Path.GetFullPath(projectPath);
@@ -33,15 +43,16 @@ public sealed partial class YyProject
         }
 
         Directory.CreateDirectory(root);
-        var formsDirectory = Path.Combine(root, "Forms");
+        var sourceDirectory = Path.Combine(root, SourceDirectoryName);
+        var formsDirectory = Path.Combine(sourceDirectory, "Forms");
         Directory.CreateDirectory(formsDirectory);
         YyResourceIndex.EnsureLayout(root);
 
-        var entryPath = Path.Combine(root, "Program.yyc");
+        var entryPath = Path.Combine(sourceDirectory, "Program.yyc");
         var formPath = Path.Combine(formsDirectory, "MainForm.yyx");
         var codePath = Path.Combine(formsDirectory, "MainForm.yyc");
 
-        WriteStructuredSource(entryPath, CreateEntryTemplate(projectName));
+        WriteStructuredSource(entryPath, CreateEntryTemplate(projectName, packageName));
         var form = new YyFormModel
         {
             Name = "_启动窗口",
@@ -60,13 +71,20 @@ public sealed partial class YyProject
         {
             FormatVersion = CurrentFormatVersion,
             Name = projectName,
-            Entry = "Program.yyc",
+            PackageName = packageName,
+            SourceDirectory = SourceDirectoryName,
+            ResourceDirectory = ResourceDirectoryName,
+            Entry = $"{SourceDirectoryName}/Program.yyc",
             Output = projectName + ".exe",
             StartupForm = "_启动窗口",
-            Sources = ["Program.yyc", "Forms/MainForm.yyc"],
-            Forms = ["Forms/MainForm.yyx"],
+            Sources =
+            [
+                $"{SourceDirectoryName}/Program.yyc",
+                $"{SourceDirectoryName}/Forms/MainForm.yyc"
+            ],
+            Forms = [$"{SourceDirectoryName}/Forms/MainForm.yyx"],
             Resources = [],
-            ResourceIdFile = YyResourceIndex.RelativePath,
+            ResourceIdFile = ResourceDirectoryName + "/" + YyResourceIndex.FileName,
             References = []
         };
         WriteManifest(fullProjectPath, manifest);
@@ -96,7 +114,7 @@ public sealed partial class YyProject
         while (Forms.Any(form => string.Equals(form.Model.Name, className, StringComparison.Ordinal)) ||
                File.Exists(Path.Combine(DirectoryPath, "Forms", className + ".yyx")));
 
-        var formsDirectory = Path.Combine(DirectoryPath, "Forms");
+        var formsDirectory = Path.Combine(DirectoryPath, SourceDirectoryName, "Forms");
         Directory.CreateDirectory(formsDirectory);
         var formPath = Path.Combine(formsDirectory, className + ".yyx");
         var codePath = Path.Combine(formsDirectory, className + ".yyc");
@@ -139,10 +157,14 @@ public sealed partial class YyProject
         string path;
         do
         {
-            path = Path.Combine(DirectoryPath, $"Source{sequence++}.yyc");
+            path = Path.Combine(
+                DirectoryPath,
+                SourceDirectoryName,
+                $"Source{sequence++}.yyc");
         }
         while (File.Exists(path));
 
+        Directory.CreateDirectory(Path.Combine(DirectoryPath, SourceDirectoryName));
         WriteStructuredSource(
             path,
             $"""
@@ -157,12 +179,13 @@ public sealed partial class YyProject
     }
 
 
-    private static string CreateEntryTemplate(string projectName) =>
+    private static string CreateEntryTemplate(string projectName, string packageName) =>
         $"""
         .版本 1
         .程序集 {projectName}
 
-        ' 项目入口。窗体代码位于 Forms 目录。
+        ' 项目包：{packageName}
+        ' 项目入口。窗体代码位于 Sources/Forms 目录。
         输出("{projectName} 已启动。")
         """;
 

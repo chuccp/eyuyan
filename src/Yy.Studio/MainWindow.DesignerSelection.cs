@@ -134,7 +134,6 @@ public partial class MainWindow : Window
         }
 
         RenderDesignerForm();
-        UpdateDesignerHistoryButtons();
         UpdateDesignerTitleChrome();
         DesignerChanged();
         SetStatus(toFront ? "已置前" : "已置后", ReadyBrush);
@@ -362,13 +361,8 @@ public partial class MainWindow : Window
 
         target.LastDesignerSnapshot = snapshot;
         target.Text = snapshot;
-        UpdateDesignerHistoryButtons();
         UpdateDocumentIdentity();
     }
-
-    private void OnDesignerUndoClick(object sender, RoutedEventArgs e) => UndoDesigner();
-
-    private void OnDesignerRedoClick(object sender, RoutedEventArgs e) => RedoDesigner();
 
     private void OnWindowPreviewKeyDown(object sender, KeyEventArgs e)
     {
@@ -506,14 +500,7 @@ public partial class MainWindow : Window
             SelectDesignerControl(selected);
         }
 
-        UpdateDesignerHistoryButtons();
         UpdateDocumentIdentity();
-    }
-
-    private void UpdateDesignerHistoryButtons()
-    {
-        DesignerUndoButton.IsEnabled = _currentDocument?.DesignerUndo.Count > 0;
-        DesignerRedoButton.IsEnabled = _currentDocument?.DesignerRedo.Count > 0;
     }
 
 }

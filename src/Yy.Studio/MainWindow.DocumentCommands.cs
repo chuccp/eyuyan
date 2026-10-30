@@ -88,36 +88,20 @@ public partial class MainWindow : Window
 
     private void OnNewProject(object sender, ExecutedRoutedEventArgs e)
     {
-        var dialog = new SaveFileDialog
-        {
-            Title = "选择新项目的位置和名称",
-            Filter = "易语项目 (*.yyproj)|*.yyproj",
-            DefaultExt = ".yyproj",
-            AddExtension = true,
-            FileName = "新建易语项目.yyproj",
-            InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
-        };
-        if (dialog.ShowDialog(this) != true)
+        var dialog = new NewProjectDialog { Owner = this };
+        if (dialog.ShowDialog() != true)
         {
             return;
         }
 
-        if (File.Exists(dialog.FileName))
-        {
-            MessageBox.Show(
-                "项目文件已经存在。请使用“打开文件夹”打开已有项目。",
-                "新建项目",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-            return;
-        }
-
-        var projectName = Path.GetFileNameWithoutExtension(dialog.FileName);
         try
         {
-            var project = YyProject.CreateProject(dialog.FileName, projectName);
+            var project = YyProject.CreateProject(
+                dialog.ProjectPath,
+                dialog.ProjectName,
+                dialog.PackageName);
             OpenWorkspace(project.DirectoryPath);
-            SetStatus($"已创建项目：{project.Name}", ReadyBrush);
+            SetStatus($"已创建项目：{project.Name} · 包 {project.PackageName}", ReadyBrush);
         }
         catch (Exception exception) when (
             exception is IOException or UnauthorizedAccessException or ArgumentException)

@@ -89,6 +89,48 @@ internal static class ModuleLoader
                         sourceName: modulePath);
                 }
 
+                var namedPackage = ProjectPackageResolver.Resolve(rawPath, modulePath);
+                if (namedPackage.IsPackageImport)
+                {
+                    if (namedPackage.Directory is null)
+                    {
+                        throw new YyDiagnostic(
+                            namedPackage.Error ?? $"找不到包“{rawPath}”。",
+                            import.Line,
+                            import.Column,
+                            "命名导入格式为“项目包名.源码子目录”，例如 引入 \"demo.tools\"。",
+                            modulePath);
+                    }
+
+                    var packageFiles = Directory
+                        .EnumerateFiles(
+                            namedPackage.Directory,
+                            "*.yyc",
+                            SearchOption.TopDirectoryOnly)
+                        .Where(path =>
+                            !Path.GetFileName(path).EndsWith(
+                                ".Designer.yyc",
+                                StringComparison.OrdinalIgnoreCase))
+                        .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                        .ToArray();
+                    if (packageFiles.Length == 0)
+                    {
+                        throw new YyDiagnostic(
+                            $"包“{rawPath}”没有可编译的 .yyc 文件。",
+                            import.Line,
+                            import.Column,
+                            $"目录：{namedPackage.Directory}",
+                            modulePath);
+                    }
+
+                    foreach (var packageFile in packageFiles)
+                    {
+                        LoadModuleFile(packageFile, import, modulePath);
+                    }
+
+                    continue;
+                }
+
                 var importPath = Path.IsPathRooted(rawPath)
                     ? rawPath
                     : Path.Combine(baseDirectory, rawPath);
@@ -97,69 +139,77 @@ internal static class ModuleLoader
                     importPath += ".yyc";
                 }
 
-                importPath = Path.GetFullPath(importPath);
-                if (!string.Equals(Path.GetExtension(importPath), ".yyc", StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new YyDiagnostic(
-                        "模块必须使用 .yyc 结构化代码格式",
-                        import.Line,
-                        import.Column,
-                        $"旧版源码格式已不再支持：{importPath}",
-                        modulePath);
-                }
-
-                if (!File.Exists(importPath))
-                {
-                    throw new YyDiagnostic(
-                        $"找不到模块“{rawPath}”",
-                        import.Line,
-                        import.Column,
-                        $"解析后的路径：{importPath}",
-                        modulePath);
-                }
-
-                if (loaded.Contains(importPath))
-                {
-                    continue;
-                }
-
-                if (loading.Contains(importPath))
-                {
-                    throw new YyDiagnostic(
-                        $"检测到循环模块引用：{Path.GetFileName(importPath)}",
-                        import.Line,
-                        import.Column,
-                        "请移除文件之间的循环“引入”。",
-                        modulePath);
-                }
-
-                if (!parsed.TryGetValue(importPath, out var imported))
-                {
-                    string importedSource;
-                    try
-                    {
-                        importedSource = ReadSource(importPath, new UTF8Encoding(false, true));
-                    }
-                    catch (DecoderFallbackException)
-                    {
-                        throw new YyDiagnostic(
-                            "模块不是有效的 UTF-8 文本",
-                            import.Line,
-                            import.Column,
-                            "请先将模块转换为 UTF-8。",
-                            modulePath);
-                    }
-
-                    imported = new Parser(importedSource, importPath).Parse();
-                    parsed[importPath] = imported;
-                }
-
-                loading.Add(importPath);
-                IncludeImports(imported, importPath);
-                loaded.Add(importPath);
-                loading.Remove(importPath);
-                AddFunctions(imported.Functions, importPath);
+                LoadModuleFile(importPath, import, modulePath);
             }
+        }
+
+        void LoadModuleFile(
+            string candidatePath,
+            ImportDeclaration import,
+            string importingModule)
+        {
+            var importPath = Path.GetFullPath(candidatePath);
+            if (!string.Equals(Path.GetExtension(importPath), ".yyc", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new YyDiagnostic(
+                    "模块必须使用 .yyc 结构化代码格式",
+                    import.Line,
+                    import.Column,
+                    $"旧版源码格式已不再支持：{importPath}",
+                    importingModule);
+            }
+
+            if (!File.Exists(importPath))
+            {
+                throw new YyDiagnostic(
+                    $"找不到模块“{import.Path}”",
+                    import.Line,
+                    import.Column,
+                    $"解析后的路径：{importPath}",
+                    importingModule);
+            }
+
+            if (loaded.Contains(importPath))
+            {
+                return;
+            }
+
+            if (loading.Contains(importPath))
+            {
+                throw new YyDiagnostic(
+                    $"检测到循环模块引用：{Path.GetFileName(importPath)}",
+                    import.Line,
+                    import.Column,
+                    "请移除文件之间的循环“引入”。",
+                    importingModule);
+            }
+
+            if (!parsed.TryGetValue(importPath, out var imported))
+            {
+                string importedSource;
+                try
+                {
+                    importedSource = ReadSource(importPath, new UTF8Encoding(false, true));
+                }
+                catch (DecoderFallbackException)
+                {
+                    throw new YyDiagnostic(
+                        "模块不是有效的 UTF-8 文本",
+                        import.Line,
+                        import.Column,
+                        "请先将模块转换为 UTF-8。",
+                        importingModule);
+                }
+
+                imported = new Parser(importedSource, importPath).Parse();
+                parsed[importPath] = imported;
+            }
+
+            loading.Add(importPath);
+            IncludeImports(imported, importPath);
+            loaded.Add(importPath);
+            loading.Remove(importPath);
+            AddFunctions(imported.Functions, importPath);
         }
 
         void IncludePackages(YyProgram program)

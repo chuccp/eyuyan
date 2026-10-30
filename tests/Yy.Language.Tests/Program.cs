@@ -16,6 +16,7 @@ var tests = new List<(string Name, Action Test)>
     ("入门示例工程", TestBeginnerExample),
     ("现代特性示例工程", TestModernExample),
     ("跨文件模块导入", TestModuleImport),
+    ("源码目录包导入", TestProjectPackageImport),
     ("系统包导入", TestPackageImport),
     ("类型标注与赋值检查", TestTypedVariables),
     ("参数返回值类型检查", TestTypedFunctions),
@@ -195,29 +196,109 @@ static void TestJson()
 
 static void TestBeginnerExample()
 {
-    var result = RunFile(Path.Combine(Directory.GetCurrentDirectory(), "examples", "入门.yyc"));
+    var result = RunFile(Path.Combine(
+        Directory.GetCurrentDirectory(),
+        "examples",
+        "Sources",
+        "入门.yyc"));
     True(result.Contains("平均分：91.5", StringComparison.Ordinal), "入门示例的平均分不正确。");
 }
 
 static void TestModernExample()
 {
-    var result = RunFile(Path.Combine(Directory.GetCurrentDirectory(), "examples", "现代特性.yyc"));
+    var result = RunFile(Path.Combine(
+        Directory.GetCurrentDirectory(),
+        "examples",
+        "Sources",
+        "现代特性.yyc"));
     True(result.Contains("异常保护捕获", StringComparison.Ordinal), "现代特性示例未捕获异常。");
     True(result.Contains("[1, 4, 9, 16, 25, 36, 49, 64]", StringComparison.Ordinal), "平方数结果不正确。");
 }
 
 static void TestModuleImport()
 {
-    var path = Path.Combine(Directory.GetCurrentDirectory(), "examples", "模块", "主程序.yyc");
+    var path = Path.Combine(
+        Directory.GetCurrentDirectory(),
+        "examples",
+        "Sources",
+        "入口",
+        "主程序.yyc");
     var result = RunFile(path);
     True(result.Contains("欢迎，易语开发者！", StringComparison.Ordinal), "模块函数结果不正确。");
     True(result.Contains("折后价格：115.2", StringComparison.Ordinal), "模块默认参数结果不正确。");
+}
+
+static void TestProjectPackageImport()
+{
+    var root = Path.Combine(
+        Path.GetTempPath(),
+        "yy-package-folder-" + Guid.NewGuid().ToString("N"));
+    var toolsDirectory = Path.Combine(root, "Sources", "tools");
+    Directory.CreateDirectory(toolsDirectory);
+    try
+    {
+        File.WriteAllText(
+            Path.Combine(root, "PackageFolder.yyproj"),
+            """
+            {
+              "格式版本": 1,
+              "名称": "PackageFolder",
+              "包名": "demo.app",
+              "源码目录": "Sources",
+              "资源目录": "Resources",
+              "入口": "Sources/Program.yyc"
+            }
+            """);
+        File.WriteAllText(
+            Path.Combine(toolsDirectory, "问候.yyc"),
+            YyCodeSerializer.Serialize(YyCodeDocumentConverter.FromSource(
+                """
+                .版本 1
+                .程序集 tools.问候
+                子程序 取问候(): 文本
+                    返回 "来自目录包"
+                结束子程序
+                """)));
+        File.WriteAllText(
+            Path.Combine(toolsDirectory, "计算.yyc"),
+            YyCodeSerializer.Serialize(YyCodeDocumentConverter.FromSource(
+                """
+                .版本 1
+                .程序集 tools.计算
+                子程序 取结果(): 数字
+                    返回 42
+                结束子程序
+                """)));
+        var entryPath = Path.Combine(root, "Sources", "Program.yyc");
+        File.WriteAllText(
+            entryPath,
+            YyCodeSerializer.Serialize(YyCodeDocumentConverter.FromSource(
+                """
+                .版本 1
+                .程序集 PackageFolder
+                引入 "demo.app.tools"
+                输出(取问候() + "：" + 取结果())
+                """,
+                entryPath)));
+
+        var result = RunFile(entryPath);
+        True(
+            result.Contains("来自目录包：42", StringComparison.Ordinal),
+            "源码目录包没有加载目录中的全部模块。");
+    }
+    finally
+    {
+        Directory.Delete(root, recursive: true);
+    }
 }
 
 static void TestPackageImport()
 {
     Equal(1, Yy.Sdk.YySdk.Version);
     Equal(4, Yy.Sdk.YySdk.Packages.Count);
+    True(Yy.Sdk.YySdk.IsPackageName("demo.app"), "点分隔包名应有效。");
+    True(!Yy.Sdk.YySdk.IsPackageName("demo..app"), "空包路径段应被拒绝。");
+    True(!Yy.Sdk.YySdk.IsPackageName("1demo"), "数字开头的包名应被拒绝。");
     True(
         Yy.Sdk.YySdk.Packages.All(package => package.Members.Count > 0),
         "每个系统 SDK 包都应声明成员。");

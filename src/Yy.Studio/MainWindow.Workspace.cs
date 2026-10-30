@@ -662,7 +662,6 @@ public partial class MainWindow : Window
             RestoreInspectorColumn();
             PropertyRows.Visibility = Visibility.Visible;
             RenderDesignerForm();
-            UpdateDesignerHistoryButtons();
             UpdateDesignerTitleChrome();
             SetStatus($"窗体设计：{_designForm.Title}", ReadyBrush);
         }

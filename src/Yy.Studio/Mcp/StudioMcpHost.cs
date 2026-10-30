@@ -101,7 +101,8 @@ public partial class MainWindow
             case "create_project":
                 return McpCreateProject(
                     ArgOr("path", string.Empty),
-                    ArgOr("name", string.Empty));
+                    ArgOr("name", string.Empty),
+                    ArgOr("package", string.Empty));
             case "open_file":
                 OpenDocument(Path.GetFullPath(ArgOr("path", string.Empty)));
                 return McpState();
@@ -384,17 +385,20 @@ public partial class MainWindow
         return new { name = control.Name };
     }
 
-    private object McpCreateProject(string path, string name)
+    private object McpCreateProject(string path, string name, string package)
     {
-        if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrWhiteSpace(path) ||
+            string.IsNullOrWhiteSpace(name) ||
+            string.IsNullOrWhiteSpace(package))
         {
-            throw new InvalidOperationException("create_project 需要 path 和 name。");
+            throw new InvalidOperationException("create_project 需要 path、name 和 package。");
         }
 
         var directory = Path.GetFullPath(path);
         var project = YyProject.CreateProject(
             Path.Combine(directory, name + ".yyproj"),
-            name);
+            name,
+            package);
         OpenWorkspace(project.DirectoryPath);
         return McpState();
     }

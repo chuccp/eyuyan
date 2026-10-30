@@ -9,11 +9,14 @@
 ```text
 DemoProject/
 ├─ DemoProject.yyproj
-├─ Program.yyc
-├─ Forms/
-│  ├─ MainForm.yyx
-│  ├─ MainForm.Designer.yyc
-│  └─ MainForm.yyc
+├─ Sources/
+│  ├─ Program.yyc
+│  ├─ Forms/
+│  │  ├─ MainForm.yyx
+│  │  ├─ MainForm.Designer.yyc
+│  │  └─ MainForm.yyc
+│  └─ 工具/
+│     └─ 文本.yyc
 └─ Resources/
    ├─ ids.xml
    ├─ images/
@@ -21,14 +24,14 @@ DemoProject/
    └─ files/
 ```
 
-- `Program.yyc`：项目入口。
-- `MainForm.yyx`：界面与视觉属性。
-- `MainForm.Designer.yyc`：自动生成的纯代码关系，不手工编辑，不使用 XML。
-- `MainForm.yyc`：事件入口与用户业务逻辑。
+- `Sources/Program.yyc`：项目入口。
+- `Sources/Forms/MainForm.yyx`：界面与视觉属性。
+- `Sources/Forms/MainForm.Designer.yyc`：自动生成的纯代码关系，不手工编辑。
+- `Sources/Forms/MainForm.yyc`：事件入口与用户业务逻辑。
 - `Resources/ids.xml`：自动生成的窗体、控件和资源标识索引。
 - `Resources/images`、`sounds`、`files`：按类型保存工程资源。
 
-纯代码工程可以只有 `.yyproj` 和 `.yyc` 文件，不要求任何窗体。
+纯代码工程可以没有窗体，但源码仍必须位于 `Sources/`。资源目录和资源标识文件始终存在。
 
 ## `.yyproj` 工程清单
 
@@ -36,15 +39,18 @@ DemoProject/
 {
   "格式版本": 1,
   "名称": "DemoProject",
-  "入口": "Program.yyc",
+  "包名": "demo.app",
+  "源码目录": "Sources",
+  "资源目录": "Resources",
+  "入口": "Sources/Program.yyc",
   "输出": "DemoProject.exe",
   "启动窗体": "MainForm",
   "源码": [
-    "Program.yyc",
-    "Forms/MainForm.yyc"
+    "Sources/Program.yyc",
+    "Sources/Forms/MainForm.yyc"
   ],
   "窗体": [
-    "Forms/MainForm.yyx"
+    "Sources/Forms/MainForm.yyx"
   ],
   "资源": [],
   "资源标识": "Resources/ids.xml",
@@ -56,6 +62,9 @@ DemoProject/
 |---|---|
 | `格式版本` | 当前工程格式，值为 `1` |
 | `名称` | 项目名称 |
+| `包名` | 项目包路径，例如 `demo.app`；源码子目录导入以此为根 |
+| `源码目录` | 固定为 `Sources` |
+| `资源目录` | 固定为 `Resources` |
 | `入口` | 启动源码，`Ctrl+F5` 运行 |
 | `输出` | 默认 EXE 文件名 |
 | `启动窗体` | 项目启动后打开的窗体名 |
@@ -65,7 +74,34 @@ DemoProject/
 | `资源标识` | 固定指向 `Resources/ids.xml` |
 | `引用` | 项目依赖文件 |
 
-所有路径必须位于项目目录内。资源文件只能放在 `Resources/`，标识文件缺失或工程结构不符合当前规则时会阻止加载。
+入口、源码和窗体必须位于 `Sources/`；资源文件只能放在 `Resources/`。标识文件缺失或目录边界不符合当前规则时会阻止加载。
+
+## 源码目录包
+
+在 `Sources/` 下新建目录即可形成目录包。例如：
+
+```text
+Sources/
+└─ 工具/
+   ├─ 文本.yyc
+   └─ 数字.yyc
+```
+
+当项目包名为 `demo.app` 时，可用命名导入加载该目录中的全部非生成 `.yyc`：
+
+```text
+引入 "demo.app.工具"
+
+输出(取欢迎语())
+```
+
+规则如下：
+
+- 导入路径必须以当前工程 `包名` 开头，点号对应 `Sources/` 下的目录层级。
+- 目录包只加载当前目录的 `.yyc`，不递归加载子目录；子目录有独立包名。
+- `.Designer.yyc` 永远不会进入目录包。
+- 目录不存在、目录为空或包名不属于当前项目时会阻止编译并给出预期路径。
+- 仍可用 `引入 "工具/文本.yyc"` 精确导入单个文件。
 
 ## 资源标识
 
@@ -81,7 +117,7 @@ DemoProject/
 
 ```xml
 <yy:资源标识 xmlns:yy="urn:yy-studio:resource-ids:1" 格式版本="1">
-  <yy:界面 名称="主窗口" 标识="@id/主窗口" 文件="Forms/MainForm.yyx">
+<yy:界面 名称="主窗口" 标识="@id/主窗口" 文件="Sources/Forms/MainForm.yyx">
     <yy:控件 名称="保存按钮" 类型="按钮" 标识="@id/主窗口/保存按钮" />
   </yy:界面>
   <yy:资源 名称="客户图标" 类型="图片"
@@ -94,12 +130,12 @@ DemoProject/
 
 ## 窗体三件套校验
 
-项目加载时，对每个 `Forms/MainForm.yyx` 自动检查：
+项目加载时，对每个 `Sources/Forms/MainForm.yyx` 自动检查：
 
-1. `Forms/MainForm.Designer.yyc` 存在；
+1. `Sources/Forms/MainForm.Designer.yyc` 存在；
 2. 关系代码包含 `.版本 1` 和唯一的 `界面(...)` 声明；
 3. 界面文件名、用户代码文件名和关系声明一致；
-4. `Forms/MainForm.yyc` 存在；
+4. `Sources/Forms/MainForm.yyc` 存在；
 5. 关系代码声明的控件和事件标识在界面中真实存在且类型一致；
 6. 用户代码文件出现在源码列表中。
 

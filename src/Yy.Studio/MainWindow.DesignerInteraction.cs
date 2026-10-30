@@ -398,7 +398,7 @@ public partial class MainWindow : Window
     }
 
     private double Snap(double value) =>
-        SnapCheckBox.IsChecked == true ? Math.Round(value / 8) * 8 : value;
+        Configuration.Designer.SnapGrid ? Math.Round(value / 8) * 8 : value;
 
     private static double Clamp(double value, double minimum, double maximum) =>
         Math.Max(minimum, Math.Min(maximum, value));

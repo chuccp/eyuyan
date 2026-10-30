@@ -34,43 +34,6 @@
                             UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
     <Window.Resources>
-        <!-- 图标工具按钮(对齐官方 26x24 小按钮 + 字形图标) -->
-        <Style x:Key="IconButton" TargetType="Button">
-            <Setter Property="Width" Value="26" />
-            <Setter Property="Height" Value="24" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="1" />
-            <Setter Property="FontFamily" Value="Segoe MDL2 Assets, Segoe UI Symbol" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="2">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#FFE8F0FE" />
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="#FF99BBDD" />
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#FFCCDDF0" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.4" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
         <Style x:Key="CaptionButton" TargetType="Button">
             <Setter Property="Width" Value="46" />
             <Setter Property="Height" Value="38" />
@@ -260,14 +223,8 @@
             </MenuItem>
 
             <MenuItem Header="_V查看" Style="{StaticResource TopMenuItem}">
-                <MenuItem Header="工具条">
-                    <MenuItem x:Name="ToggleStandardToolbarMenuItem" Header="标准工具条"
-                              IsCheckable="True" IsChecked="True" Click="OnToggleStandardToolbar" />
-                    <MenuItem x:Name="ToggleAlignToolbarMenuItem" Header="对齐条"
-                              IsCheckable="True" IsChecked="True" Click="OnToggleAlignToolbar" />
-                    <MenuItem x:Name="ToggleStatusBarMenuItem" Header="状态条"
-                              IsCheckable="True" IsChecked="True" Click="OnToggleStatusBar" />
-                </MenuItem>
+                <MenuItem x:Name="ToggleStatusBarMenuItem" Header="状态条"
+                          IsCheckable="True" IsChecked="True" Click="OnToggleStatusBar" />
                 <Separator />
                 <MenuItem Header="工作夹" InputGestureText="Alt+1" Click="OnShowWorkTab" Tag="程序" />
                 <MenuItem Header="命令夹" InputGestureText="Alt+2" Click="OnShowWorkTab" Tag="支持库" />
@@ -435,101 +392,6 @@
                     </Button>
                 </StackPanel>
             </Grid>
-        </Border>
-
-        <!-- ================= 标准工具条(图标按钮,对齐官方) ================= -->
-        <Border x:Name="StandardToolbarRow"
-                DockPanel.Dock="Top"
-                Height="30"
-                Style="{StaticResource ClassicToolbar}"
-                BorderBrush="{StaticResource BorderBrush}"
-                BorderThickness="0,0,0,1">
-            <StackPanel Orientation="Horizontal" Margin="2,1">
-                <Button x:Name="NewProjectButton"
-                        Style="{StaticResource IconButton}" Content="&#xE710;"
-                        ToolTip="新建项目 (Ctrl+Alt+N)"
-                        Command="{x:Static local:MainWindow.NewProjectCommand}"
-                        xmlns:local="clr-namespace:Yy.Studio" />
-                <Button x:Name="OpenFileButton"
-                        Style="{StaticResource IconButton}" Content="&#xE838;"
-                        ToolTip="打开文件 (Ctrl+O)"
-                        Command="{x:Static local:MainWindow.OpenFileCommand}"
-                        xmlns:local="clr-namespace:Yy.Studio" />
-                <Button x:Name="SaveFileButton"
-                        Style="{StaticResource IconButton}" Content="&#xE74E;"
-                        ToolTip="保存 (Ctrl+S)"
-                        Command="{x:Static local:MainWindow.SaveFileCommand}"
-                        xmlns:local="clr-namespace:Yy.Studio" />
-                <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="3,3" />
-                <Button Style="{StaticResource IconButton}" Content="&#xE8C6;"
-                        ToolTip="剪切 (Ctrl+X)" Command="ApplicationCommands.Cut" />
-                <Button Style="{StaticResource IconButton}" Content="&#xE8C8;"
-                        ToolTip="复制 (Ctrl+C)" Command="ApplicationCommands.Copy" />
-                <Button Style="{StaticResource IconButton}" Content="&#xE77F;"
-                        ToolTip="粘贴 (Ctrl+V)" Command="ApplicationCommands.Paste" />
-                <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="3,3" />
-                <Button x:Name="DesignerUndoButton"
-                        Style="{StaticResource IconButton}" Content="&#xE7A7;"
-                        ToolTip="撤销 (Ctrl+Z)"
-                        IsEnabled="False"
-                        Click="OnDesignerUndoClick" />
-                <Button x:Name="DesignerRedoButton"
-                        Style="{StaticResource IconButton}" Content="&#xE7A6;"
-                        ToolTip="重做 (Ctrl+Y)"
-                        IsEnabled="False"
-                        Click="OnDesignerRedoClick" />
-                <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="3,3" />
-                <Button x:Name="RunButton" Style="{StaticResource IconButton}" Content="&#xE768;"
-                        ToolTip="运行 (F5)"
-                        Command="{x:Static local:MainWindow.RunCommand}"
-                        xmlns:local="clr-namespace:Yy.Studio" />
-                <Button x:Name="StopButton" Style="{StaticResource IconButton}" Content="&#xE71A;"
-                        ToolTip="终止运行 (Shift+F5)"
-                        IsEnabled="False"
-                        Command="{x:Static local:MainWindow.StopCommand}"
-                        xmlns:local="clr-namespace:Yy.Studio" />
-                <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="3,3" />
-                <Button x:Name="CompileProjectButton"
-                        Style="{StaticResource IconButton}" Content="&#x2699;"
-                        ToolTip="编译 (F7)"
-                        Command="{x:Static local:MainWindow.CompileProjectCommand}"
-                        xmlns:local="clr-namespace:Yy.Studio" />
-            </StackPanel>
-        </Border>
-
-        <!-- ================= 对齐条 ================= -->
-        <Border x:Name="AlignToolbarRow"
-                DockPanel.Dock="Top"
-                Height="28"
-                Style="{StaticResource ClassicToolbar}"
-                BorderBrush="{StaticResource BorderBrush}"
-                BorderThickness="0,0,0,1">
-            <StackPanel Orientation="Horizontal" Margin="2,1">
-                <Button Style="{StaticResource IconButton}" Content="&#x21E4;" Tag="Left"
-                        ToolTip="左对齐" Click="OnAlignDesignerControls" />
-                <Button Style="{StaticResource IconButton}" Content="&#x21E5;" Tag="Right"
-                        ToolTip="右对齐" Click="OnAlignDesignerControls" />
-                <Button Style="{StaticResource IconButton}" Content="&#x2912;" Tag="Top"
-                        ToolTip="顶对齐" Click="OnAlignDesignerControls" />
-                <Button Style="{StaticResource IconButton}" Content="&#x2913;" Tag="Bottom"
-                        ToolTip="底对齐" Click="OnAlignDesignerControls" />
-                <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="3,3" />
-                <Button Style="{StaticResource IconButton}" Content="&#x21D4;" Tag="CenterX"
-                        ToolTip="水平居中对齐" Click="OnAlignDesignerControls" />
-                <Button Style="{StaticResource IconButton}" Content="&#x21D5;" Tag="CenterY"
-                        ToolTip="垂直居中对齐" Click="OnAlignDesignerControls" />
-                <Button Style="{StaticResource IconButton}" Content="&#x21FF;" Tag="DistributeX"
-                        ToolTip="水平等距分布" Click="OnAlignDesignerControls" />
-                <Button Style="{StaticResource IconButton}" Content="&#x2195;" Tag="DistributeY"
-                        ToolTip="垂直等距分布" Click="OnAlignDesignerControls" />
-                <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="3,3" />
-                <CheckBox x:Name="SnapCheckBox"
-                          Content="吸附网格"
-                          IsChecked="True"
-                          Foreground="{StaticResource TextBrush}"
-                          FontSize="11"
-                          VerticalAlignment="Center" />
-            </StackPanel>
         </Border>
 
         <!-- ================= 提示、输入出组合夹(全宽,夹标签在顶) ================= -->

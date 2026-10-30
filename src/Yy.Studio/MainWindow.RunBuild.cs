@@ -461,8 +461,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        CompileProjectButton.IsEnabled = false;
-        CompileProjectButton.Content = "编译中…";
         SetStatus("正在编译项目…", WarningBrush);
         var progress = new Progress<string>(message => SetStatus(message, WarningBrush));
         try
@@ -495,8 +493,6 @@ public partial class MainWindow : Window
         }
         finally
         {
-            CompileProjectButton.Content = "编译 EXE";
-            CompileProjectButton.IsEnabled = true;
         }
     }
 

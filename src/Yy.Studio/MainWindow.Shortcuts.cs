@@ -122,12 +122,6 @@ public partial class MainWindow
             }
         }
 
-        NewProjectButton.ToolTip = "新建项目 (" + DisplayGestures(StudioShortcutActions.NewProject) + ")";
-        OpenFileButton.ToolTip = "打开文件 (" + DisplayGestures(StudioShortcutActions.OpenFile) + ")";
-        SaveFileButton.ToolTip = "保存 (" + DisplayGestures(StudioShortcutActions.SaveFile) + ")";
-        RunButton.ToolTip = "运行 (" + DisplayGestures(StudioShortcutActions.Run) + ")";
-        StopButton.ToolTip = "终止运行 (" + DisplayGestures(StudioShortcutActions.Stop) + ")";
-        CompileProjectButton.ToolTip = "编译 (" + DisplayGestures(StudioShortcutActions.Compile) + ")";
     }
 
     private static IEnumerable<MenuItem> EnumerateMenuItems(ItemCollection items)

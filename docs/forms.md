@@ -5,9 +5,9 @@
 可视化界面固定由三个文件组成：
 
 ```text
-MainForm.yyx              界面 XML
-MainForm.Designer.yyc     自动生成的事件关系
-MainForm.yyc              用户代码与事件逻辑
+Sources/Forms/MainForm.yyx              界面 XML
+Sources/Forms/MainForm.Designer.yyc     自动生成的事件关系
+Sources/Forms/MainForm.yyc              用户代码与事件逻辑
 ```
 
 文件必须同目录、同主名。完整职责和保存流程见 [三文件界面架构](architecture.md)。
@@ -23,7 +23,7 @@ MainForm.yyc              用户代码与事件逻辑
 7. 在用户代码中填写逻辑。按 `F5` 或 `Ctrl+Enter` 预览真实 Windows 窗口。
 8. `Ctrl+S` 保存界面时自动补齐并重写 `.Designer.yyc`。
 
-设计画布默认吸附 8 像素网格，可在对齐条关闭。工作区采用现代浅色 IDE 外壳，同时保留易语言式的紧凑属性表、点阵画布、组件箱和程序数据树。
+设计画布默认吸附 8 像素网格，可在系统配置中关闭。工作区采用现代浅色 IDE 外壳，同时保留易语言式的紧凑属性表、点阵画布、组件箱和程序数据树。
 
 ## `窗体.yyx`
 

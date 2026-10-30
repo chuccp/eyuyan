@@ -20,7 +20,7 @@
 | `state` | 读取文档、窗体 XML、控件、资源、预览和运行状态 |
 | `screenshot` | 离屏截取 IDE 主窗口或预览窗口为 PNG |
 | `new_program` | 新建易语窗口程序(程序→新建→确定) |
-| `create_project` | 从空目录创建完整工程并打开启动窗体 |
+| `create_project` | 从父目录创建 `path/name` 工程；必须提供 `path`、`name`、`package` |
 | `open_file` | 打开 .yyx/.yyc |
 | `save_program` | 保存窗体三件套(path 形如 X:/目录/名.yyx) |
 | `add_resource` | 复制图片/声音/文件到 `Resources` 并登记资源标识 |
@@ -40,6 +40,14 @@
 {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"add_control","arguments":{"type":"按钮","x":608,"y":56,"name":"上一张按钮","text":"上一张","width":128,"height":44}}}
 ```
 
+创建项目示例：
+
+```json
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"create_project","arguments":{"path":"C:/Users/cao/Documents","name":"MyApp","package":"demo.myapp"}}}
+```
+
+生成 `Sources/`、`Sources/Forms/`、`Resources/`，源码目录包可通过 `引入 "demo.myapp.工具"` 导入。
+
 `set_subprogram` 的 body 为易语语句行(`\n` 分行),支持 变量/如果/否则/结束如果/赋值/调用 等,
 由 IDE 自己的解析器转换为结构化模型,与代码编辑器同源。
 
@@ -50,5 +58,5 @@
 事件命名对齐官方(`__启动窗口_创建完毕`、`_上一张按钮_被单击`)。
 
 `examples/MCP资源演示/` 也是通过 MCP 从空白工程创建：两个图片资源导入
-`Resources/images`，窗体标题栏和图片框使用 `@资源/图片/...` 标识，
+`Resources/images`，源码位于 `Sources/`，窗体标题栏和图片框使用 `@资源/图片/...` 标识，
 按钮事件由 `set_subprogram` 写入并完成预览交互。

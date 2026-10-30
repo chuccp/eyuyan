@@ -41,6 +41,8 @@
 - 中文标识符、函数、递归、默认参数、类型标注、数组、对象和异常处理。
 - AST 解析器、解释执行器、C# 代码生成器和跨文件诊断。
 - `.yyproj` 项目管理、模块引入、资源表、常量表和数据表。
+- 新建项目必须填写项目名和包名，源码固定在 `Sources/`，资源固定在 `Resources/`。
+- 源码子目录可按 `引入 "项目包名.子目录"` 作为目录包导入。
 - 可视化窗体设计、组件箱、属性夹、事件绑定和窗口预览。
 - 三文件界面模型：`.yyx` 界面、`.Designer.yyc` 自动关系、`.yyc` 用户代码。
 - 自动关系文件使用可读的易语声明代码和 `@id/...` 标识，不使用 XML 保存事件。
@@ -79,7 +81,7 @@ dotnet run --project .\src\Yy.Studio\Yy.Studio.csproj
 
 代码窗口右上角可切换“易语言代码”和“纯代码”。
 
-新建项目请按 `Ctrl+Alt+N`。项目清单和界面三文件关系分别见 [项目结构](docs/projects.md) 和 [界面架构](docs/architecture.md)。
+新建项目请按 `Ctrl+Alt+N`，填写项目名、包名和项目位置。Studio 会分别创建 `Sources/` 与 `Resources/`，项目清单和界面三文件关系分别见 [项目结构](docs/projects.md) 和 [界面架构](docs/architecture.md)。
 
 ## 命令行工具
 
@@ -116,6 +118,8 @@ yy run <工程.yyproj|目录>
 ```
 
 界面契约借鉴 Swing 的分层方式，将窗体上下文、界面元素、窗口和控件与 WPF 实现分离。当前 SDK 版本为 `1`；按包限制类型与命令、外部包和包管理器属于后续能力。完整设计见 [系统 SDK](docs/sdk.md)。
+
+系统包与项目源码目录包使用不同关键字：`导入包 "系统.界面"` 引入 SDK，`引入 "demo.tools"` 引入当前项目 `Sources/tools` 目录包。
 
 ## Studio 配置
 
@@ -190,13 +194,18 @@ artifacts\samples\易语示例.exe
 
 ## 工程结构
 
-可视化界面采用三个基础文件：
+新建项目的固定结构如下：
 
 ```text
-Forms/
-├─ MainForm.yyx              界面与布局
-├─ MainForm.Designer.yyc     自动生成的纯代码关系
-└─ MainForm.yyc              用户代码
+DemoProject/
+├─ DemoProject.yyproj
+├─ Sources/
+│  ├─ Program.yyc            项目入口
+│  ├─ Forms/
+│  │  ├─ MainForm.yyx        界面与布局
+│  │  ├─ MainForm.Designer.yyc 自动生成关系
+│  │  └─ MainForm.yyc        用户代码
+│  └─ 工具/                  可通过 demo.app.工具 导入
 
 Resources/
 ├─ ids.xml                   自动生成的控件与资源标识
@@ -206,6 +215,8 @@ Resources/
 ```
 
 `Resources/ids.xml` 类似 Android 的资源关联表：窗体控件使用 `@id/窗体/控件`，资源使用 `@资源/图片/名称` 形式登记。工程清单通过 `"资源标识": "Resources/ids.xml"` 声明索引，新建项目、保存窗体和资源表时自动同步。
+
+工程清单同时记录 `"包名": "demo.app"`、`"源码目录": "Sources"` 和 `"资源目录": "Resources"`。源码、窗体和入口不能离开 `Sources/`，资源不能离开 `Resources/`。
 
 `.Designer.yyc` 使用 `界面()`、`控件()`、`绑定()` 纯代码声明，不使用 XML。用户代码通过 `取控件("@id/主窗口/保存按钮")` 获取当前界面控件。
 

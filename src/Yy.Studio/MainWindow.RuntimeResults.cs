@@ -192,8 +192,6 @@ public partial class MainWindow : Window
 
     private void SetRunningState(bool running)
     {
-        RunButton.IsEnabled = !running;
-        StopButton.IsEnabled = running;
         Editor.IsReadOnly = running;
     }
 

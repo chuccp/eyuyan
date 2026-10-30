@@ -11,6 +11,7 @@
 | `MainWindow.EditorAssistance.cs` | 编辑器配置、补全、参数提示、F1 帮助和快捷键分派 |
 | `MainWindow.Shortcuts.cs` | 从 Studio 配置创建输入绑定并刷新菜单快捷键 |
 | `MainWindow.DocumentCommands.cs` | 新建、打开、保存入口和关闭标签命令 |
+| `NewProjectDialog.cs` | 项目名、包名、项目位置及源码/资源目录预览 |
 | `MainWindow.DocumentPersistence.cs` | 文档序列化、三文件保存和关闭确认 |
 | `MainWindow.Workspace.cs` | 工作区、程序数据树、文档激活和视图切换 |
 | `MainWindow.DesignerInteraction.cs` | 窗体渲染、组件箱、拖放、移动和缩放 |
@@ -47,6 +48,7 @@
 | `src/Yy.Compiler/YyProject.Resources.cs` | 资源导入、分类复制、资源表校验和索引同步 |
 | `src/Yy.Compiler/Resources/YyResourceIndex.cs` | `ids.xml` 生成、标识解析和资源路径定位 |
 | `src/Yy.Sdk/YySdk.cs` | SDK 版本、系统包目录、界面上下文和跨 UI 技术契约 |
+| `src/Yy.Language/ProjectPackageResolver.cs` | 把 `项目包名.目录` 解析为 `Sources/` 下的目录包 |
 
 ## 编译器与命令行
 

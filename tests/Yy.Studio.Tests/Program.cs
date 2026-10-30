@@ -75,7 +75,12 @@ Run("界面 XML 与生成关系分离", () =>
 
 Run("示例窗体读取", () =>
 {
-    var path = Path.Combine(Directory.GetCurrentDirectory(), "examples", "主窗体.yyx");
+    var path = Path.Combine(
+        Directory.GetCurrentDirectory(),
+        "examples",
+        "Sources",
+        "Forms",
+        "主窗体.yyx");
     var form = YyFormSerializer.Deserialize(File.ReadAllText(path));
     var binding = YyFormBindingSerializer.Deserialize(
         File.ReadAllText(YyFormCompanionFiles.BindingPath(path)));
@@ -329,13 +334,28 @@ Run("完整项目骨架", () =>
     {
         var project = YyProject.CreateProject(
             Path.Combine(projectRoot, "DemoProject.yyproj"),
-            "DemoProject");
-        True(File.Exists(project.EntryPath), "项目入口没有创建。");
-        True(File.Exists(Path.Combine(projectRoot, "Program.yyc")), "结构化入口源码没有创建。");
-        True(File.Exists(Path.Combine(projectRoot, "Forms", "MainForm.yyx")), "窗体没有创建。");
-        True(File.Exists(Path.Combine(projectRoot, "Forms", "MainForm.yyc")), "用户代码文件没有创建。");
+            "DemoProject",
+            "demo.project");
+        Equal("demo.project", project.PackageName);
         True(
-            File.Exists(Path.Combine(projectRoot, "Forms", "MainForm.Designer.yyc")),
+            project.SourceRootPath.EndsWith("Sources", StringComparison.OrdinalIgnoreCase),
+            "项目源码根目录必须是 Sources。");
+        True(File.Exists(project.EntryPath), "项目入口没有创建。");
+        True(
+            File.Exists(Path.Combine(projectRoot, "Sources", "Program.yyc")),
+            "结构化入口源码没有创建。");
+        True(
+            File.Exists(Path.Combine(projectRoot, "Sources", "Forms", "MainForm.yyx")),
+            "窗体没有创建。");
+        True(
+            File.Exists(Path.Combine(projectRoot, "Sources", "Forms", "MainForm.yyc")),
+            "用户代码文件没有创建。");
+        True(
+            File.Exists(Path.Combine(
+                projectRoot,
+                "Sources",
+                "Forms",
+                "MainForm.Designer.yyc")),
             "自动生成的界面关系文件没有创建。");
         True(
             File.Exists(Path.Combine(projectRoot, "Resources", "ids.xml")),
@@ -355,6 +375,13 @@ Run("完整项目骨架", () =>
         True(
             manifestText.Contains("\"资源标识\": \"Resources/ids.xml\"", StringComparison.Ordinal),
             "工程清单没有声明资源标识文件。");
+        True(
+            manifestText.Contains("\"包名\": \"demo.project\"", StringComparison.Ordinal),
+            "工程清单没有保存包名。");
+        True(
+            manifestText.Contains("\"源码目录\": \"Sources\"", StringComparison.Ordinal) &&
+            manifestText.Contains("\"资源目录\": \"Resources\"", StringComparison.Ordinal),
+            "工程清单没有区分源码目录和资源目录。");
         var sourceImage = Path.Combine(temporaryRoot, "客户图标.png");
         File.WriteAllBytes(sourceImage, [1, 2, 3, 4]);
         var resource = project.AddResource(sourceImage, "图片", "客户图标");
@@ -372,7 +399,7 @@ Run("完整项目骨架", () =>
             resourceIds.Contains("@资源/图片/客户图标", StringComparison.Ordinal),
             "资源标识文件没有关联图片资源。");
         var entryDocument = YyCodeSerializer.Deserialize(
-            File.ReadAllText(Path.Combine(projectRoot, "Program.yyc")));
+            File.ReadAllText(Path.Combine(projectRoot, "Sources", "Program.yyc")));
         True(entryDocument.MainStatements.Count > 0, "结构化入口没有命令数据。");
         Equal(1, project.Forms.Count);
         Equal("_启动窗口", project.StartupForm);
@@ -381,10 +408,19 @@ Run("完整项目骨架", () =>
             "源码列表应包含用户代码文件。");
         var sourcePath = project.CreateSourceFile();
         True(File.Exists(sourcePath), "项目内新建源码失败。");
-        project.UpdateSettings("DemoProjectRenamed", "Program.yyc", "RenamedDemo", "_启动窗口");
+        True(
+            sourcePath.StartsWith(project.SourceRootPath, StringComparison.OrdinalIgnoreCase),
+            "新建源码必须位于 Sources 目录。");
+        project.UpdateSettings(
+            "DemoProjectRenamed",
+            "demo.project.renamed",
+            "Sources/Program.yyc",
+            "RenamedDemo",
+            "_启动窗口");
         var updated = YyProject.LoadForDirectory(projectRoot)
             ?? throw new Exception("项目属性保存后无法重新加载。");
         Equal("DemoProjectRenamed", updated.Name);
+        Equal("demo.project.renamed", updated.PackageName);
         Equal("RenamedDemo.exe", updated.OutputName);
         True(
             updated.SourcePaths.Contains(sourcePath, StringComparer.OrdinalIgnoreCase),
@@ -413,7 +449,8 @@ Run("数据表清单往返", () =>
     {
         var project = YyProject.CreateProject(
             Path.Combine(temporaryRoot, "Tables.yyproj"),
-            "Tables");
+            "Tables",
+            "demo.tables");
         project.Globals.Add(new YyGlobalVarEntry { Name = "计数", TypeName = "整数型", Remark = "全局计数" });
         project.Constants.Add(new YyConstantEntry { Name = "最大值", Value = "100", Remark = "上限" });
         var resourceSource = Path.Combine(temporaryRoot, "测试图片.png");
@@ -450,11 +487,12 @@ Run("纯代码工程不需要窗体", () =>
     Directory.CreateDirectory(directory);
     try
     {
+        Directory.CreateDirectory(Path.Combine(directory, "Sources"));
         var source = YyCodeSerializer.Serialize(
             YyCodeDocumentConverter.FromSource(
                 ".版本 1\n.程序集 算法\n输出(\"纯代码\")\n",
                 "Main.yyc"));
-        File.WriteAllText(Path.Combine(directory, "Main.yyc"), source);
+        File.WriteAllText(Path.Combine(directory, "Sources", "Main.yyc"), source);
         Directory.CreateDirectory(Path.Combine(directory, "Resources", "images"));
         Directory.CreateDirectory(Path.Combine(directory, "Resources", "sounds"));
         Directory.CreateDirectory(Path.Combine(directory, "Resources", "files"));
@@ -470,9 +508,12 @@ Run("纯代码工程不需要窗体", () =>
             {
               "格式版本": 1,
               "名称": "CodeOnly",
-              "入口": "Main.yyc",
+              "包名": "demo.codeonly",
+              "源码目录": "Sources",
+              "资源目录": "Resources",
+              "入口": "Sources/Main.yyc",
               "输出": "CodeOnly.exe",
-              "源码": ["Main.yyc"],
+              "源码": ["Sources/Main.yyc"],
               "窗体": [],
               "资源": [],
               "资源标识": "Resources/ids.xml",
@@ -499,8 +540,13 @@ Run("缺少自动关系文件时拒绝项目", () =>
     {
         YyProject.CreateProject(
             Path.Combine(root, "MissingBinding.yyproj"),
-            "MissingBinding");
-        File.Delete(Path.Combine(root, "Forms", "MainForm.Designer.yyc"));
+            "MissingBinding",
+            "demo.missingbinding");
+        File.Delete(Path.Combine(
+            root,
+            "Sources",
+            "Forms",
+            "MainForm.Designer.yyc"));
         try
         {
             YyProject.LoadForDirectory(root);
@@ -531,7 +577,8 @@ Run("缺少资源标识文件时拒绝项目", () =>
     {
         YyProject.CreateProject(
             Path.Combine(root, "MissingResourceIds.yyproj"),
-            "MissingResourceIds");
+            "MissingResourceIds",
+            "demo.missingresources");
         File.Delete(Path.Combine(root, "Resources", "ids.xml"));
         try
         {

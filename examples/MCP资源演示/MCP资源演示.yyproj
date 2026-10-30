@@ -1,15 +1,18 @@
 {
   "格式版本": 1,
   "名称": "MCP资源演示",
-  "入口": "Program.yyc",
+  "包名": "mcp.demo",
+  "源码目录": "Sources",
+  "资源目录": "Resources",
+  "入口": "Sources/Program.yyc",
   "输出": "MCP资源演示.exe",
   "启动窗体": "_启动窗口",
   "源码": [
-    "Program.yyc",
-    "Forms/MainForm.yyc"
+    "Sources/Program.yyc",
+    "Sources/Forms/MainForm.yyc"
   ],
   "窗体": [
-    "Forms/MainForm.yyx"
+    "Sources/Forms/MainForm.yyx"
   ],
   "资源": [
     "Resources/images/应用图标.ico",

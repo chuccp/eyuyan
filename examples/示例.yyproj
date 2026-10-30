@@ -1,11 +1,20 @@
 {
   "格式版本": 1,
   "名称": "易语示例工程",
-  "入口": "入门.yyc",
+  "包名": "易语示例",
+  "源码目录": "Sources",
+  "资源目录": "Resources",
+  "入口": "Sources/入门.yyc",
   "输出": "易语示例.exe",
   "启动窗体": "主窗口",
-  "源码": ["入门.yyc", "现代特性.yyc", "主窗体.yyc", "模块/工具.yyc", "模块/主程序.yyc"],
-  "窗体": ["主窗体.yyx"],
+  "源码": [
+    "Sources/入门.yyc",
+    "Sources/现代特性.yyc",
+    "Sources/Forms/主窗体.yyc",
+    "Sources/模块/工具.yyc",
+    "Sources/入口/主程序.yyc"
+  ],
+  "窗体": ["Sources/Forms/主窗体.yyx"],
   "资源": [
     "Resources/images/客户图标.png",
     "Resources/images/应用图标.ico"

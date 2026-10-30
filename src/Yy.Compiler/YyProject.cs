@@ -12,6 +12,8 @@ namespace Yy.Compiler;
 public sealed partial class YyProject
 {
     public const int CurrentFormatVersion = 1;
+    public const string SourceDirectoryName = "Sources";
+    public const string ResourceDirectoryName = YyResourceIndex.DirectoryName;
 
     private readonly List<string> _formPaths;
     private readonly List<string> _sourcePaths;
@@ -27,6 +29,7 @@ public sealed partial class YyProject
         string projectPath,
         int formatVersion,
         string name,
+        string packageName,
         string entryPath,
         string outputName,
         string startupForm,
@@ -44,6 +47,7 @@ public sealed partial class YyProject
         ProjectPath = projectPath;
         FormatVersion = formatVersion;
         Name = name;
+        PackageName = packageName;
         EntryPath = entryPath;
         OutputName = outputName;
         StartupForm = startupForm;
@@ -63,6 +67,9 @@ public sealed partial class YyProject
     public int FormatVersion { get; }
     public string DirectoryPath => Path.GetDirectoryName(ProjectPath) ?? string.Empty;
     public string Name { get; private set; }
+    public string PackageName { get; private set; }
+    public string SourceRootPath => Path.Combine(DirectoryPath, SourceDirectoryName);
+    public string ResourceRootPath => Path.Combine(DirectoryPath, ResourceDirectoryName);
     public string EntryPath { get; private set; }
     public string OutputName { get; private set; }
     public string StartupForm { get; private set; }
@@ -117,6 +124,30 @@ public sealed partial class YyProject
             throw new InvalidDataException("项目清单缺少“名称”。");
         }
 
+        if (!Yy.Sdk.YySdk.IsPackageName(manifest.PackageName ?? string.Empty))
+        {
+            throw new InvalidDataException(
+                "项目清单缺少有效的“包名”。包名由点分隔的标识符组成，例如 demo.app。");
+        }
+
+        if (!string.Equals(
+                manifest.SourceDirectory,
+                SourceDirectoryName,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException(
+                $"项目清单的“源码目录”必须为 {SourceDirectoryName}。");
+        }
+
+        if (!string.Equals(
+                manifest.ResourceDirectory,
+                ResourceDirectoryName,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException(
+                $"项目清单的“资源目录”必须为 {ResourceDirectoryName}。");
+        }
+
         if (string.IsNullOrWhiteSpace(manifest.Entry))
         {
             throw new InvalidDataException("项目清单缺少“入口”。");
@@ -124,18 +155,19 @@ public sealed partial class YyProject
 
         var fullProjectPath = Path.GetFullPath(projectFile);
         var baseDirectory = Path.GetDirectoryName(fullProjectPath) ?? directory;
+        var sourceRoot = Path.Combine(baseDirectory, SourceDirectoryName);
+        var resourceRoot = Path.Combine(baseDirectory, ResourceDirectoryName);
         if (!string.Equals(
                 manifest.ResourceIdFile,
-                YyResourceIndex.RelativePath,
+                ResourceDirectoryName + "/" + YyResourceIndex.FileName,
                 StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidDataException(
-                $"项目清单的“资源标识”必须指向 {YyResourceIndex.RelativePath}。");
+                $"项目清单的“资源标识”必须指向 {ResourceDirectoryName}/{YyResourceIndex.FileName}。");
         }
 
         var resourceIdsPath = Path.Combine(
-            baseDirectory,
-            YyResourceIndex.DirectoryName,
+            resourceRoot,
             YyResourceIndex.FileName);
         if (!File.Exists(resourceIdsPath))
         {
@@ -145,20 +177,30 @@ public sealed partial class YyProject
 
         var entryPath = ResolveProjectFile(baseDirectory, manifest.Entry, "项目入口");
         EnsureExtension(entryPath, ".yyc", "项目入口");
+        EnsureWithin(entryPath, sourceRoot, "项目入口");
         var sourcePaths = ResolveOptionalFiles(
             baseDirectory,
             manifest.Sources,
             ".yyc",
             "源码");
+        foreach (var sourcePath in sourcePaths)
+        {
+            EnsureWithin(sourcePath, sourceRoot, "源码");
+        }
+
         var formPaths = ResolveOptionalFiles(
             baseDirectory,
             manifest.Forms,
             ".yyx",
             "窗体");
+        foreach (var formPath in formPaths)
+        {
+            EnsureWithin(formPath, sourceRoot, "窗体");
+        }
+
         var resources = (manifest.Resources ?? [])
             .Select(path => ResolveProjectFile(baseDirectory, path, "资源"))
             .ToList();
-        var resourceRoot = Path.Combine(baseDirectory, YyResourceIndex.DirectoryName);
         foreach (var resource in resources)
         {
             if (!IsWithin(resource, resourceRoot))
@@ -256,6 +298,7 @@ public sealed partial class YyProject
             fullProjectPath,
             manifest.FormatVersion,
             manifest.Name.Trim(),
+            manifest.PackageName!.Trim(),
             entryPath,
             outputName,
             startupForm ?? string.Empty,
@@ -273,6 +316,7 @@ public sealed partial class YyProject
 
     public void UpdateSettings(
         string name,
+        string packageName,
         string entryRelativePath,
         string outputName,
         string startupForm)
@@ -280,6 +324,13 @@ public sealed partial class YyProject
         if (string.IsNullOrWhiteSpace(name))
         {
             throw new ArgumentException("项目名称不能为空。", nameof(name));
+        }
+
+        if (!Yy.Sdk.YySdk.IsPackageName(packageName))
+        {
+            throw new ArgumentException(
+                "包名必须由点分隔的中文、英文、数字或下划线标识符组成。",
+                nameof(packageName));
         }
 
         var entryPath = ResolveProjectFile(DirectoryPath, entryRelativePath, "项目入口");
@@ -302,6 +353,7 @@ public sealed partial class YyProject
         }
 
         Name = name.Trim();
+        PackageName = packageName.Trim();
         EntryPath = entryPath;
         OutputName = normalizedOutput;
         StartupForm = startupForm.Trim();
@@ -339,6 +391,9 @@ public sealed partial class YyProject
         {
             FormatVersion = CurrentFormatVersion,
             Name = Name,
+            PackageName = PackageName,
+            SourceDirectory = SourceDirectoryName,
+            ResourceDirectory = ResourceDirectoryName,
             Entry = ToRelativePath(EntryPath, DirectoryPath),
             Output = OutputName,
             StartupForm = StartupForm,
@@ -347,7 +402,7 @@ public sealed partial class YyProject
             Resources = indexedResources
                 .Select(path => ToRelativePath(path, DirectoryPath))
                 .ToList(),
-            ResourceIdFile = YyResourceIndex.RelativePath,
+            ResourceIdFile = ResourceDirectoryName + "/" + YyResourceIndex.FileName,
             References = _references.Select(path => ToRelativePath(path, DirectoryPath)).ToList(),
             Globals = _globals.Count > 0 ? _globals : null,
             Constants = _constants.Count > 0 ? _constants : null,
@@ -436,6 +491,15 @@ public sealed partial class YyProject
         return Path.GetFullPath(path).StartsWith(root, StringComparison.OrdinalIgnoreCase);
     }
 
+    private static void EnsureWithin(string path, string directory, string description)
+    {
+        if (!IsWithin(path, directory))
+        {
+            throw new InvalidDataException(
+                $"{description}必须位于 {Path.GetFileName(directory)} 目录：{path}");
+        }
+    }
+
     private static void AddRelativePath(List<string> paths, string path, string baseDirectory)
     {
         var fullPath = Path.GetFullPath(path);
@@ -467,6 +531,15 @@ public sealed partial class YyProject
 
         [JsonPropertyName("名称")]
         public string Name { get; init; } = string.Empty;
+
+        [JsonPropertyName("包名")]
+        public string? PackageName { get; init; }
+
+        [JsonPropertyName("源码目录")]
+        public string? SourceDirectory { get; init; }
+
+        [JsonPropertyName("资源目录")]
+        public string? ResourceDirectory { get; init; }
 
         [JsonPropertyName("入口")]
         public string Entry { get; init; } = string.Empty;
