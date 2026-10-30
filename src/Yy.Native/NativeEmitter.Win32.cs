@@ -31,7 +31,7 @@ internal sealed partial class NativeEmitter
                      "RegisterClassExW", "CreateWindowExW",
                      "ShowWindow", "UpdateWindow", "GetMessageW", "TranslateMessage",
                      "DispatchMessageW", "DefWindowProcW", "PostQuitMessage", "SetWindowTextW",
-                     "GetWindowTextW"
+                     "GetWindowTextW", "SendMessageW"
                  })
         {
             AddImport("user32.dll", name);
@@ -41,6 +41,14 @@ internal sealed partial class NativeEmitter
         AddImport("kernel32.dll", "ExitProcess");
         AddImport("kernel32.dll", "MultiByteToWideChar");
         AddImport("kernel32.dll", "WideCharToMultiByte");
+        foreach (var name in new[]
+                 {
+                     "GdiplusStartup", "GdipCreateBitmapFromFile",
+                     "GdipCreateHBITMAPFromBitmap", "GdipDisposeImage"
+                 })
+        {
+            AddImport("gdiplus.dll", name);
+        }
         _uiWideTextBufferLabel = "ui_wide_text_buffer";
         _data.Align(8);
         _data.MarkLabel(_uiWideTextBufferLabel);
@@ -49,6 +57,18 @@ internal sealed partial class NativeEmitter
         _data.Align(8);
         _data.MarkLabel(_uiUtf8TextBufferLabel);
         _data.AddZeroes(8192);
+        _gdiPlusTokenLabel = "gdiplus_token";
+        _data.Align(8);
+        _data.MarkLabel(_gdiPlusTokenLabel);
+        _data.AddUInt64(0);
+        _gdiPlusInputLabel = "gdiplus_input";
+        _data.Align(8);
+        _data.MarkLabel(_gdiPlusInputLabel);
+        _data.AddUInt32(1);
+        _data.AddUInt32(0);
+        _data.AddUInt64(0);
+        _data.AddUInt32(0);
+        _data.AddUInt32(0);
         _windowClassLabel = _data.AddUtf16String("YyNativeWindow_" + _form.Name);
         _windowTitleLabel = _data.AddUtf16String(_form.Title);
         _windowHandleLabel = AddHandleSlot("ui_window_" + _form.Name);
@@ -294,6 +314,22 @@ internal sealed partial class NativeEmitter
             return false;
         }
 
+        if (member.Member == "图片")
+        {
+            if (Infer(value, context) != NativeValueKind.Text)
+            {
+                Fail(value, "图片框“图片”属性需要文本路径。");
+            }
+
+            _code.LoadRaxRip("data:" + handle);
+            _code.PushRax();
+            EmitExpression(value, context);
+            _code.MovRdxRax();
+            _code.Pop(NativeRegister.Rcx);
+            _code.CallCode("__yy_set_control_picture");
+            return true;
+        }
+
         if (member.Member is not ("文本" or "标题"))
         {
             Fail(member, "原生 UI 当前只支持设置控件“文本/标题”");
@@ -366,6 +402,7 @@ internal sealed partial class NativeEmitter
             YyControlTypes.GroupBox => baseStyle | 0x0007u,
             YyControlTypes.ComboBox => baseStyle | 0x0003u,
             YyControlTypes.ListBox => baseStyle | 0x0001u,
+            YyControlTypes.PictureBox => baseStyle | 0x000Eu,
             _ => baseStyle
         };
     }

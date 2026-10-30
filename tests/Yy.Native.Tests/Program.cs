@@ -139,6 +139,7 @@ static void TestArrays()
             .程序集 原生数组
             导入包 "系统.基础"
             导入包 "系统.集合"
+            导入包 "系统.文本"
 
             变量 数列: 数组 = [1, 2, 3]
             追加(数列, 4)
@@ -148,10 +149,12 @@ static void TestArrays()
             结束遍历
             输出(数列[2])
             输出(总和)
+            输出(文本(42))
+            输出(数字("42"))
             """);
         var output = Path.Combine(directory, "arrays.exe");
         NativeCompiler.CompileFile(source, output);
-        Equal("3\r\n10\r\n", RunExe(output));
+        Equal("3\r\n10\r\n42\r\n42\r\n", RunExe(output));
     }
     finally
     {
@@ -299,16 +302,33 @@ static void TestWin32Window()
             Width = 180,
             Height = 42
         });
+        form.Controls.Add(new YyControlModel
+        {
+            Type = YyControlTypes.PictureBox,
+            Name = "图片框",
+            X = 400,
+            Y = 55,
+            Width = 80,
+            Height = 80
+        });
+        var imagePath = Path.Combine(
+            Directory.GetCurrentDirectory(),
+            "examples",
+            "看图软件",
+            "Resources",
+            "images",
+            "1.png").Replace("\\", "\\\\");
         File.WriteAllText(formPath, YyFormSerializer.Serialize(form), new UTF8Encoding(false));
         File.WriteAllText(
             codePath,
-            """
+            $$"""
             .程序集 _启动窗口代码
             导入包 "系统.界面"
 
             子程序 _测试按钮_被单击()
                 变量 姓名 = 取控件("@id/_启动窗口/姓名输入框").文本
                 取控件("@id/_启动窗口/结果标签").文本 = "你好，" + 姓名
+                取控件("@id/_启动窗口/图片框").图片 = "{{imagePath}}"
                 取控件("@id/_启动窗口").标题 = "事件已执行"
             结束子程序
             """,
@@ -355,6 +375,13 @@ static void TestWin32Window()
             null);
         True(label != IntPtr.Zero, "没有找到原生标签窗口。");
         Equal("你好，易语", NativeUiProbe.GetWindowText(label));
+        var picture = NativeUiProbe.FindWindowEx(
+            process.MainWindowHandle,
+            label,
+            "Static",
+            null);
+        True(picture != IntPtr.Zero, "没有找到原生图片框。");
+        True(NativeUiProbe.GetImage(picture) != IntPtr.Zero, "图片框没有加载 PNG 图像。");
     }
     finally
     {
@@ -455,5 +482,8 @@ internal static partial class NativeUiProbe
 
     internal static void ClickButton(IntPtr button) =>
         _ = SendMessageNative(button, 0x00F5, IntPtr.Zero, IntPtr.Zero);
+
+    internal static IntPtr GetImage(IntPtr control) =>
+        SendMessageNative(control, 0x0173, IntPtr.Zero, IntPtr.Zero);
 
 }

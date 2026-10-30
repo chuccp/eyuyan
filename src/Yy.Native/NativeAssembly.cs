@@ -198,6 +198,18 @@ internal sealed class NativeCodeBuffer
         EmitInt32(displacement);
     }
 
+    public void StoreR10ToRbp(int displacement)
+    {
+        Emit(0x4C, 0x89, 0x95);
+        EmitInt32(displacement);
+    }
+
+    public void StoreR11ToRbp(int displacement)
+    {
+        Emit(0x4C, 0x89, 0x9D);
+        EmitInt32(displacement);
+    }
+
     public void LoadR9FromRbp(int displacement)
     {
         Emit(0x4C, 0x8B, 0x8D);

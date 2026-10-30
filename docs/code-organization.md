@@ -52,9 +52,12 @@
 | `src/Yy.Native/NativeEmitter.cs` | 易语 AST 到 Win64 指令的原生代码生成 |
 | `src/Yy.Native/NativeEmitter.Collections.cs` | 原生数组、索引、遍历和追加 |
 | `src/Yy.Native/NativeEmitter.FileRuntime.cs` | UTF-8/Win32 文件、目录和路径转换 |
+| `src/Yy.Native/NativeEmitter.ConversionRuntime.cs` | 整数与文本运行期转换 |
 | `src/Yy.Native/NativeEmitter.Loops.cs` | 原生当循环和计次循环 |
 | `src/Yy.Native/NativeEmitter.TextRuntime.cs` | 堆分配文本、拼接、复制和比较运行时 |
+| `src/Yy.Native/NativeEmitter.Types.cs` | 原生表达式、函数和声明类型推断 |
 | `src/Yy.Native/NativeEmitter.Win32Text.cs` | Win32 控件文本编解码、读取和写入 |
+| `src/Yy.Native/NativeEmitter.Win32Image.cs` | GDI+ 图片加载和 Win32 图片框显示 |
 | `src/Yy.Native/NativeAssembly.cs` | 机器码、数据段和重定位缓冲 |
 | `src/Yy.Native/NativePeWriter.cs` | PE32+、节表、导入表和原生 EXE 写出 |
 
