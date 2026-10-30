@@ -1,12 +1,12 @@
 # 易语 Studio 的 MCP 接口
 
-易语 Studio 内置 MCP(Model Context Protocol)服务端,让 AI 客户端像用户一样操作 IDE:
-新建程序、设计器放控件、属性夹改属性、创建事件子程序、写代码、F5 预览、点按钮、截图。
-每个工具都调用 IDE 真实的界面操作代码路径(与点击菜单/组件箱/属性夹等价)。
+易语 Studio 内置 MCP（Model Context Protocol）服务端，让 AI 客户端像用户一样操作 IDE：
+创建工程、导入资源、设计界面、修改属性、创建事件、写入代码、运行预览、触发控件事件并截图。
+每个工具都调用 IDE 真实的界面操作代码路径，与点击菜单、组件箱和属性夹等价。
 
 ## 连接方式
 
-- **streamable HTTP**:IDE 启动后自动在 `127.0.0.1:37213` 监听(被占用则顺延至 37222)。
+- **HTTP JSON-RPC**：IDE 启动后自动在 `127.0.0.1:37213` 监听，被占用时顺延最多 10 个端口。
   实际端口写入 `%TEMP%\yystudio-mcp.port`。项目根 `.mcp.json` 已注册该端点。
 - **stdio**:`YyStudio.exe --mcp-stdio` 以子进程方式拉起 IDE(GUI 一同显示),JSON-RPC 逐行收发。
 
@@ -14,7 +14,7 @@
 
 | 工具 | 说明 |
 | --- | --- |
-| `state` | 读取文档/窗体/控件/预览现状 |
+| `state` | 读取文档、窗体 XML、控件、资源、预览和运行状态 |
 | `screenshot` | 离屏截取 IDE 主窗口或预览窗口为 PNG |
 | `new_program` | 新建易语窗口程序(程序→新建→确定) |
 | `create_project` | 从空目录创建完整工程并打开启动窗体 |
@@ -22,7 +22,7 @@
 | `save_program` | 保存窗体三件套(path 形如 X:/目录/名.yyx) |
 | `add_resource` | 复制图片/声音/文件到 `Resources` 并登记资源标识 |
 | `add_control` | 设计器放控件(组件箱双击),可带名称/标题/位置/大小 |
-| `set_property` | 属性夹编辑;target 为控件名或 `_窗口` |
+| `set_property` | 属性夹编辑；target 为控件名或 `_窗口`，支持控件图片和窗体图标 |
 | `rename_control` / `delete_control` | 重命名(含校验)/删除控件 |
 | `create_event` | 创建官方命名事件子程序(被单击/创建完毕…) |
 | `get_code` / `set_subprogram` | 读易语源码 / 写事件子程序语句体 |

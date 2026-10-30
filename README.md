@@ -82,7 +82,7 @@ dotnet run --project .\src\Yy.Studio\Yy.Studio.csproj
 
 Studio 内置 MCP（Model Context Protocol）服务端，AI 客户端可以读取 IDE 状态、打开和保存工程、编辑窗体、创建事件、写入子程序、运行预览并触发界面交互。每个 MCP 工具都调用 Studio 的真实编辑流程，与用户在界面中的操作使用同一套代码路径。
 
-IDE 启动后默认在 `http://127.0.0.1:37213/mcp` 提供 Streamable HTTP 接口，项目根目录的 `.mcp.json` 已包含可直接使用的客户端配置：
+IDE 启动后默认在 `http://127.0.0.1:37213/mcp` 提供 HTTP JSON-RPC 接口，项目根目录的 `.mcp.json` 已包含可直接使用的客户端配置：
 
 ```json
 {
