@@ -44,6 +44,15 @@ Resources/
 - 保留拖动、缩放、双击最大化、最小化、还原和 Windows 贴边布局。
 - 主工作区左侧为项目目录，右侧为工具窗口；组件箱只在窗体设计器中显示。
 
+## IDE 与命令行工具分离
+
+- `src/Yy.Studio` 只负责 WPF IDE 和用户交互，输出 `YyStudio.exe`。
+- `src/Yy.Compiler` 负责工程模型、窗体协议、资源索引、代码生成和构建流程，不得引用 WPF 或 Studio。
+- `tools/Yy.Cli` 只引用 `Yy.Compiler`，输出 `yy.exe`，提供 `build`、`check`、`run` 和 `version` 子命令。
+- IDE 的编译按钮与 `yy.exe` 必须调用同一个 `ProjectCompiler`，不得维护两套编译逻辑。
+- 命令行编译必须能独立于 Studio 界面运行，适合脚本、CI 和批处理。
+- 发布产物至少包含 `YyStudio.exe`、`yy.exe` 和示例目标程序，文档必须明确各自职责。
+
 ## 职责边界
 
 1. `.yyx` 只负责界面。不得写入事件处理程序名、子程序、语句或业务数据。

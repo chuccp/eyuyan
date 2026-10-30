@@ -4,10 +4,10 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Yy.Language;
-using Yy.Studio.Forms;
+using Yy.Compiler.Forms;
 using Yy.Language.Structured;
 
-namespace Yy.Studio;
+namespace Yy.Compiler;
 
 public sealed partial class YyProject
 {

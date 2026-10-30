@@ -1,4 +1,4 @@
-namespace Yy.Studio.Forms;
+namespace Yy.Compiler.Forms;
 
 public sealed class YyFormModel
 {

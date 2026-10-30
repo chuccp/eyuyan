@@ -1,9 +1,9 @@
 using System.IO;
 using System.Text;
 using Yy.Language.Structured;
-using Yy.Studio.Forms;
+using Yy.Compiler.Forms;
 
-namespace Yy.Studio;
+namespace Yy.Compiler;
 
 /// <summary>
 /// 项目与窗体三件套的创建、清单写入和默认模板。

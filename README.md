@@ -37,6 +37,7 @@
 ## 当前能力
 
 - C# / WPF 原生 Windows IDE，无 Electron、无 WebView。
+- 编辑器与命令行编译器分离：`YyStudio.exe` 负责 IDE，`yy.exe` 负责构建、检查和运行。
 - 中文标识符、函数、递归、默认参数、类型标注、数组、对象和异常处理。
 - AST 解析器、解释执行器、C# 代码生成器和跨文件诊断。
 - `.yyproj` 项目管理、模块引入、资源表、常量表和数据表。
@@ -78,6 +79,26 @@ dotnet run --project .\src\Yy.Studio\Yy.Studio.csproj
 
 新建项目请按 `Ctrl+Alt+N`。项目清单和界面三文件关系分别见 [项目结构](docs/projects.md) 和 [界面架构](docs/architecture.md)。
 
+## 命令行工具
+
+`yy` 是不加载 WPF 和 IDE 的命令行编译器。开发时可以直接运行：
+
+```powershell
+dotnet run --project .\tools\Yy.Cli -- check .\examples\示例.yyproj
+dotnet run --project .\tools\Yy.Cli -- build .\examples\示例.yyproj -o .\artifacts\示例.exe
+dotnet run --project .\tools\Yy.Cli -- run .\examples\MCP资源演示
+```
+
+发布后使用 `yy.exe`：
+
+```powershell
+yy build <工程.yyproj|目录> [-o 输出.exe] [--framework-dependent] [--rid RID]
+yy check <工程.yyproj|目录>
+yy run <工程.yyproj|目录>
+```
+
+`YyStudio.exe` 仅负责可视化编辑和 IDE 内操作；脚本、CI 和批处理可直接调用 `yy.exe`。命令行编译目前需要开发机安装 .NET 10 SDK。
+
 ## MCP 接口
 
 Studio 内置 MCP（Model Context Protocol）服务端，AI 客户端可以读取 IDE 状态、打开和保存工程、编辑窗体、创建事件、写入子程序、运行预览并触发界面交互。每个 MCP 工具都调用 Studio 的真实编辑流程，与用户在界面中的操作使用同一套代码路径。
@@ -113,6 +134,7 @@ YyStudio.exe --mcp-stdio
 
 ```text
 artifacts\publish\YyStudio\YyStudio.exe
+artifacts\publish\yy\yy.exe
 artifacts\samples\易语示例.exe
 ```
 
@@ -123,6 +145,9 @@ artifacts\samples\易语示例.exe
 ```powershell
 .\build-lite.ps1
 ```
+
+输出包含 `artifacts\publish\win-x64-framework-dependent\YyStudio.exe` 和
+`artifacts\publish\yy-framework-dependent\yy.exe`。
 
 ## 工程结构
 
@@ -147,9 +172,10 @@ Resources/
 
 ```text
 src/Yy.Language/          词法、语法树、解析器、解释器和中文标准库
+src/Yy.Compiler/          项目模型、窗体协议、资源索引、代码生成和编译器
 src/Yy.CompilerRuntime/   编译应用使用的值、控件与标准库运行时
 src/Yy.Studio/            WPF 原生 IDE
-tools/YyCompiler.Cli/     命令行项目编译器
+tools/Yy.Cli/             yy.exe 命令行入口
 tests/                    语言与桌面回归测试
 examples/                 示例工程
 docs/                     格式、架构、编辑器和路线图文档

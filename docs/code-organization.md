@@ -38,11 +38,23 @@
 
 | 文件 | 职责 |
 |---|---|
-| `YyProject.cs` | 项目装载、设置保存、路径校验 |
-| `YyProjectModels.cs` | 项目窗体、全局变量、常量、资源、DLL 和数据库模型 |
-| `YyProject.Creation.cs` | 新项目和窗体三件套创建、默认模板 |
-| `YyProject.Resources.cs` | 资源导入、分类复制、资源表校验和索引同步 |
-| `Resources/YyResourceIndex.cs` | `ids.xml` 生成、标识解析和资源路径定位 |
+| `src/Yy.Compiler/YyProject.cs` | 项目装载、设置保存、路径校验 |
+| `src/Yy.Compiler/YyProjectModels.cs` | 项目窗体、全局变量、常量、资源、DLL 和数据库模型 |
+| `src/Yy.Compiler/YyProject.Creation.cs` | 新项目和窗体三件套创建、默认模板 |
+| `src/Yy.Compiler/YyProject.Resources.cs` | 资源导入、分类复制、资源表校验和索引同步 |
+| `src/Yy.Compiler/Resources/YyResourceIndex.cs` | `ids.xml` 生成、标识解析和资源路径定位 |
+
+## 编译器与命令行
+
+| 项目或文件 | 职责 |
+|---|---|
+| `src/Yy.Compiler` | 无 WPF 依赖的工程协议、窗体模型、资源索引、AST 汇总和代码生成 |
+| `src/Yy.Compiler/ProjectCompiler.cs` | 校验项目、生成 C#、调用 .NET 发布链 |
+| `src/Yy.Compiler/GeneratedCodeEmitter.cs` | 将易语 AST 和窗体模型生成 C# |
+| `tools/Yy.Cli` | `yy.exe` 命令行入口 |
+| `tools/Yy.Cli/Program.cs` | `build`、`check`、`run`、`version` 子命令 |
+
+`YyStudio` 引用 `Yy.Compiler` 提供 IDE 内编译；`Yy.Cli` 只引用 `Yy.Compiler`，不得引用 `Yy.Studio` 或 WPF。
 
 ## 体积门槛
 

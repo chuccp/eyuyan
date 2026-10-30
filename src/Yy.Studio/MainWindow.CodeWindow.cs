@@ -226,7 +226,7 @@ public partial class MainWindow : Window
     }
 
     private List<CodeObjectChoice> BuildCodeObjectChoices(
-        Forms.YyFormModel? form,
+        Yy.Compiler.Forms.YyFormModel? form,
         YyCodeDocument document)
     {
         var choices = new List<CodeObjectChoice>();
@@ -269,7 +269,7 @@ public partial class MainWindow : Window
                 }
 
                 choices.Add(new CodeObjectChoice(
-                    $"{control.Name}（{Forms.YyControlTypes.GetDisplayName(control.Type)}）",
+                    $"{control.Name}（{Yy.Compiler.Forms.YyControlTypes.GetDisplayName(control.Type)}）",
                     handlers));
                 boundHandlers.UnionWith(handlers);
             }

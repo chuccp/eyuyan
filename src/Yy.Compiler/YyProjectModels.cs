@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization;
-using Yy.Studio.Forms;
+using Yy.Compiler.Forms;
 
-namespace Yy.Studio;
+namespace Yy.Compiler;
 
 public sealed record YyProjectForm(
     string FormPath,

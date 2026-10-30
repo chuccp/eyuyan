@@ -1,6 +1,6 @@
 using System.IO;
 
-namespace Yy.Studio;
+namespace Yy.Compiler;
 
 /// <summary>项目资源文件管理、资源表校验和 Resources/ids.xml 同步。</summary>
 public sealed partial class YyProject

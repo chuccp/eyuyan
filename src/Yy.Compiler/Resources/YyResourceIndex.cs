@@ -3,7 +3,7 @@ using System.Text;
 using System.Xml;
 using System.Xml.Linq;
 
-namespace Yy.Studio;
+namespace Yy.Compiler;
 
 /// <summary>
 /// 工程资源和控件使用的稳定字符串标识，以及 Resources/ids.xml 的生成规则。
@@ -120,7 +120,7 @@ public static class YyResourceIndex
         !string.IsNullOrWhiteSpace(resource.Name) &&
         !string.IsNullOrWhiteSpace(resource.TypeName) &&
         !string.IsNullOrWhiteSpace(resource.File) &&
-        Yy.Studio.Forms.YyFormSerializer.IsIdentifier(resource.Name.Trim());
+        Yy.Compiler.Forms.YyFormSerializer.IsIdentifier(resource.Name.Trim());
 
     public static string Relative(string projectDirectory, string path)
     {
@@ -131,7 +131,7 @@ public static class YyResourceIndex
     }
 
     public static bool IsIdentifier(string value) =>
-        Yy.Studio.Forms.YyFormSerializer.IsIdentifier(value);
+        Yy.Compiler.Forms.YyFormSerializer.IsIdentifier(value);
 
     public static bool IsIndexPath(string? path)
     {

@@ -1,5 +1,31 @@
 # 项目编译与独立 EXE
 
+## 编辑器与编译器
+
+项目提供两个独立入口：
+
+| 程序 | 职责 |
+|---|---|
+| `YyStudio.exe` | WPF 可视化 IDE，用于项目、窗体、代码、预览和交互 |
+| `yy.exe` | 命令行编译器，用于脚本、CI、构建和运行 |
+
+`yy.exe` 只依赖无 WPF 的 `Yy.Compiler.dll`。IDE 编译按钮和命令行工具共用 `ProjectCompiler`、窗体解析、资源标识和 C# 代码生成实现。
+
+## 命令行
+
+```powershell
+yy check <工程.yyproj|目录>
+yy build <工程.yyproj|目录> [-o 输出.exe] [--framework-dependent] [--rid RID]
+yy run <工程.yyproj|目录> [--framework-dependent] [--rid RID]
+yy version
+```
+
+- `check` 校验工程清单、三文件结构、资源和语言代码，不生成 EXE。
+- `build` 默认在当前目录生成工程清单指定的输出文件。
+- `run` 在临时目录构建并启动程序，程序退出后清理临时产物。
+- 默认目标为自包含 Windows x64 单文件；`--framework-dependent` 需要目标机安装 .NET 10 Desktop Runtime。
+- 命令行编译器自身不要求安装 Studio，但当前构建链需要 .NET 10 SDK。
+
 ## 编译流程
 
 易语项目是编译单元，不是把解释器和源码打进安装包：

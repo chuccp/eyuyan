@@ -124,7 +124,7 @@ public sealed class EditorDocument : INotifyPropertyChanged
 
     public bool IsGeneratedBinding =>
         IsStructuredCode &&
-        Yy.Studio.Forms.YyFormCompanionFiles.IsGeneratedBindingPath(FilePath ?? DisplayName);
+        Yy.Compiler.Forms.YyFormCompanionFiles.IsGeneratedBindingPath(FilePath ?? DisplayName);
 
     public bool IsResourceIndex =>
         YyResourceIndex.IsIndexPath(FilePath ?? DisplayName);

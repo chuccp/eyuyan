@@ -5,7 +5,7 @@ using System.Xml;
 using System.Xml.Linq;
 using Yy.Language.Structured;
 
-namespace Yy.Studio.Forms;
+namespace Yy.Compiler.Forms;
 
 public sealed record YyFormBindingEvent(
     string Owner,

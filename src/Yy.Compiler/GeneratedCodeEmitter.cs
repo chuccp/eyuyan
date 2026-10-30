@@ -2,9 +2,9 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using Yy.Language.Syntax;
-using Yy.Studio.Forms;
+using Yy.Compiler.Forms;
 
-namespace Yy.Studio;
+namespace Yy.Compiler;
 
 public sealed class GeneratedCodeEmitter
 {

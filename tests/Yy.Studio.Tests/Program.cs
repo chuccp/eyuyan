@@ -2,6 +2,8 @@ using System.IO;
 using System.Windows.Automation;
 using Yy.Language;
 using Yy.Studio;
+using Yy.Compiler;
+using Yy.Compiler.Forms;
 using Yy.Studio.Forms;
 using Yy.Language.Structured;
 using Yy.Studio.Structured;
@@ -207,6 +209,13 @@ Run("项目清单读取", () =>
         File.ReadAllText(Path.Combine(directory, "Resources", "ids.xml"))
             .Contains("@资源/图片/应用图标", StringComparison.Ordinal),
         "窗体图标没有写入资源标识。");
+});
+
+Run("IDE 与命令行编译器程序集分离", () =>
+{
+    Equal("Yy.Compiler", typeof(YyProject).Assembly.GetName().Name);
+    Equal("Yy.Compiler", typeof(ProjectCompiler).Assembly.GetName().Name);
+    Equal("YyStudio", typeof(YyFormPreviewWindow).Assembly.GetName().Name);
 });
 
 Run("完整项目骨架", () =>

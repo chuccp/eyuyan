@@ -3,7 +3,7 @@ using System.IO;
 using System.Xml;
 using System.Xml.Linq;
 
-namespace Yy.Studio.Forms;
+namespace Yy.Compiler.Forms;
 
 public static class YyFormSerializer
 {

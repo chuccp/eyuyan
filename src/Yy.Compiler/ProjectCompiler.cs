@@ -5,10 +5,13 @@ using Yy.Language;
 using Yy.Language.Syntax;
 using Yy.Language.Structured;
 
-namespace Yy.Studio;
+namespace Yy.Compiler;
 
 public sealed class ProjectCompiler
 {
+    /// <summary>加载并校验项目源码、窗体和事件关系，不执行二进制发布。</summary>
+    public void Validate(YyProject project) => _ = BuildProgram(project);
+
     public async Task<string> CompileAsync(
         YyProject project,
         string outputPath,

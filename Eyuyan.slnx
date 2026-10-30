@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Yy.CompilerRuntime/Yy.CompilerRuntime.csproj" />
+    <Project Path="src/Yy.Compiler/Yy.Compiler.csproj" />
     <Project Path="src/Yy.Language/Yy.Language.csproj" />
     <Project Path="src/Yy.Studio/Yy.Studio.csproj" />
   </Folder>
@@ -9,7 +10,7 @@
     <Project Path="tests/Yy.Studio.Tests/Yy.Studio.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
-    <Project Path="tools/YyCompiler.Cli/YyCompiler.Cli.csproj" />
+    <Project Path="tools/Yy.Cli/Yy.Cli.csproj" />
   </Folder>
 </Solution>
 
