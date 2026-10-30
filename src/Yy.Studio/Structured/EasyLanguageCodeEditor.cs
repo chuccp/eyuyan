@@ -61,6 +61,12 @@ public sealed class EasyLanguageCodeEditor : UserControl
 
     public event Action<string>? HintRequested;
 
+    public event Action<TextEditor, YyCodeFunction>? CompletionRequested;
+
+    public event Action<TextEditor, YyCodeFunction>? HelpRequested;
+
+    public event Action<TextEditor, YyCodeFunction>? ParameterHintRequested;
+
     public YyCodeDocument? Document => _document;
 
     public void SetEventAssociations(IReadOnlyDictionary<string, string>? associations)
@@ -398,6 +404,24 @@ public sealed class EasyLanguageCodeEditor : UserControl
             SyntaxHighlighting = Highlighting.Value
         };
         editor.TextArea.IndentationStrategy = new YyIndentationStrategy();
+        editor.TextArea.TextEntering += (_, e) =>
+        {
+            if (!_building)
+            {
+                YyTextEditing.HandleTextEntering(editor, e);
+            }
+        };
+        editor.TextArea.TextEntered += (_, e) =>
+        {
+            if (!_building &&
+                !string.IsNullOrEmpty(e.Text) &&
+                (char.IsLetter(e.Text[0]) || e.Text[0] is '_' or '.'))
+            {
+                CompletionRequested?.Invoke(editor, function);
+            }
+        };
+        editor.TextArea.Caret.PositionChanged += (_, _) =>
+            ParameterHintRequested?.Invoke(editor, function);
         editor.TextChanged += (_, _) =>
         {
             if (_building)
@@ -417,14 +441,37 @@ public sealed class EasyLanguageCodeEditor : UserControl
 
             _editTimer.Stop();
             _editTimer.Start();
+            ParameterHintRequested?.Invoke(editor, function);
         };
         editor.TextArea.PreviewKeyDown += (_, e) =>
         {
             if (e.Key == Key.F1)
             {
-                HintRequested?.Invoke(
-                    "易语言代码区：输入语句后自动按块缩进；方法头在上述表格中编辑。");
+                if (HelpRequested is not null)
+                {
+                    HelpRequested(editor, function);
+                }
+                else
+                {
+                    HintRequested?.Invoke(
+                        "易语言代码区：输入语句后自动按块缩进；方法头在上述表格中编辑。");
+                }
+
                 e.Handled = true;
+                return;
+            }
+
+            if (e.Key == Key.Space && Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                CompletionRequested?.Invoke(editor, function);
+                e.Handled = true;
+                return;
+            }
+
+            if (YyTextEditing.HandleBackspace(editor, e) ||
+                YyTextEditing.HandleShortcut(editor, e))
+            {
+                return;
             }
         };
         var foldingManager = FoldingManager.Install(editor.TextArea);

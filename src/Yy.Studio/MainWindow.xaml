@@ -1119,7 +1119,7 @@
                             </ListBox.ItemTemplate>
                         </ListBox>
                         <TextBlock Grid.Column="1"
-                                   Text="Ctrl+Space 补全"
+                                   Text="F1 帮助 · Ctrl+Space 补全"
                                    VerticalAlignment="Center"
                                    FontSize="10"
                                    Foreground="{StaticResource MutedBrush}"

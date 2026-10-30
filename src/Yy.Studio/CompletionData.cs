@@ -20,6 +20,8 @@ public sealed class CompletionData(
     public double Priority => kind switch
     {
         CompletionKind.Component => 4,
+        CompletionKind.Parameter => 3.8,
+        CompletionKind.Variable => 3.7,
         CompletionKind.Property => 3,
         CompletionKind.Keyword => 2,
         CompletionKind.Builtin => 1,
@@ -64,6 +66,8 @@ public enum CompletionKind
     Builtin,
     Keyword,
     Component,
-    Property
+    Property,
+    Parameter,
+    Variable
 }
 

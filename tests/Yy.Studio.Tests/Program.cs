@@ -167,6 +167,22 @@ Run("用户代码默认进入VB式代码窗口", () =>
         EasyLanguageFoldingStrategy.CreateFoldings(foldingText).Count());
 });
 
+Run("编辑器自动配对输入", () =>
+{
+    var insert = YyTextEditing.GetPairAction("", 0, 0, "(");
+    Equal(YyPairActionKind.InsertPair, insert.Kind);
+    Equal("(", insert.Opening);
+    Equal(")", insert.Closing);
+
+    var wrap = YyTextEditing.GetPairAction("选择", 0, 2, "“");
+    Equal(YyPairActionKind.WrapSelection, wrap.Kind);
+    Equal("“", wrap.Opening);
+    Equal("”", wrap.Closing);
+
+    var skip = YyTextEditing.GetPairAction("()", 1, 0, ")");
+    Equal(YyPairActionKind.SkipClosing, skip.Kind);
+});
+
 Run("项目清单读取", () =>
 {
     var directory = Path.Combine(Directory.GetCurrentDirectory(), "examples");

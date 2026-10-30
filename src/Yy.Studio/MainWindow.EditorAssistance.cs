@@ -52,10 +52,38 @@ public partial class MainWindow : Window
         Editor.TextArea.TextView.CurrentLineBackground = Brushes.Transparent;
         SearchPanel.Install(Editor.TextArea);
         Editor.TextArea.Caret.PositionChanged += OnCaretPositionChanged;
+        Editor.TextArea.TextEntering += OnEditorTextEntering;
         Editor.TextArea.TextEntered += OnEditorTextEntered;
         Editor.PreviewKeyDown += OnEditorPreviewKeyDown;
         Editor.Document.UndoStack.SizeLimit = 500;
+        EasyLanguageEditor.CompletionRequested += (editor, function) =>
+            ShowCompletionFor(editor, function);
+        EasyLanguageEditor.HelpRequested += ShowEasyLanguageHelp;
+        EasyLanguageEditor.ParameterHintRequested += (editor, function) =>
+            UpdateParameterHintFor(editor);
         InitializeCodeWindowFolding();
+    }
+
+    private void ShowEasyLanguageHelp(TextEditor editor, YyCodeFunction function)
+    {
+        var word = GetWordAtOffset(editor.Text, editor.CaretOffset);
+        var parameter = function.Parameters.FirstOrDefault(item =>
+            string.Equals(item.Name, word, StringComparison.Ordinal));
+        var local = function.Statements
+            .TakeWhile(statement => statement.Kind == YyCodeStatementKinds.Variable)
+            .FirstOrDefault(statement =>
+                string.Equals(statement.Name, word, StringComparison.Ordinal));
+        var callable = FindCallable(word);
+        EditorHelpBox.Text = parameter is not null
+            ? $"参数：{parameter.Name}\n类型：{parameter.TypeName ?? "任意"}\n\n{parameter.Remark}"
+            : local is not null
+                ? $"局部变量：{local.Name}\n类型：{local.TypeName ?? "任意"}\n\n{local.Remark}"
+                : callable is not null
+                    ? $"{callable.Value.Signature}\n\n{callable.Value.Description}\n\n" +
+                      "Ctrl+Space：补全；Ctrl+/：注释；Ctrl+D：复制行；Ctrl+Shift+K：删除行。"
+                    : "将光标移到命令、函数、参数或变量上查看帮助。\n\n" +
+                      "Ctrl+Space：补全；Ctrl+/：注释；Ctrl+D：复制行；Ctrl+Shift+K：删除行。";
+        BottomTabs.SelectedIndex = 1;
     }
 
     private void OnEditorTextChanged(object? sender, EventArgs e)
@@ -102,6 +130,14 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnEditorTextEntering(object? sender, TextCompositionEventArgs e)
+    {
+        if (!_isLoadingDocument)
+        {
+            YyTextEditing.HandleTextEntering(Editor, e);
+        }
+    }
+
     private void OnEditorPreviewKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key == Key.F1)
@@ -116,17 +152,26 @@ public partial class MainWindow : Window
         {
             ShowCompletion();
             e.Handled = true;
+            return;
+        }
+
+        if (YyTextEditing.HandleBackspace(Editor, e) ||
+            YyTextEditing.HandleShortcut(Editor, e))
+        {
+            return;
         }
     }
 
-    private void ShowCompletion()
+    private void ShowCompletion() => ShowCompletionFor(Editor, null);
+
+    private void ShowCompletionFor(TextEditor editor, YyCodeFunction? currentFunction)
     {
         if (_completionWindow is not null)
         {
             return;
         }
 
-        _completionWindow = new CompletionWindow(Editor.TextArea)
+        _completionWindow = new CompletionWindow(editor.TextArea)
         {
             Width = 335,
             MaxHeight = 330
@@ -134,7 +179,7 @@ public partial class MainWindow : Window
         var data = _completionWindow.CompletionList.CompletionData;
         var known = new HashSet<string>(StringComparer.Ordinal);
         var form = GetAssociatedFormForCurrentDocument();
-        var memberOwner = TryGetMemberOwnerName();
+        var memberOwner = TryGetMemberOwnerName(editor.Text, editor.CaretOffset);
         if (form is not null && memberOwner is not null)
         {
             var control = form.Controls.FirstOrDefault(item =>
@@ -167,6 +212,33 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (currentFunction is not null)
+        {
+            foreach (var parameter in currentFunction.Parameters)
+            {
+                if (known.Add(parameter.Name))
+                {
+                    data.Add(new CompletionData(
+                        parameter.Name,
+                        $"参数 · {parameter.TypeName ?? "任意"}",
+                        CompletionKind.Parameter));
+                }
+            }
+
+            foreach (var local in currentFunction.Statements
+                         .TakeWhile(statement =>
+                             statement.Kind == YyCodeStatementKinds.Variable))
+            {
+                if (known.Add(local.Name))
+                {
+                    data.Add(new CompletionData(
+                        local.Name,
+                        $"局部变量 · {local.TypeName ?? "任意"}",
+                        CompletionKind.Variable));
+                }
+            }
+        }
+
         if (form is not null)
         {
             foreach (var control in form.Controls)
@@ -183,7 +255,10 @@ public partial class MainWindow : Window
 
         try
         {
-            var program = YyRunner.CompileSource(Editor.Text, _currentDocument?.FilePath);
+            var source = ReferenceEquals(editor, Editor)
+                ? editor.Text
+                : _currentDocument?.PlainCodeText ?? editor.Text;
+            var program = YyRunner.CompileSource(source, _currentDocument?.FilePath);
             foreach (var function in program.Functions)
             {
                 if (known.Add(function.Name))
@@ -320,15 +395,17 @@ public partial class MainWindow : Window
         return File.Exists(candidate) ? candidate : null;
     }
 
-    private string? TryGetMemberOwnerName()
+    private string? TryGetMemberOwnerName() =>
+        TryGetMemberOwnerName(Editor.Text, Editor.CaretOffset);
+
+    private static string? TryGetMemberOwnerName(string text, int caretOffset)
     {
-        var caret = Editor.CaretOffset;
+        var caret = Math.Clamp(caretOffset, 0, text.Length);
         if (caret <= 0)
         {
             return null;
         }
 
-        var text = Editor.Text;
         var cursor = caret - 1;
         while (cursor >= 0 && (char.IsLetterOrDigit(text[cursor]) || text[cursor] == '_'))
         {
@@ -360,7 +437,9 @@ public partial class MainWindow : Window
         return end > start ? text[(start + 1)..(end + 1)] : null;
     }
 
-    private void UpdateParameterHint()
+    private void UpdateParameterHint() => UpdateParameterHintFor(Editor);
+
+    private void UpdateParameterHintFor(TextEditor editor)
     {
         if (_currentDocument?.IsForm == true)
         {
@@ -368,9 +447,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        var caret = Math.Clamp(Editor.CaretOffset, 0, Editor.Document.TextLength);
-        var line = Editor.Document.GetLineByOffset(caret);
-        var prefix = Editor.Document.GetText(line.Offset, caret - line.Offset);
+        var caret = Math.Clamp(editor.CaretOffset, 0, editor.Document.TextLength);
+        var line = editor.Document.GetLineByOffset(caret);
+        var prefix = editor.Document.GetText(line.Offset, caret - line.Offset);
         var openIndex = FindActiveOpenParenthesis(prefix);
         if (openIndex < 0)
         {
