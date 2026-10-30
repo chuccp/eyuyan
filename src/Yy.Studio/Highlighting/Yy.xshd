@@ -6,7 +6,7 @@
   <Color name="Number" foreground="#008080" />
   <Color name="Keyword" foreground="#000080" fontWeight="bold" />
   <Color name="Type" foreground="#800080" />
-  <Color name="Builtin" foreground="#800080" />
+  <Color name="Builtin" foreground="#C00000" />
   <Color name="Operator" foreground="#000000" />
   <Color name="Directive" foreground="#800080" />
   <Color name="Punctuation" foreground="#000000" />

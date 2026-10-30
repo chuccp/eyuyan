@@ -10,7 +10,7 @@
   实际端口写入 `%TEMP%\yystudio-mcp.port`。项目根 `.mcp.json` 已注册该端点。
 - **stdio**:`YyStudio.exe --mcp-stdio` 以子进程方式拉起 IDE(GUI 一同显示),JSON-RPC 逐行收发。
 
-## 工具一览(15 个)
+## 工具一览(16 个)
 
 | 工具 | 说明 |
 | --- | --- |
@@ -18,7 +18,7 @@
 | `screenshot` | 离屏截取 IDE 主窗口或预览窗口为 PNG |
 | `new_program` | 新建易语窗口程序(程序→新建→确定) |
 | `open_file` | 打开 .yyx/.yyc |
-| `save_program` | 保存窗体+代码后置(path 形如 X:/目录/名.yyx) |
+| `save_program` | 保存窗体三件套(path 形如 X:/目录/名.yyx) |
 | `add_control` | 设计器放控件(组件箱双击),可带名称/标题/位置/大小 |
 | `set_property` | 属性夹编辑;target 为控件名或 `_窗口` |
 | `rename_control` / `delete_control` | 重命名(含校验)/删除控件 |

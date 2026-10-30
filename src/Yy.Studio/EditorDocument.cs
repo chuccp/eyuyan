@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
+using Yy.Language.Structured;
 
 namespace Yy.Studio;
 
@@ -11,6 +12,9 @@ public sealed class EditorDocument : INotifyPropertyChanged
     private string _text;
     private string _savedText;
     private bool _isDirty;
+    private string _plainCodeText = string.Empty;
+    private string _savedPlainCodeText = string.Empty;
+    private bool _usePlainCodeEditor;
 
     public EditorDocument(string? filePath, string displayName, string text)
     {
@@ -18,6 +22,19 @@ public sealed class EditorDocument : INotifyPropertyChanged
         _displayName = displayName;
         _text = text;
         _savedText = text;
+        if (IsStructuredCode && !IsGeneratedBinding)
+        {
+            try
+            {
+                var model = YyCodeSerializer.Deserialize(text);
+                BeginPlainCodeEditing(YyCodeDocumentConverter.ToSource(model));
+            }
+            catch (YyCodeFormatException)
+            {
+                // 损坏文件进入文本修复视图，不再回退到旧表格编辑器。
+                BeginPlainCodeEditing(text);
+            }
+        }
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -94,8 +111,65 @@ public sealed class EditorDocument : INotifyPropertyChanged
     /// <summary>起始页标签(启动/关闭全部文档后显示,对齐官方第一步)。</summary>
     public bool IsStartPage { get; set; }
 
+    public string TabIcon => IsStartPage
+        ? "⌂"
+        : IsForm
+            ? "▣"
+            : IsGeneratedBinding
+                ? "⚙"
+                : "‹›";
+
     public bool IsStructuredCode =>
         string.Equals(Path.GetExtension(FilePath ?? DisplayName), ".yyc", StringComparison.OrdinalIgnoreCase);
+
+    public bool IsGeneratedBinding =>
+        IsStructuredCode &&
+        Yy.Studio.Forms.YyFormCompanionFiles.IsGeneratedBindingPath(FilePath ?? DisplayName);
+
+    /// <summary>当前 .yyc 以纯源码视图编辑；磁盘仍保存结构化 XML。</summary>
+    public bool UsePlainCodeEditor
+    {
+        get => _usePlainCodeEditor;
+        set => _usePlainCodeEditor = value;
+    }
+
+    /// <summary>同一份代码可在易语言风格窗口和纯代码窗口中呈现。</summary>
+    public bool UseEasyLanguagePresentation { get; set; } = true;
+
+    public string PlainCodeText
+    {
+        get => _plainCodeText;
+        set
+        {
+            if (_plainCodeText == value)
+            {
+                return;
+            }
+
+            _plainCodeText = value;
+            if (UsePlainCodeEditor)
+            {
+                IsDirty = !string.Equals(
+                    _plainCodeText,
+                    _savedPlainCodeText,
+                    StringComparison.Ordinal);
+            }
+        }
+    }
+
+    public void BeginPlainCodeEditing(string source)
+    {
+        UsePlainCodeEditor = true;
+        _plainCodeText = source;
+        _savedPlainCodeText = source;
+    }
+
+    public void EndPlainCodeEditing()
+    {
+        UsePlainCodeEditor = false;
+        _plainCodeText = string.Empty;
+        _savedPlainCodeText = string.Empty;
+    }
 
     public int CaretOffset { get; set; }
 
@@ -109,6 +183,7 @@ public sealed class EditorDocument : INotifyPropertyChanged
         FilePath = path;
         DisplayName = Path.GetFileName(path);
         _savedText = Text;
+        _savedPlainCodeText = _plainCodeText;
         IsDirty = false;
     }
 

@@ -20,7 +20,6 @@ public static class YyFormSerializer
             Namespace + "窗体",
             new XAttribute(XNamespace.Xmlns + "yy", Namespace),
             new XAttribute("名称", form.Name),
-            new XAttribute("代码", form.CodeFile),
             new XAttribute("标题", form.Title),
             new XAttribute("宽", Format(form.Width)),
             new XAttribute("高", Format(form.Height)),
@@ -28,16 +27,6 @@ public static class YyFormSerializer
         if (!string.IsNullOrWhiteSpace(form.Remark))
         {
             root.SetAttributeValue("备注", form.Remark);
-        }
-
-        if (!string.IsNullOrWhiteSpace(form.LoadEvent))
-        {
-            root.SetAttributeValue("载入", form.LoadEvent);
-        }
-
-        if (!string.IsNullOrWhiteSpace(form.CloseEvent))
-        {
-            root.SetAttributeValue("关闭", form.CloseEvent);
         }
 
         root.SetAttributeValue("边框", form.BorderStyle);
@@ -91,9 +80,6 @@ public static class YyFormSerializer
         var form = new YyFormModel
         {
             Name = RequiredAttribute(root, "名称"),
-            CodeFile = Attribute(root, "代码", string.Empty),
-            LoadEvent = NullIfEmpty(Attribute(root, "载入", string.Empty)),
-            CloseEvent = NullIfEmpty(Attribute(root, "关闭", string.Empty)),
             Title = Attribute(root, "标题", "易语窗体"),
             Width = NumberAttribute(root, "宽", 800, 320, 3840),
             Height = NumberAttribute(root, "高", 520, 240, 2160),
@@ -105,6 +91,7 @@ public static class YyFormSerializer
             MinimizeBox = BooleanAttribute(root, "最小化按钮", true),
             MaximizeBox = BooleanAttribute(root, "最大化按钮", true)
         };
+        RejectInterfaceLogicAttributes(root);
         var names = new HashSet<string>(StringComparer.Ordinal);
         foreach (var element in root.Elements())
         {
@@ -120,10 +107,6 @@ public static class YyFormSerializer
                 Name = RequiredAttribute(element, "名称"),
                 Text = Attribute(element, "文本", string.Empty),
                 Remark = Attribute(element, "备注", string.Empty),
-                ClickEvent = NullIfEmpty(Attribute(element, "单击", string.Empty)),
-                TextChangedEvent = NullIfEmpty(Attribute(element, "文本改变", string.Empty)),
-                SelectionChangedEvent = NullIfEmpty(Attribute(element, "选择改变", string.Empty)),
-                CheckedChangedEvent = NullIfEmpty(Attribute(element, "选中改变", string.Empty)),
                 X = NumberAttribute(element, "左", 40, -10_000, 10_000),
                 Y = NumberAttribute(element, "上", 40, -10_000, 10_000),
                 Width = NumberAttribute(element, "宽", 120, 24, 3840),
@@ -148,25 +131,6 @@ public static class YyFormSerializer
                 throw Error(element, $"控件名称“{control.Name}”不是有效标识符。");
             }
 
-            if (!string.IsNullOrWhiteSpace(control.ClickEvent) &&
-                !IsIdentifier(control.ClickEvent))
-            {
-                throw Error(element, $"控件“{control.Name}”的事件名不是有效函数标识符。");
-            }
-
-            foreach (var eventName in new[]
-                     {
-                         control.TextChangedEvent,
-                         control.SelectionChangedEvent,
-                         control.CheckedChangedEvent
-                     })
-            {
-                if (!string.IsNullOrWhiteSpace(eventName) && !IsIdentifier(eventName))
-                {
-                    throw Error(element, $"控件“{control.Name}”的事件名“{eventName}”不是有效函数标识符。");
-                }
-            }
-
             if (!names.Add(control.Name))
             {
                 throw Error(element, $"控件名称“{control.Name}”重复。");
@@ -178,24 +142,6 @@ public static class YyFormSerializer
         if (!IsIdentifier(form.Name))
         {
             throw Error(root, $"窗体名称“{form.Name}”不是有效标识符。");
-        }
-
-        if (!string.IsNullOrWhiteSpace(form.LoadEvent) && !IsIdentifier(form.LoadEvent))
-        {
-            throw Error(root, "窗体“载入”事件名不是有效函数标识符。");
-        }
-
-        if (!string.IsNullOrWhiteSpace(form.CloseEvent) && !IsIdentifier(form.CloseEvent))
-        {
-            throw Error(root, "窗体“关闭”事件名不是有效函数标识符。");
-        }
-
-        if (!string.IsNullOrWhiteSpace(form.CodeFile) &&
-            (Path.IsPathRooted(form.CodeFile) ||
-             form.CodeFile.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                .Contains("..", StringComparer.Ordinal)))
-        {
-            throw Error(root, "窗体“代码”属性必须是窗体目录内的相对路径。");
         }
 
         return form;
@@ -220,26 +166,6 @@ public static class YyFormSerializer
         if (!string.IsNullOrWhiteSpace(control.Remark))
         {
             element.SetAttributeValue("备注", control.Remark);
-        }
-
-        if (!string.IsNullOrWhiteSpace(control.ClickEvent))
-        {
-            element.SetAttributeValue("单击", control.ClickEvent);
-        }
-
-        if (!string.IsNullOrWhiteSpace(control.TextChangedEvent))
-        {
-            element.SetAttributeValue("文本改变", control.TextChangedEvent);
-        }
-
-        if (!string.IsNullOrWhiteSpace(control.SelectionChangedEvent))
-        {
-            element.SetAttributeValue("选择改变", control.SelectionChangedEvent);
-        }
-
-        if (!string.IsNullOrWhiteSpace(control.CheckedChangedEvent))
-        {
-            element.SetAttributeValue("选中改变", control.CheckedChangedEvent);
         }
 
         if (control.ReadOnly)
@@ -278,6 +204,26 @@ public static class YyFormSerializer
         }
 
         return element;
+    }
+
+    private static void RejectInterfaceLogicAttributes(XElement root)
+    {
+        var logicAttributes = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "代码", "载入", "关闭", "单击", "文本改变", "选择改变", "选中改变"
+        };
+        foreach (var element in root.DescendantsAndSelf())
+        {
+            var attribute = element.Attributes()
+                .FirstOrDefault(item => logicAttributes.Contains(item.Name.LocalName));
+            if (attribute is not null)
+            {
+                throw Error(
+                    element,
+                    $"界面 XML 不能保存事件或代码关系“{attribute.Name.LocalName}”；" +
+                    "事件属于自动生成的 .Designer.yyc，逻辑属于同名 .yyc 文件。");
+            }
+        }
     }
 
     private static string RequiredAttribute(XElement element, string name)

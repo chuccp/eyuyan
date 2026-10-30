@@ -1,0 +1,49 @@
+# 代码模块与体积约束
+
+易语 Studio 已从单文件窗口类拆分为按职责组织的 partial class。partial 只用于共享同一个 WPF 窗口状态，纯业务逻辑仍应进入独立服务或模型类。
+
+## 窗口模块
+
+| 文件 | 职责 |
+|---|---|
+| `MainWindow.xaml.cs` | 窗口字段、构造和公共生命周期 |
+| `MainWindow.EditorAssistance.cs` | 编辑器配置、补全、参数提示、F1 帮助 |
+| `MainWindow.DocumentCommands.cs` | 新建、打开、保存入口和关闭标签命令 |
+| `MainWindow.DocumentPersistence.cs` | 文档序列化、三文件保存和关闭确认 |
+| `MainWindow.Workspace.cs` | 工作区、程序数据树、文档激活和视图切换 |
+| `MainWindow.DesignerInteraction.cs` | 窗体渲染、组件箱、拖放、移动和缩放 |
+| `MainWindow.DesignerSelection.cs` | 选择、剪贴板、层级、撤销与重做 |
+| `MainWindow.DesignerProperties.cs` | 属性夹、事件选择与属性提交 |
+| `MainWindow.FormIntegration.cs` | 预览、事件入口、组件关联和关系文件协调 |
+| `MainWindow.RunBuild.cs` | 运行、调试、监视、搜寻和编译 |
+| `MainWindow.RuntimeResults.cs` | 执行结果、诊断、状态与变量显示 |
+| `MainWindow.ShellCommands.cs` | 外壳菜单、支持库、资源、模块与窗口菜单 |
+
+## 代码编辑窗口
+
+| 文件 | 职责 |
+|---|---|
+| `MainWindow.CodeWindow.cs` | 对象/过程导航、函数定位和格式化 |
+| `Structured/EasyLanguageCodeEditor.cs` | 紧凑方法声明表与连续执行代码块 |
+| `Structured/YyIndentationStrategy.cs` | 易语代码块缩进 |
+| `Structured/EasyLanguageFoldingStrategy.cs` | 子程序、条件和循环折叠 |
+| `EditorDocument.cs` | 结构化存储与连续源码视图之间的状态 |
+
+用户代码可以在“易语言代码”和“纯代码”两种呈现间切换。方法声明可以出现在小表格中，但执行语句始终处于连续代码区；旧的逐行表格编辑器已删除。
+
+## 项目模型
+
+| 文件 | 职责 |
+|---|---|
+| `YyProject.cs` | 项目装载、设置保存、路径校验 |
+| `YyProjectModels.cs` | 项目窗体、全局变量、常量、资源、DLL 和数据库模型 |
+| `YyProject.Creation.cs` | 新项目和窗体三件套创建、默认模板 |
+
+## 体积门槛
+
+- 单个手写 C# 源文件目标不超过 800 行。
+- 硬性回归门槛为 900 行；`Yy.Studio.Tests` 会扫描仓库并阻止继续增长。
+- 生成目录 `obj/`、`bin/` 不参与统计。
+- 超过目标临近值时，优先按可独立理解的功能拆分，而不是按任意行数切断方法。
+- 可复用算法、文件协议、解析和生成逻辑应放入独立服务，不应通过 partial 继续堆进窗口类。
+- 新增窗口 partial 时，文件名必须表达职责，例如 `MainWindow.RuntimeResults.cs`，禁止 `Part1`、`Misc`、`Helpers` 等模糊命名。

@@ -39,7 +39,7 @@ try
     await compiler.CompileAsync(
         project,
         outputPath,
-        new Progress<string>(message => Console.WriteLine(message)));
+        progress: new Progress<string>(message => Console.WriteLine(message)));
     Console.WriteLine($"已生成：{outputPath}");
     return 0;
 }

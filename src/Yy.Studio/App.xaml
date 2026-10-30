@@ -3,29 +3,28 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Application.Resources>
         <ResourceDictionary>
-        <!-- 经典 Windows 配色(对齐易语言官方界面)。键名保持不变,既有引用不受影响。 -->
-        <SolidColorBrush x:Key="WindowBrush" Color="#D4D0C8" />
-        <SolidColorBrush x:Key="PanelBrush" Color="#D4D0C8" />
-        <SolidColorBrush x:Key="PanelRaisedBrush" Color="#ECE9D8" />
-        <SolidColorBrush x:Key="BorderBrush" Color="#808080" />
-        <SolidColorBrush x:Key="MutedBrush" Color="#6E6E6E" />
-        <SolidColorBrush x:Key="TextBrush" Color="#000000" />
-        <SolidColorBrush x:Key="AccentBrush" Color="#0A246A" />
-        <SolidColorBrush x:Key="AccentHoverBrush" Color="#316AC5" />
-        <SolidColorBrush x:Key="WarningBrush" Color="#808000" />
-        <SolidColorBrush x:Key="ErrorBrush" Color="#A00000" />
-        <SolidColorBrush x:Key="SuccessBrush" Color="#006000" />
+        <!-- 现代 IDE 浅色主题。键名保持稳定，控件和视图只引用语义颜色。 -->
+        <SolidColorBrush x:Key="WindowBrush" Color="#F3F3F3" />
+        <SolidColorBrush x:Key="PanelBrush" Color="#F8F8F8" />
+        <SolidColorBrush x:Key="PanelRaisedBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="BorderBrush" Color="#D0D7DE" />
+        <SolidColorBrush x:Key="MutedBrush" Color="#6E7781" />
+        <SolidColorBrush x:Key="TextBrush" Color="#1F2328" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#0E639C" />
+        <SolidColorBrush x:Key="AccentHoverBrush" Color="#1177BB" />
+        <SolidColorBrush x:Key="WarningBrush" Color="#9A6700" />
+        <SolidColorBrush x:Key="ErrorBrush" Color="#CF222E" />
+        <SolidColorBrush x:Key="SuccessBrush" Color="#1A7F37" />
 
-        <!-- 经典主题附加刷 -->
-        <SolidColorBrush x:Key="FaceBrush" Color="#ECE9D8" />
-        <SolidColorBrush x:Key="SunkenShadowBrush" Color="#808080" />
-        <SolidColorBrush x:Key="SunkenDarkBrush" Color="#404040" />
+        <SolidColorBrush x:Key="FaceBrush" Color="#F6F8FA" />
+        <SolidColorBrush x:Key="SunkenShadowBrush" Color="#D0D7DE" />
+        <SolidColorBrush x:Key="SunkenDarkBrush" Color="#8C959F" />
         <SolidColorBrush x:Key="SunkenLightBrush" Color="#FFFFFF" />
-        <SolidColorBrush x:Key="HintBrush" Color="#C0D8F0" />
+        <SolidColorBrush x:Key="HintBrush" Color="#F6F8FA" />
         <SolidColorBrush x:Key="EditorBrush" Color="#FFFFFF" />
-        <SolidColorBrush x:Key="WorkspaceBrush" Color="#808080" />
+        <SolidColorBrush x:Key="WorkspaceBrush" Color="#E9ECEF" />
         <SolidColorBrush x:Key="HighlightTextBrush" Color="#FFFFFF" />
-        <SolidColorBrush x:Key="ToolTipBrush" Color="#FFFFE1" />
+        <SolidColorBrush x:Key="ToolTipBrush" Color="#FFFFFF" />
 
         <ResourceDictionary.MergedDictionaries>
             <ResourceDictionary Source="Themes/Classic.xaml" />

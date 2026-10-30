@@ -208,7 +208,7 @@ public sealed class YyFormPreviewWindow : Window
             string codeText;
             if (_inlineCode is not null)
             {
-                // 内存窗体:直接使用编辑器中的代码后置(对齐官方:未保存也能运行)。
+                // 内存窗体:直接使用编辑器中的用户代码。
                 codeText = _inlineCode;
             }
             else
@@ -216,19 +216,19 @@ public sealed class YyFormPreviewWindow : Window
                 codePath = ResolveCodePath();
                 if (codePath is null)
                 {
-                    _eventOutput.Text = "窗体尚未保存，无法定位代码后置文件。";
+                    _eventOutput.Text = "窗体尚未保存，无法定位用户代码文件。";
                     return;
                 }
 
                 if (!File.Exists(codePath))
                 {
-                    _eventOutput.Text = $"找不到代码后置文件：{Path.GetFileName(codePath)}";
+                    _eventOutput.Text = $"找不到用户代码文件：{Path.GetFileName(codePath)}";
                     return;
                 }
 
                 if (!string.Equals(Path.GetExtension(codePath), ".yyc", StringComparison.OrdinalIgnoreCase))
                 {
-                    _eventOutput.Text = "窗体代码后置必须使用 .yyc 格式。";
+                    _eventOutput.Text = "窗体用户代码必须使用 .yyc 格式。";
                     return;
                 }
 
@@ -240,7 +240,7 @@ public sealed class YyFormPreviewWindow : Window
         catch (Exception exception) when (
             exception is IOException or UnauthorizedAccessException or YyCodeFormatException)
         {
-            _eventOutput.Text = $"读取代码后置文件失败：{exception.Message}";
+            _eventOutput.Text = $"读取用户代码文件失败：{exception.Message}";
             return;
         }
 

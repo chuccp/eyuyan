@@ -117,6 +117,9 @@ public partial class MainWindow
                 width = designForm.Width,
                 height = designForm.Height,
                 codeFile = designForm.CodeFile,
+                bindingFile = _designerDocument?.FilePath is { } formPath
+                    ? Path.GetFileName(YyFormCompanionFiles.BindingPath(formPath))
+                    : null,
                 loadEvent = designForm.LoadEvent,
                 closeEvent = designForm.CloseEvent,
                 controls = designForm.Controls.Select(control => new
@@ -138,14 +141,33 @@ public partial class MainWindow
 
         return new
         {
+            project = _project is { } project
+                ? new
+                {
+                    name = project.Name,
+                    path = project.ProjectPath,
+                    forms = project.Forms.Count
+                }
+                : null,
             documents = _documents.Select(document => new
             {
                 name = document.DisplayName,
                 path = document.FilePath,
                 dirty = document.IsDirty,
-                isForm = document.IsForm
+                isForm = document.IsForm,
+                generated = document.IsGeneratedBinding,
+                plainCode = document.UsePlainCodeEditor,
+                easyLanguagePresentation = document.UseEasyLanguagePresentation
             }).ToArray(),
             current = _currentDocument?.DisplayName,
+            codeWindow = new
+            {
+                visible = CodeWindowBar.Visibility == Visibility.Visible,
+                easyVisible = EasyLanguageEditor.Visibility == Visibility.Visible,
+                textVisible = Editor.Visibility == Visibility.Visible,
+                easyFunctions = EasyLanguageEditor.Document?.Functions.Count ?? 0,
+                plainLength = _currentDocument?.PlainCodeText.Length ?? 0
+            },
             form,
             preview = _lastPreview is { } preview
                 ? new { title = preview.Title, running = preview.EventRunning, status = preview.EventStatus }
@@ -198,7 +220,7 @@ public partial class MainWindow
             var formDocument = _currentDocument!.IsForm
                 ? _currentDocument
                 : McpFormDocument()!;
-            // 先按旧 CodeFile 解析代码后置,再改名保存:顺序反了会匹配失败并另建空文档。
+            // 先解析现有用户代码文档,再改名保存,避免另建空的同名文档。
             var codeDocument = McpResolveCodeDocument(createIfMissing: true);
             _designForm!.CodeFile = baseName + ".yyc";
             DesignerChanged();
@@ -214,11 +236,17 @@ public partial class MainWindow
                 var codePath = Path.Combine(directory, baseName + ".yyc");
                 if (!WriteDocument(codeDocument, codePath))
                 {
-                    throw new InvalidOperationException("代码后置保存失败: " + codePath);
+                    throw new InvalidOperationException("用户代码保存失败: " + codePath);
                 }
 
                 codeDocument.MarkSaved(codePath);
                 saved.Add(codePath);
+            }
+
+            var bindingPath = YyFormCompanionFiles.BindingPath(path);
+            if (File.Exists(bindingPath))
+            {
+                saved.Add(bindingPath);
             }
         }
         else

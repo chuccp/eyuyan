@@ -9,93 +9,7 @@ using Yy.Language.Structured;
 
 namespace Yy.Studio;
 
-public sealed record YyProjectForm(
-    string FormPath,
-    string? CodePath,
-    YyFormModel Model);
-
-public sealed class YyGlobalVarEntry
-{
-    [JsonPropertyName("名称")]
-    public string Name { get; set; } = string.Empty;
-
-    [JsonPropertyName("类型")]
-    public string TypeName { get; set; } = "文本";
-
-    [JsonPropertyName("备注")]
-    public string Remark { get; set; } = string.Empty;
-}
-
-public sealed class YyConstantEntry
-{
-    [JsonPropertyName("名称")]
-    public string Name { get; set; } = string.Empty;
-
-    [JsonPropertyName("值")]
-    public string Value { get; set; } = string.Empty;
-
-    [JsonPropertyName("备注")]
-    public string Remark { get; set; } = string.Empty;
-}
-
-public sealed class YyResourceEntry
-{
-    [JsonPropertyName("名称")]
-    public string Name { get; set; } = string.Empty;
-
-    [JsonPropertyName("类型")]
-    public string TypeName { get; set; } = "图片";
-
-    [JsonPropertyName("文件")]
-    public string File { get; set; } = string.Empty;
-
-    [JsonPropertyName("备注")]
-    public string Remark { get; set; } = string.Empty;
-}
-
-public sealed class YyDllCommandEntry
-{
-    [JsonPropertyName("名称")]
-    public string Name { get; set; } = string.Empty;
-
-    [JsonPropertyName("Dll文件")]
-    public string DllFile { get; set; } = string.Empty;
-
-    [JsonPropertyName("命令名")]
-    public string CommandName { get; set; } = string.Empty;
-
-    [JsonPropertyName("参数")]
-    public string Parameters { get; set; } = string.Empty;
-
-    [JsonPropertyName("返回类型")]
-    public string ReturnType { get; set; } = "整数型";
-
-    [JsonPropertyName("备注")]
-    public string Remark { get; set; } = string.Empty;
-}
-
-public sealed class YyDbColumn
-{
-    [JsonPropertyName("名称")]
-    public string Name { get; set; } = string.Empty;
-
-    [JsonPropertyName("类型")]
-    public string TypeName { get; set; } = "文本";
-
-    [JsonPropertyName("备注")]
-    public string Remark { get; set; } = string.Empty;
-}
-
-public sealed class YyDbTable
-{
-    [JsonPropertyName("名称")]
-    public string Name { get; set; } = string.Empty;
-
-    [JsonPropertyName("列")]
-    public List<YyDbColumn> Columns { get; set; } = [];
-}
-
-public sealed class YyProject
+public sealed partial class YyProject
 {
     private readonly List<string> _formPaths;
     private readonly List<string> _sourcePaths;
@@ -190,10 +104,10 @@ public sealed class YyProject
                 exception);
         }
 
-        if (manifest.FormatVersion is not 1 and not 2)
+        if (manifest.FormatVersion != 3)
         {
             throw new InvalidDataException(
-                $"项目格式版本 {manifest.FormatVersion} 不受支持，当前支持版本为 1 和 2。");
+                $"项目格式版本 {manifest.FormatVersion} 不受支持，当前工程规则只接受版本 3。");
         }
 
         if (string.IsNullOrWhiteSpace(manifest.Name))
@@ -243,21 +157,47 @@ public sealed class YyProject
                     $"项目窗体类“{form.Name}”重复定义：{Path.GetFileName(formPath)}");
             }
 
-            string? codePath = null;
-            if (!string.IsNullOrWhiteSpace(form.CodeFile))
+            var bindingPath = YyFormCompanionFiles.BindingPath(formPath);
+            if (!File.Exists(bindingPath))
             {
-                var formDirectory = Path.GetDirectoryName(formPath)
-                    ?? throw new InvalidDataException($"无法确定窗体目录：{formPath}");
-                codePath = ResolveProjectFile(formDirectory, form.CodeFile, "窗体代码后置文件");
-                EnsureExtension(codePath, ".yyc", "窗体代码后置文件");
-                if (!sourcePaths.Contains(codePath, StringComparer.OrdinalIgnoreCase))
-                {
-                    sourcePaths.Add(codePath);
-                }
-
+                throw new InvalidDataException(
+                    $"窗体“{form.Name}”缺少自动生成的关系文件：{Path.GetFileName(bindingPath)}");
             }
 
-            forms.Add(new YyProjectForm(formPath, codePath, form));
+            var binding = YyFormBindingSerializer.Deserialize(File.ReadAllText(bindingPath));
+            YyFormBindingSerializer.ApplyTo(form, binding);
+            var expectedUiFile = Path.GetFileName(formPath);
+            if (!string.Equals(binding.UiFile, expectedUiFile, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException(
+                    $"关系文件“{Path.GetFileName(bindingPath)}”绑定的是“{binding.UiFile}”，" +
+                    $"不是“{expectedUiFile}”。");
+            }
+
+            var codePath = YyFormCompanionFiles.UserCodePath(formPath);
+            if (!string.Equals(
+                    binding.CodeFile,
+                    Path.GetFileName(codePath),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException(
+                    $"窗体“{form.Name}”的关系文件必须指向同名用户代码“{Path.GetFileName(codePath)}”。");
+            }
+
+            if (!File.Exists(codePath))
+            {
+                throw new InvalidDataException(
+                    $"窗体“{form.Name}”缺少用户代码文件：{Path.GetFileName(codePath)}");
+            }
+
+            form.CodeFile = Path.GetFileName(codePath);
+            if (!sourcePaths.Contains(codePath, StringComparer.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException(
+                    $"窗体“{form.Name}”的用户代码“{Path.GetFileName(codePath)}”没有列入项目源码。");
+            }
+
+            forms.Add(new YyProjectForm(formPath, bindingPath, codePath, form));
         }
 
         var startupForm = string.IsNullOrWhiteSpace(manifest.StartupForm)
@@ -294,142 +234,6 @@ public sealed class YyProject
             manifest.DllCommands ?? [],
             manifest.DatabaseTables ?? [],
             forms);
-    }
-
-    public static YyProject CreateProject(string projectPath, string projectName)
-    {
-        if (string.IsNullOrWhiteSpace(projectName) ||
-            !YyFormSerializer.IsIdentifier(projectName))
-        {
-            throw new ArgumentException("项目名称必须是中文、英文、数字或下划线组成的标识符。", nameof(projectName));
-        }
-
-        var fullProjectPath = Path.GetFullPath(projectPath);
-        if (File.Exists(fullProjectPath))
-        {
-            throw new IOException($"项目文件已经存在：{fullProjectPath}");
-        }
-
-        var root = Path.GetDirectoryName(fullProjectPath)
-            ?? throw new IOException("无法确定项目目录。");
-        if (Directory.Exists(root) &&
-            Directory.EnumerateFileSystemEntries(root).Any())
-        {
-            throw new IOException("新建项目请选择空目录，或选择一个新的项目文件夹。");
-        }
-
-        Directory.CreateDirectory(root);
-        var formsDirectory = Path.Combine(root, "Forms");
-        var resourcesDirectory = Path.Combine(root, "Resources");
-        Directory.CreateDirectory(formsDirectory);
-        Directory.CreateDirectory(resourcesDirectory);
-
-        var entryPath = Path.Combine(root, "Program.yyc");
-        var formPath = Path.Combine(formsDirectory, "MainForm.yyx");
-        var codePath = Path.Combine(formsDirectory, "MainForm.yyc");
-
-        WriteStructuredSource(entryPath, CreateEntryTemplate(projectName));
-        WriteStructuredSource(codePath, CreateCodeBehindTemplate());
-        var form = new YyFormModel
-        {
-            Name = "_启动窗口",
-            CodeFile = "MainForm.yyc",
-            LoadEvent = "__启动窗口_创建完毕",
-            CloseEvent = "__启动窗口_将被销毁",
-            Title = projectName,
-            Width = 760,
-            Height = 500
-        };
-        form.Controls.Add(CreateWelcomeLabel());
-        form.Controls.Add(CreateWelcomeButton());
-        File.WriteAllText(formPath, YyFormSerializer.Serialize(form), new UTF8Encoding(false));
-
-        var manifest = new YyProjectManifest
-        {
-            FormatVersion = 2,
-            Name = projectName,
-            Entry = "Program.yyc",
-            Output = projectName + ".exe",
-            StartupForm = "_启动窗口",
-            Sources = ["Program.yyc", "Forms/MainForm.yyc"],
-            Forms = ["Forms/MainForm.yyx"],
-            Resources = [],
-            References = []
-        };
-        WriteManifest(fullProjectPath, manifest);
-        return LoadForDirectory(root)
-            ?? throw new InvalidDataException("新项目已创建，但项目清单无法重新读取。");
-    }
-
-    public YyProjectForm CreateForm(string title)
-    {
-        var sequence = 1;
-        string className;
-        do
-        {
-            className = "窗口" + sequence;
-            sequence++;
-        }
-        while (Forms.Any(form => string.Equals(form.Model.Name, className, StringComparison.Ordinal)) ||
-               File.Exists(Path.Combine(DirectoryPath, "Forms", className + ".yyx")));
-
-        var formsDirectory = Path.Combine(DirectoryPath, "Forms");
-        Directory.CreateDirectory(formsDirectory);
-        var formPath = Path.Combine(formsDirectory, className + ".yyx");
-        var codePath = Path.Combine(formsDirectory, className + ".yyc");
-        var model = new YyFormModel
-        {
-            Name = className,
-            CodeFile = className + ".yyc",
-            Title = title,
-            Width = 720,
-            Height = 480
-        };
-        var button = YyControlTypes.Create(YyControlTypes.Button, 1);
-        button.Name = "确定按钮";
-        button.Text = "确定";
-        button.ClickEvent = "_确定按钮_被单击";
-        model.Controls.Add(button);
-
-        File.WriteAllText(formPath, YyFormSerializer.Serialize(model), new UTF8Encoding(false));
-        WriteStructuredSource(
-            codePath,
-            $"""
-            .版本 3
-            .程序集 {className}代码
-
-            子程序 _确定按钮_被单击()
-                提示("窗体事件已经执行。")
-            结束子程序
-            """);
-
-        AddRelativePath(_formPaths, formPath, DirectoryPath);
-        AddRelativePath(_sourcePaths, codePath, DirectoryPath);
-        WriteCurrentManifest();
-        return new YyProjectForm(formPath, codePath, model);
-    }
-
-    public string CreateSourceFile()
-    {
-        var sequence = 1;
-        string path;
-        do
-        {
-            path = Path.Combine(DirectoryPath, $"Source{sequence++}.yyc");
-        }
-        while (File.Exists(path));
-
-        WriteStructuredSource(
-            path,
-            $"""
-            .版本 3
-            .程序集 {Name}
-
-            输出("新建源码文件")
-            """);
-        AddRelativePath(_sourcePaths, path, DirectoryPath);
-        WriteCurrentManifest();
-        return path;
     }
 
     public void UpdateSettings(
@@ -477,7 +281,7 @@ public sealed class YyProject
     {
         var manifest = new YyProjectManifest
         {
-            FormatVersion = 2,
+            FormatVersion = 3,
             Name = Name,
             Entry = ToRelativePath(EntryPath, DirectoryPath),
             Output = OutputName,
@@ -510,6 +314,11 @@ public sealed class YyProject
             foreach (var path in resolved)
             {
                 EnsureExtension(path, extension, description);
+                if (extension == ".yyc" && YyFormCompanionFiles.IsGeneratedBindingPath(path))
+                {
+                    throw new InvalidDataException(
+                        $"{description}不能包含自动关系文件“{Path.GetFileName(path)}”。");
+                }
             }
 
             return resolved;
@@ -518,6 +327,7 @@ public sealed class YyProject
         return Directory.EnumerateFiles(baseDirectory, "*" + extension, SearchOption.AllDirectories)
             .Where(path => !path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                 .Any(part => part is "bin" or "obj" or ".git" or ".vs"))
+            .Where(path => extension != ".yyc" || !YyFormCompanionFiles.IsGeneratedBindingPath(path))
             .Select(Path.GetFullPath)
             .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -590,68 +400,10 @@ public sealed class YyProject
         File.WriteAllText(path, json + Environment.NewLine, new UTF8Encoding(false));
     }
 
-    private static string CreateEntryTemplate(string projectName) =>
-        $"""
-        .版本 3
-        .程序集 {projectName}
-
-        ' 项目入口。窗体代码位于 Forms 目录。
-        输出("{projectName} 已启动。")
-        """;
-
-    private static string CreateCodeBehindTemplate() =>
-        """
-        .版本 3
-        .程序集 MainForm代码
-
-        ' 控件在窗体运行时作为对象变量注入。
-        ' 事件处理子程序按官方命名：“_” + 窗口单元名称 + “_” + 事件名称。
-        子程序 __启动窗口_创建完毕()
-            输出("窗体已经载入。")
-        结束子程序
-
-        子程序 _欢迎按钮_被单击()
-            提示("界面事件已经连接到代码后置文件。")
-        结束子程序
-
-        子程序 __启动窗口_将被销毁()
-            输出("窗体已经关闭。")
-        结束子程序
-        """;
-
-    private static YyControlModel CreateWelcomeLabel() =>
-        new()
-        {
-            Type = YyControlTypes.Label,
-            Name = "欢迎标签",
-            Text = "这是一个真正的易语项目",
-            X = 40,
-            Y = 38,
-            Width = 380,
-            Height = 46,
-            FontSize = 24,
-            Background = "Transparent"
-        };
-
-    private static YyControlModel CreateWelcomeButton() =>
-        new()
-        {
-            Type = YyControlTypes.Button,
-            Name = "欢迎按钮",
-            Text = "运行事件代码",
-            ClickEvent = "_欢迎按钮_被单击",
-            X = 40,
-            Y = 108,
-            Width = 150,
-            Height = 42,
-            Background = "#ECE9D8",
-            Foreground = "#000000"
-        };
-
     private sealed class YyProjectManifest
     {
         [JsonPropertyName("格式版本")]
-        public int FormatVersion { get; init; } = 2;
+        public int FormatVersion { get; init; } = 3;
 
         [JsonPropertyName("名称")]
         public string Name { get; init; } = string.Empty;

@@ -157,7 +157,7 @@ public sealed class ProjectCompiler
                     if (!names.Add(function.Name))
                     {
                         throw new InvalidDataException(
-                            $"子程序“{function.Name}”在项目源码与窗体代码后置中重复定义。");
+                            $"子程序“{function.Name}”在项目源码与窗体用户代码中重复定义。");
                     }
 
                     functions.Add(function);

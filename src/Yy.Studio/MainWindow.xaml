@@ -2,9 +2,10 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:avalon="http://icsharpcode.net/sharpdevelop/avalonedit"
-        xmlns:structured="clr-namespace:Yy.Studio.Structured"
         xmlns:props="clr-namespace:Yy.Studio.Properties"
         xmlns:studio="clr-namespace:Yy.Studio"
+        xmlns:local="clr-namespace:Yy.Studio"
+        xmlns:structured="clr-namespace:Yy.Studio.Structured"
         Title="易语 Studio"
         Icon="Assets/YyStudio.ico"
         Width="1380"
@@ -573,9 +574,8 @@
         <Border x:Name="StatusBarRow"
                 DockPanel.Dock="Bottom"
                 Height="22"
-                Background="{StaticResource FaceBrush}"
-                BorderBrush="{StaticResource BorderBrush}"
-                BorderThickness="0,1,0,0">
+                Background="{StaticResource AccentBrush}"
+                BorderThickness="0">
             <Grid Margin="8,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -583,16 +583,16 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Ellipse x:Name="StatusDot" Width="7" Height="7" Fill="#006000" />
+                    <Ellipse x:Name="StatusDot" Width="7" Height="7" Fill="#4ADE80" />
                     <TextBlock x:Name="StatusText" Text="就绪"
                                Margin="7,0,0,0" FontSize="11"
-                               Foreground="{StaticResource TextBrush}" />
+                               Foreground="White" />
                 </StackPanel>
                 <TextBlock x:Name="CaretText" Grid.Column="1" Text="行 1，列 1"
-                           FontSize="11" Foreground="{StaticResource TextBrush}"
+                           FontSize="11" Foreground="White"
                            Margin="0,0,18,0" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="2" Text="UTF-8  ·  Windows 原生"
-                           FontSize="11" Foreground="{StaticResource MutedBrush}"
+                           FontSize="11" Foreground="#DDEBFA"
                            VerticalAlignment="Center" />
             </Grid>
         </Border>
@@ -600,17 +600,37 @@
         <!-- ================= 主体:左工作与状态组合夹 | 设计中心 | 右窗口组件箱 ================= -->
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition x:Name="ExplorerColumn" Width="252" MinWidth="180" />
+                <ColumnDefinition x:Name="ExplorerColumn" Width="260" MinWidth="180" />
                 <ColumnDefinition Width="4" />
                 <ColumnDefinition Width="*" MinWidth="420" />
                 <ColumnDefinition Width="4" />
-                <ColumnDefinition x:Name="InspectorColumn" Width="132" MinWidth="104" />
+                <ColumnDefinition x:Name="InspectorColumn" Width="360" MinWidth="220" />
             </Grid.ColumnDefinitions>
 
-            <!-- 左:工作与状态组合夹(夹标签在底部) -->
-            <Border Grid.Column="0" x:Name="ExplorerPanel"
+            <!-- 左:项目目录 -->
+            <Border Grid.Column="0" x:Name="ProjectExplorerPanel"
                     Background="{StaticResource PanelBrush}">
-                <TabControl x:Name="WorkTabs" TabStripPlacement="Bottom">
+                <DockPanel>
+                    <Border DockPanel.Dock="Top"
+                            Background="{StaticResource PanelRaisedBrush}"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="0,0,0,1"
+                            Padding="10,6">
+                        <TextBlock Text="项目"
+                                   FontSize="11"
+                                   FontWeight="SemiBold" />
+                    </Border>
+                    <TreeView x:Name="ProjectDirectoryTree"
+                              SelectedItemChanged="OnDirectoryTreeSelectionChanged"
+                              MouseDoubleClick="OnDirectoryTreeDoubleClick" />
+                </DockPanel>
+            </Border>
+
+            <!-- 右:支持库、程序数据、属性 -->
+            <Border Grid.Column="4" x:Name="RightToolsPanel"
+                    Margin="0,0,132,0"
+                    Background="{StaticResource PanelBrush}">
+                <TabControl x:Name="WorkTabs" TabStripPlacement="Top">
                     <TabItem Header="支持库">
                         <TreeView x:Name="SupportTree"
                                   SelectedItemChanged="OnSupportTreeSelectionChanged"
@@ -739,15 +759,107 @@
                           ResizeDirection="Columns"
                           ShowsPreview="True" />
 
-            <!-- 中:文档区(文档标签在底部,对齐官方) -->
+            <!-- 中:现代 IDE 文档区(顶部标签 + 路径导航 + 编辑器) -->
             <Grid x:Name="DocumentArea" Grid.Column="2" Background="{StaticResource WindowBrush}">
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="30" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="30" />
                 </Grid.RowDefinitions>
-                <Border Background="{StaticResource FaceBrush}"
+
+                <Border Background="{StaticResource PanelRaisedBrush}"
+                        Grid.Row="1"
+                        BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="0,0,0,1"
+                        Padding="10,3">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="›"
+                                   Foreground="{StaticResource MutedBrush}"
+                                   FontSize="13"
+                                   Margin="0,0,6,0"
+                                   VerticalAlignment="Center" />
+                        <TextBlock x:Name="EditorBreadcrumbText"
+                                   Text="未打开文件"
+                                   Foreground="{StaticResource MutedBrush}"
+                                   FontSize="11"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </Border>
+
+                <Border x:Name="CodeWindowBar"
                         Grid.Row="2"
+                        Background="{StaticResource FaceBrush}"
+                        BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="0,0,0,1"
+                        Padding="6,3"
+                        Visibility="Collapsed">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel x:Name="CodeNavigationPanel"
+                                    Grid.Column="0"
+                                    Orientation="Horizontal">
+                            <TextBlock Text="对象"
+                                       FontSize="11"
+                                       VerticalAlignment="Center"
+                                       Margin="2,0,6,0" />
+                            <ComboBox x:Name="CodeObjectPicker"
+                                      Width="190"
+                                      Height="23"
+                                      FontSize="11.5"
+                                      SelectionChanged="OnCodeObjectPickerChanged" />
+                            <TextBlock Text="过程"
+                                       FontSize="11"
+                                       VerticalAlignment="Center"
+                                       Margin="10,0,6,0" />
+                            <ComboBox x:Name="CodeProcedurePicker"
+                                      Width="230"
+                                      Height="23"
+                                      FontSize="11.5"
+                                      SelectionChanged="OnCodeProcedurePickerChanged" />
+                        </StackPanel>
+                        <TextBlock x:Name="CodeWindowContext"
+                                   Grid.Column="1"
+                                   FontSize="10.5"
+                                   Foreground="{StaticResource MutedBrush}"
+                                   VerticalAlignment="Center"
+                                   Margin="10,0,8,0"
+                                   TextTrimming="CharacterEllipsis" />
+                        <StackPanel Grid.Column="2"
+                                    Orientation="Horizontal">
+                            <Button x:Name="EasyLanguageCodeButton"
+                                    Content="易语言代码"
+                                    Click="OnShowEasyLanguageCode"
+                                    Style="{StaticResource PanelButton}"
+                                    Padding="9,2"
+                                    Margin="0,0,3,0"
+                                    ToolTip="显示程序集、对象/过程、折叠标记和命令语法色" />
+                            <Button x:Name="PlainCodeButton"
+                                    Content="纯代码"
+                                    Click="OnShowPlainCode"
+                                    Style="{StaticResource PanelButton}"
+                                    Padding="9,2"
+                                    Margin="0,0,6,0"
+                                    ToolTip="隐藏易语言导航装饰，以普通源码方式编辑" />
+                        </StackPanel>
+                        <Button Grid.Column="3"
+                                Content="格式化"
+                                Click="OnFormatPlainCode"
+                                Style="{StaticResource PanelButton}"
+                                Padding="9,2"
+                                ToolTip="按易语块结构重新缩进和格式化当前代码" />
+                    </Grid>
+                </Border>
+
+                <Border Background="{StaticResource FaceBrush}"
+                        Grid.Row="0"
                         BorderBrush="{StaticResource BorderBrush}"
                         BorderThickness="0,1,0,0">
                     <Grid Margin="8,0">
@@ -804,6 +916,11 @@
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding TabIcon}"
+                                                   Foreground="{StaticResource MutedBrush}"
+                                                   FontSize="10"
+                                                   Margin="0,0,6,0"
+                                                   VerticalAlignment="Center" />
                                         <TextBlock Text="{Binding DisplayName}"
                                                    MaxWidth="170"
                                                    FontSize="12"
@@ -839,7 +956,7 @@
                 </Border>
 
                 <avalon:TextEditor x:Name="Editor"
-                                   Grid.Row="0"
+                                   Grid.Row="3"
                                    Background="{StaticResource EditorBrush}"
                                    Foreground="#000000"
                                    FontFamily="Cascadia Code, Consolas, Microsoft YaHei UI"
@@ -851,14 +968,14 @@
                                    Padding="8,10,8,16"
                                    TextChanged="OnEditorTextChanged" />
 
-                <structured:StructuredCodeEditor x:Name="StructuredEditor"
-                                                 Grid.Row="0"
-                                                 Grid.RowSpan="2"
-                                                 Visibility="Collapsed"
-                                                 ModelChanged="OnStructuredCodeChanged" />
+                <structured:EasyLanguageCodeEditor x:Name="EasyLanguageEditor"
+                                                        Grid.Row="3"
+                                                        Visibility="Collapsed"
+                                                        ModelChanged="OnEasyLanguageCodeChanged"
+                                                        HintRequested="OnEasyLanguageHint" />
 
                 <Border x:Name="ParameterHintBar"
-                        Grid.Row="1"
+                        Grid.Row="4"
                         Background="{StaticResource FaceBrush}"
                         BorderBrush="{StaticResource BorderBrush}"
                         BorderThickness="0,1,0,0"
@@ -872,12 +989,12 @@
                 </Border>
 
                 <studio:DataTableView x:Name="DataTableViewHost"
-                                      Grid.Row="0"
+                                      Grid.Row="3"
                                       Grid.RowSpan="2"
                                       Visibility="Collapsed" />
 
                 <Grid x:Name="DesignerPanel"
-                      Grid.Row="0"
+                      Grid.Row="3"
                       Grid.RowSpan="2"
                       Background="{StaticResource WorkspaceBrush}"
                       Visibility="Collapsed">
@@ -951,7 +1068,7 @@
                                         KeyDown="OnDesignerCanvasKeyDown">
                                     <Canvas.ContextMenu>
                                         <ContextMenu>
-                                            <MenuItem Header="查看代码" Click="OnOpenFormCodeBehind" />
+                                            <MenuItem Header="查看用户代码" Click="OnOpenFormCodeBehind" />
                                             <Separator />
                                             <MenuItem Header="剪切" InputGestureText="Ctrl+X"
                                                       Command="ApplicationCommands.Cut" />
@@ -1009,7 +1126,11 @@
 
             <!-- 右:窗口组件箱 -->
             <Border Grid.Column="4" x:Name="InspectorPanel"
-                    Background="{StaticResource PanelBrush}">
+                    Width="132"
+                    HorizontalAlignment="Right"
+                    Background="{StaticResource PanelBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1,0,0,0">
                 <DockPanel>
                     <Border DockPanel.Dock="Top"
                             Background="{StaticResource FaceBrush}"

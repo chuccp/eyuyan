@@ -8,7 +8,7 @@ using Yy.Studio.Structured;
 
 var failures = 0;
 
-Run("窗体 XML 往返", () =>
+Run("界面 XML 与生成关系分离", () =>
 {
     var form = new YyFormModel
     {
@@ -27,18 +27,34 @@ Run("窗体 XML 往返", () =>
     var xml = YyFormSerializer.Serialize(form);
     var restored = YyFormSerializer.Deserialize(xml);
     Equal("测试窗口", restored.Name);
-    Equal("测试窗口_载入", restored.LoadEvent);
-    Equal("测试窗口_关闭", restored.CloseEvent);
     Equal("客户登记", restored.Title);
     Equal(2, restored.Controls.Count);
     Equal("按钮1", restored.Controls[0].Name);
+    True(!xml.Contains("载入=", StringComparison.Ordinal), "界面 XML 不应保存事件。");
+    True(!xml.Contains("文本改变=", StringComparison.Ordinal), "界面 XML 不应保存控件事件。");
+
+    var binding = YyFormBindingSerializer.Create(form, "测试窗口.yyx", "测试窗口.yyc");
+    var bindingText = YyFormBindingSerializer.Serialize(binding);
+    var restoredBinding = YyFormBindingSerializer.Deserialize(bindingText);
+    YyFormBindingSerializer.ApplyTo(restored, restoredBinding);
+    Equal("测试窗口_载入", restored.LoadEvent);
+    Equal("测试窗口_关闭", restored.CloseEvent);
     Equal("文本框_文本改变", restored.Controls[1].TextChangedEvent);
+
+    var userCode = YyFormCompanionFiles.CreateUserCodeDocument(form, restoredBinding);
+    True(
+        userCode.Functions.Any(function => function.Name == "文本框_文本改变"),
+        "用户代码应只获得事件入口。");
+    Equal(3, userCode.Functions.Count);
 });
 
 Run("示例窗体读取", () =>
 {
     var path = Path.Combine(Directory.GetCurrentDirectory(), "examples", "主窗体.yyx");
     var form = YyFormSerializer.Deserialize(File.ReadAllText(path));
+    var binding = YyFormBindingSerializer.Deserialize(
+        File.ReadAllText(YyFormCompanionFiles.BindingPath(path)));
+    YyFormBindingSerializer.ApplyTo(form, binding);
     Equal("主窗口", form.Name);
     Equal("客户登记", form.Title);
     Equal("_主窗口_创建完毕", form.LoadEvent);
@@ -48,6 +64,35 @@ Run("示例窗体读取", () =>
     Equal(
         "_姓名输入框_内容被改变",
         form.Controls.Single(control => control.Name == "姓名输入框").TextChangedEvent);
+    Equal(
+        File.ReadAllText(YyFormCompanionFiles.BindingPath(path)).Replace("\r\n", "\n"),
+        YyFormBindingSerializer.Generate(
+                form,
+                path,
+                YyFormCompanionFiles.UserCodePath(path))
+            .Replace("\r\n", "\n"));
+});
+
+Run("补齐事件入口不覆盖用户逻辑", () =>
+{
+    var document = new YyCodeDocument { Name = "用户代码" };
+    var existing = new YyCodeFunction { Name = "_保存按钮_被单击" };
+    existing.Statements.Add(new YyCodeStatement
+    {
+        Kind = YyCodeStatementKinds.Call,
+        Expression = "输出(\"保留我\")"
+    });
+    document.Functions.Add(existing);
+    var changed = YyFormCompanionFiles.EnsureEventHandlers(
+        document,
+        [
+            new YyFormBindingEvent("保存按钮", "按钮", "单击", "_保存按钮_被单击"),
+            new YyFormBindingEvent("取消按钮", "按钮", "单击", "_取消按钮_被单击")
+        ]);
+    True(changed, "缺失事件入口应触发代码更新。");
+    Equal(2, document.Functions.Count);
+    Equal("输出(\"保留我\")", document.Functions[0].Statements[0].Expression);
+    Equal("_取消按钮_被单击", document.Functions[1].Name);
 });
 
 Run("结构化代码往返", () =>
@@ -76,6 +121,38 @@ Run("结构化代码往返", () =>
     Equal("你好，世界", string.Join("\n", lines));
 });
 
+Run("用户代码默认进入VB式代码窗口", () =>
+{
+    var source = YyCodeSerializer.Serialize(
+        YyCodeDocumentConverter.FromSource(
+            ".版本 3\n.程序集 测试\n子程序 示例()\n    输出(\"你好\")\n结束子程序\n",
+            "Sample.yyc"));
+    var document = new EditorDocument("Sample.yyc", "Sample.yyc", source);
+    True(document.UsePlainCodeEditor, "用户代码应默认进入连续代码窗口。");
+    True(document.UseEasyLanguagePresentation, "用户代码应默认使用易语言代码窗口。");
+    True(
+        document.PlainCodeText.Contains(".程序集 测试", StringComparison.Ordinal),
+        "代码窗口没有取得可编辑源码。");
+
+    var indentation = new YyIndentationStrategy();
+    var text = new ICSharpCode.AvalonEdit.Document.TextDocument(
+        "子程序 示例()\n\n");
+    indentation.IndentLine(text, text.GetLineByNumber(2));
+    Equal("    ", text.GetText(text.GetLineByNumber(2)));
+
+    var foldingText = new ICSharpCode.AvalonEdit.Document.TextDocument(
+        """
+        子程序 示例()
+            如果 真 则
+                输出("你好")
+            结束如果
+        结束子程序
+        """);
+    Equal(
+        2,
+        EasyLanguageFoldingStrategy.CreateFoldings(foldingText).Count());
+});
+
 Run("项目清单读取", () =>
 {
     var directory = Path.Combine(Directory.GetCurrentDirectory(), "examples");
@@ -102,7 +179,10 @@ Run("完整项目骨架", () =>
         True(File.Exists(project.EntryPath), "项目入口没有创建。");
         True(File.Exists(Path.Combine(projectRoot, "Program.yyc")), "结构化入口源码没有创建。");
         True(File.Exists(Path.Combine(projectRoot, "Forms", "MainForm.yyx")), "窗体没有创建。");
-        True(File.Exists(Path.Combine(projectRoot, "Forms", "MainForm.yyc")), "结构化代码后置没有创建。");
+        True(File.Exists(Path.Combine(projectRoot, "Forms", "MainForm.yyc")), "用户代码文件没有创建。");
+        True(
+            File.Exists(Path.Combine(projectRoot, "Forms", "MainForm.Designer.yyc")),
+            "自动生成的界面关系文件没有创建。");
         var entryDocument = YyCodeSerializer.Deserialize(
             File.ReadAllText(Path.Combine(projectRoot, "Program.yyc")));
         True(entryDocument.MainStatements.Count > 0, "结构化入口没有命令数据。");
@@ -110,7 +190,7 @@ Run("完整项目骨架", () =>
         Equal("_启动窗口", project.StartupForm);
         True(
             project.SourcePaths.Contains(project.Forms[0].CodePath!, StringComparer.OrdinalIgnoreCase),
-            "源码列表应包含代码后置文件。");
+            "源码列表应包含用户代码文件。");
         var sourcePath = project.CreateSourceFile();
         True(File.Exists(sourcePath), "项目内新建源码失败。");
         project.UpdateSettings("DemoProjectRenamed", "Program.yyc", "RenamedDemo", "_启动窗口");
@@ -121,6 +201,11 @@ Run("完整项目骨架", () =>
         True(
             updated.SourcePaths.Contains(sourcePath, StringComparer.OrdinalIgnoreCase),
             "新建源码没有写入项目清单。");
+        True(
+            updated.Forms[0].BindingPath.EndsWith(
+                "MainForm.Designer.yyc",
+                StringComparison.OrdinalIgnoreCase),
+            "项目窗体没有关联自动关系文件。");
     }
     finally
     {
@@ -164,7 +249,77 @@ Run("数据表清单往返", () =>
     }
 });
 
-Run("拒绝旧版项目源码", () =>
+Run("纯代码工程不需要窗体", () =>
+{
+    var directory = Path.Combine(
+        Path.GetTempPath(),
+        "yy-code-only-" + Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var source = YyCodeSerializer.Serialize(
+            YyCodeDocumentConverter.FromSource(
+                ".版本 3\n.程序集 算法\n输出(\"纯代码\")\n",
+                "Main.yyc"));
+        File.WriteAllText(Path.Combine(directory, "Main.yyc"), source);
+        File.WriteAllText(
+            Path.Combine(directory, "CodeOnly.yyproj"),
+            """
+            {
+              "格式版本": 3,
+              "名称": "CodeOnly",
+              "入口": "Main.yyc",
+              "输出": "CodeOnly.exe",
+              "源码": ["Main.yyc"],
+              "窗体": [],
+              "资源": [],
+              "引用": []
+            }
+            """);
+        var project = YyProject.LoadForDirectory(directory)
+            ?? throw new Exception("纯代码项目无法加载。");
+        Equal(0, project.Forms.Count);
+        Equal(1, project.SourcePaths.Count);
+    }
+    finally
+    {
+        Directory.Delete(directory, recursive: true);
+    }
+});
+
+Run("缺少自动关系文件时拒绝项目", () =>
+{
+    var root = Path.Combine(
+        Path.GetTempPath(),
+        "yy-missing-binding-" + Guid.NewGuid().ToString("N"));
+    try
+    {
+        YyProject.CreateProject(
+            Path.Combine(root, "MissingBinding.yyproj"),
+            "MissingBinding");
+        File.Delete(Path.Combine(root, "Forms", "MainForm.Designer.yyc"));
+        try
+        {
+            YyProject.LoadForDirectory(root);
+            throw new Exception("缺少关系文件的窗体不应加载。");
+        }
+        catch (InvalidDataException exception)
+        {
+            True(
+                exception.Message.Contains("Designer.yyc", StringComparison.Ordinal),
+                exception.Message);
+        }
+    }
+    finally
+    {
+        if (Directory.Exists(root))
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+});
+
+Run("只接受三文件工程规则", () =>
 {
     var directory = Path.Combine(
         Path.GetTempPath(),
@@ -196,7 +351,7 @@ Run("拒绝旧版项目源码", () =>
         }
         catch (InvalidDataException exception)
         {
-            True(exception.Message.Contains(".yyc", StringComparison.Ordinal), exception.Message);
+            True(exception.Message.Contains("版本 3", StringComparison.Ordinal), exception.Message);
         }
     }
     finally
@@ -236,6 +391,38 @@ Run("损坏 XML 诊断", () =>
     {
         True(exception.Line >= 1, "XML 错误需要包含行号。");
     }
+});
+
+Run("手写源文件保持模块化体积", () =>
+{
+    const int maximumLines = 900;
+    var directory = new DirectoryInfo(Directory.GetCurrentDirectory());
+    while (directory is not null &&
+           !File.Exists(Path.Combine(directory.FullName, "Eyuyan.slnx")))
+    {
+        directory = directory.Parent;
+    }
+
+    True(directory is not null, "找不到仓库根目录。");
+    var oversized = Directory.EnumerateFiles(
+            directory!.FullName,
+            "*.cs",
+            SearchOption.AllDirectories)
+        .Where(path => path.Split(
+                Path.DirectorySeparatorChar,
+                Path.AltDirectorySeparatorChar)
+            .All(part => part is not ("bin" or "obj" or ".git")))
+        .Select(path => new
+        {
+            Path = Path.GetRelativePath(directory.FullName, path),
+            Lines = File.ReadLines(path).Count()
+        })
+        .Where(file => file.Lines > maximumLines)
+        .ToArray();
+    True(
+        oversized.Length == 0,
+        "以下文件超过模块体积门槛：" +
+        string.Join("、", oversized.Select(file => $"{file.Path}({file.Lines})")));
 });
 
 if (string.Equals(

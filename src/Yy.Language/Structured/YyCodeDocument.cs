@@ -186,8 +186,8 @@ public static class YyCodeDocumentConverter
         YyCodeStatementKinds.Assign =>
             statement.Target + " " + statement.Operator + " " + statement.Expression,
         YyCodeStatementKinds.Call => statement.Expression,
-        YyCodeStatementKinds.If => "如果 " + statement.Condition + " 则",
-        YyCodeStatementKinds.While => "当 " + statement.Condition + " 循环",
+        YyCodeStatementKinds.If => "如果(" + WrapCondition(statement.Condition) + ")则",
+        YyCodeStatementKinds.While => "当(" + WrapCondition(statement.Condition) + ")循环",
         YyCodeStatementKinds.CountLoop =>
             "计次循环 " + statement.Variable + " 从 " + statement.From +
             " 到 " + statement.To + " 步长 " + statement.Step,
@@ -283,8 +283,8 @@ public static class YyCodeDocumentConverter
                     builder.Append(indent).AppendLine(statement.Expression);
                     break;
                 case YyCodeStatementKinds.If:
-                    builder.Append(indent).Append("如果 ").Append(statement.Condition)
-                        .AppendLine(" 则");
+                    builder.Append(indent).Append("如果(").Append(WrapCondition(statement.Condition))
+                        .AppendLine(")则");
                     EmitStatements(builder, statement.Children, depth + 1, lineMap);
                     if (statement.ElseChildren.Count > 0)
                     {
@@ -295,8 +295,8 @@ public static class YyCodeDocumentConverter
                     builder.Append(indent).AppendLine("结束如果");
                     break;
                 case YyCodeStatementKinds.While:
-                    builder.Append(indent).Append("当 ").Append(statement.Condition)
-                        .AppendLine(" 循环");
+                    builder.Append(indent).Append("当(").Append(WrapCondition(statement.Condition))
+                        .AppendLine(")循环");
                     EmitStatements(builder, statement.Children, depth + 1, lineMap);
                     builder.Append(indent).AppendLine("结束循环");
                     break;
@@ -470,8 +470,7 @@ public static class YyCodeDocumentConverter
                 "{" + string.Join(", ", obj.Properties.Select(property =>
                     $"{property.Key}: {ExpressionToSource(property.Value)}")) + "}",
             UnaryExpression unary => $"{unary.Operator}{Parenthesize(unary.Operand)}",
-            BinaryExpression binary =>
-                $"({ExpressionToSource(binary.Left)} {binary.Operator} {ExpressionToSource(binary.Right)})",
+            BinaryExpression binary => FormatBinary(binary),
             CallExpression call =>
                 $"{ExpressionToSource(call.Callee)}({string.Join(", ", call.Arguments.Select(ExpressionToSource))})",
             MemberExpression member =>
@@ -480,6 +479,79 @@ public static class YyCodeDocumentConverter
                 $"{ExpressionToSource(index.Target)}[{ExpressionToSource(index.Index)}]",
             _ => "空"
         };
+    }
+
+    /// <summary>与 Parser.TryGetBinaryOperator 相同的优先级(值大绑定紧),按此省略冗余括号。</summary>
+    private static int OperatorPrecedence(string op) => op switch
+    {
+        "??" => 1,
+        "或" or "||" => 2,
+        "且" or "&&" => 3,
+        "==" or "!=" or "等于" or "不等于" => 4,
+        "<" or "<=" or ">" or ">=" => 5,
+        "+" or "-" => 6,
+        "*" or "/" or "%" => 7,
+        _ => 8
+    };
+
+    private static int ExpressionPrecedence(Expression expression) => expression switch
+    {
+        BinaryExpression binary => OperatorPrecedence(binary.Operator),
+        UnaryExpression => 8,
+        _ => 99
+    };
+
+    private static string FormatBinary(BinaryExpression binary)
+    {
+        var precedence = OperatorPrecedence(binary.Operator);
+        var left = ExpressionToSource(binary.Left);
+        var right = ExpressionToSource(binary.Right);
+        if (ExpressionPrecedence(binary.Left) < precedence)
+        {
+            left = "(" + left + ")";
+        }
+
+        if (ExpressionPrecedence(binary.Right) <= precedence)
+        {
+            right = "(" + right + ")";
+        }
+
+        return left + " " + binary.Operator + " " + right;
+    }
+
+    /// <summary>条件文本补一层括号;旧数据自带整体括号的不重复包裹。</summary>
+    private static string WrapCondition(string condition)
+    {
+        var trimmed = (condition ?? string.Empty).Trim();
+        if (trimmed.StartsWith("(", StringComparison.Ordinal) &&
+            trimmed.EndsWith(")", StringComparison.Ordinal))
+        {
+            var depth = 0;
+            var wraps = true;
+            for (var i = 0; i < trimmed.Length; i++)
+            {
+                if (trimmed[i] == '(')
+                {
+                    depth++;
+                }
+                else if (trimmed[i] == ')')
+                {
+                    depth--;
+                    if (depth == 0 && i < trimmed.Length - 1)
+                    {
+                        wraps = false;
+                        break;
+                    }
+                }
+            }
+
+            if (wraps && depth == 0)
+            {
+                return trimmed;
+            }
+        }
+
+        return "(" + trimmed + ")";
     }
 
     private static string Parenthesize(Expression expression) =>
