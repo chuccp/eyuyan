@@ -7,7 +7,7 @@
 ## 连接方式
 
 - **HTTP JSON-RPC**：端口由 `YyStudio.json` 的 `MCP` 配置决定，默认 `127.0.0.1:37213`；可启用自动顺延。
-  实际端口写入 `%TEMP%\yystudio-mcp.port`。项目根 `.mcp.json` 已注册该端点。
+  实际地址显示在 Studio 底部状态栏，可点击复制，同时写入 `%TEMP%\yystudio-mcp.port`。项目根 `.mcp.json` 已注册默认端点。
 - **stdio**:`YyStudio.exe --mcp-stdio` 以子进程方式拉起 IDE(GUI 一同显示),JSON-RPC 逐行收发。
 
 修改首选端口或自动查找策略后需要重启 Studio。也可以使用

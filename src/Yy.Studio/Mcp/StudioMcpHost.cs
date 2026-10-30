@@ -1,4 +1,5 @@
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 using System.Windows;
 using System.Windows.Media;
@@ -33,6 +34,7 @@ public partial class MainWindow
 
         if (!Configuration.Mcp.Enabled)
         {
+            SetMcpEndpointStatus(null);
             AppendOutput("MCP 服务已在 Studio 配置中停用。");
             return;
         }
@@ -45,6 +47,7 @@ public partial class MainWindow
             Configuration.Mcp.PortAttempts);
         if (_mcpServer.Port == 0)
         {
+            SetMcpEndpointStatus(null);
             AppendOutput($"MCP 无法在端口 {port} 启动，请修改 Studio 配置文件。");
             _mcpServer = null;
             return;
@@ -57,7 +60,45 @@ public partial class MainWindow
             System.Threading.Tasks.Task.Run(server.RunStdio);
         }
 
+        SetMcpEndpointStatus(_mcpServer.Port);
         StudioTrace.Write($"MCP server started on port {_mcpServer.Port}");
+    }
+
+    private void SetMcpEndpointStatus(int? port)
+    {
+        if (port is null)
+        {
+            McpEndpointButton.Content = "MCP 未启用";
+            McpEndpointButton.Tag = string.Empty;
+            McpEndpointButton.ToolTip = "MCP 服务未启用";
+            return;
+        }
+
+        var endpoint = $"http://127.0.0.1:{port}/mcp";
+        McpEndpointButton.Content = $"MCP {endpoint}";
+        McpEndpointButton.Tag = endpoint;
+        McpEndpointButton.ToolTip = $"点击复制：{endpoint}";
+    }
+
+    private void OnCopyMcpEndpointClick(object sender, RoutedEventArgs e)
+    {
+        if (McpEndpointButton.Tag is not string endpoint ||
+            string.IsNullOrWhiteSpace(endpoint))
+        {
+            SetStatus("MCP 服务未启用。", WarningBrush);
+            return;
+        }
+
+        try
+        {
+            Clipboard.SetText(endpoint);
+            SetStatus($"已复制 MCP 地址：{endpoint}", ReadyBrush);
+        }
+        catch (Exception exception) when (
+            exception is ExternalException or ArgumentException)
+        {
+            SetStatus($"无法复制 MCP 地址：{exception.Message}", ErrorBrush);
+        }
     }
 
     private static int? ReadMcpPortOverride(string[] args)

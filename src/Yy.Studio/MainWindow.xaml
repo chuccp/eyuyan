@@ -135,7 +135,7 @@
             BorderBrush="#B8C0C8"
             BorderThickness="1"
             SnapsToDevicePixels="True">
-    <DockPanel LastChildFill="True">
+    <DockPanel x:Name="MainLayout" LastChildFill="True">
         <!-- ================= 自定义顶栏：窗口标题、菜单和窗口按钮共用一条操作栏 ================= -->
         <Border x:Name="WindowTitleBar"
                 DockPanel.Dock="Top"
@@ -395,7 +395,8 @@
         </Border>
 
         <!-- ================= 提示、输入出组合夹(全宽,夹标签在顶) ================= -->
-        <Border DockPanel.Dock="Bottom"
+        <Border x:Name="BottomToolWindowPanel"
+                DockPanel.Dock="Bottom"
                 Height="172"
                 MinHeight="96"
                 Background="{StaticResource PanelBrush}">
@@ -585,6 +586,7 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <Ellipse x:Name="StatusDot" Width="7" Height="7" Fill="#4ADE80" />
@@ -592,17 +594,48 @@
                                Margin="7,0,0,0" FontSize="11"
                                Foreground="White" />
                 </StackPanel>
-                <TextBlock x:Name="CaretText" Grid.Column="1" Text="行 1，列 1"
+                <Button x:Name="McpEndpointButton"
+                        Grid.Column="1"
+                        Content="MCP 未启用"
+                        Tag=""
+                        Margin="0,0,12,0"
+                        Padding="7,1"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Foreground="#DDEBFA"
+                        FontSize="10.5"
+                        Cursor="Hand"
+                        ToolTip="点击复制 MCP HTTP 地址"
+                        Click="OnCopyMcpEndpointClick">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="McpChrome"
+                                    Background="{TemplateBinding Background}"
+                                    Padding="{TemplateBinding Padding}"
+                                    CornerRadius="2">
+                                <ContentPresenter VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="McpChrome"
+                                            Property="Background"
+                                            Value="#227AA8" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+                <TextBlock x:Name="CaretText" Grid.Column="2" Text="行 1，列 1"
                            FontSize="11" Foreground="White"
                            Margin="0,0,18,0" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="2" Text="UTF-8  ·  Windows 原生"
+                <TextBlock Grid.Column="3" Text="UTF-8  ·  Windows 原生"
                            FontSize="11" Foreground="#DDEBFA"
                            VerticalAlignment="Center" />
             </Grid>
         </Border>
 
         <!-- ================= 主体:左工作与状态组合夹 | 设计中心 | 右窗口组件箱 ================= -->
-        <Grid>
+        <Grid Background="{StaticResource WorkspaceBrush}" ClipToBounds="True">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition x:Name="ExplorerColumn" Width="260" MinWidth="180" />
                 <ColumnDefinition Width="4" />
@@ -610,9 +643,15 @@
                 <ColumnDefinition Width="4" />
                 <ColumnDefinition x:Name="InspectorColumn" Width="360" MinWidth="220" />
             </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="5" />
+                <RowDefinition x:Name="BottomToolWindowRow" Height="172" MinHeight="96" />
+            </Grid.RowDefinitions>
 
             <!-- 左:项目目录 -->
             <Border Grid.Column="0" x:Name="ProjectExplorerPanel"
+                    Grid.RowSpan="3"
                     Background="{StaticResource PanelBrush}">
                 <DockPanel>
                     <Border DockPanel.Dock="Top"
@@ -632,6 +671,7 @@
 
             <!-- 右:支持库、程序数据、属性 -->
             <Border Grid.Column="4" x:Name="RightToolsPanel"
+                    Grid.RowSpan="3"
                     Margin="0,0,132,0"
                     Background="{StaticResource PanelBrush}">
                 <TabControl x:Name="WorkTabs" TabStripPlacement="Top">
@@ -756,6 +796,7 @@
 
             <GridSplitter x:Name="ExplorerSplitter"
                           Grid.Column="1"
+                          Grid.RowSpan="3"
                           Width="4"
                           HorizontalAlignment="Stretch"
                           Background="{StaticResource BorderBrush}"
@@ -764,7 +805,10 @@
                           ShowsPreview="True" />
 
             <!-- 中:现代 IDE 文档区(顶部标签 + 路径导航 + 编辑器) -->
-            <Grid x:Name="DocumentArea" Grid.Column="2" Background="{StaticResource WindowBrush}">
+            <Grid x:Name="DocumentArea"
+                  Grid.Column="2"
+                  Grid.Row="0"
+                  Background="{StaticResource WindowBrush}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="30" />
                     <RowDefinition Height="Auto" />
@@ -1119,8 +1163,28 @@
                 </Grid>
             </Grid>
 
+            <GridSplitter x:Name="BottomToolWindowSplitter"
+                          Grid.Row="1"
+                          Grid.Column="2"
+                          Height="5"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          Background="{StaticResource BorderBrush}"
+                          ResizeBehavior="PreviousAndNext"
+                          ResizeDirection="Rows"
+                          ShowsPreview="True" />
+
+            <Border Grid.Row="2"
+                    Grid.Column="2"
+                    Background="{StaticResource PanelBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="0,1,0,0">
+                <ContentControl x:Name="BottomToolWindowHost" />
+            </Border>
+
             <GridSplitter x:Name="InspectorSplitter"
                           Grid.Column="3"
+                          Grid.RowSpan="3"
                           Width="4"
                           HorizontalAlignment="Stretch"
                           Background="{StaticResource BorderBrush}"
@@ -1130,6 +1194,7 @@
 
             <!-- 右:窗口组件箱 -->
             <Border Grid.Column="4" x:Name="InspectorPanel"
+                    Grid.RowSpan="3"
                     Width="132"
                     HorizontalAlignment="Right"
                     Background="{StaticResource PanelBrush}"

@@ -164,6 +164,7 @@ public partial class MainWindow : Window
         Configuration = configuration;
         StudioTrace.Write("MainWindow ctor begin");
         InitializeComponent();
+        ConfigureIdeWorkspaceLayout();
         StudioTrace.Write("InitializeComponent complete");
 
         _settings = StudioSettings.Load();
