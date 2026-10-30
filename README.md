@@ -61,7 +61,7 @@ dotnet run --project .\src\Yy.Studio\Yy.Studio.csproj
 
 打开 `examples` 文件夹即可加载示例工程。
 
-常用快捷键：
+默认快捷键如下，均可在 `YyStudio.json` 或设置窗口中修改：
 
 - `F5`：运行当前源码或预览当前窗体。
 - `Ctrl+F5`：运行项目。
