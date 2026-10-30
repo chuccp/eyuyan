@@ -15,7 +15,7 @@ internal static class ModuleLoader
 
         if (!string.Equals(Path.GetExtension(fullPath), ".yyc", StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidDataException("易语源码必须使用 .yyc 结构化代码格式。");
+            throw new InvalidDataException("易语源码必须使用 .yyc 源文件格式。");
         }
 
         var source = ReadSource(
@@ -152,7 +152,7 @@ internal static class ModuleLoader
             if (!string.Equals(Path.GetExtension(importPath), ".yyc", StringComparison.OrdinalIgnoreCase))
             {
                 throw new YyDiagnostic(
-                    "模块必须使用 .yyc 结构化代码格式",
+                    "模块必须使用 .yyc 源文件格式",
                     import.Line,
                     import.Column,
                     $"旧版源码格式已不再支持：{importPath}",
@@ -253,7 +253,6 @@ internal static class ModuleLoader
 
     private static string ReadSource(string path, Encoding encoding)
     {
-        var content = File.ReadAllText(path, encoding);
-        return YyCodeDocumentConverter.ToSource(YyCodeSerializer.Deserialize(content));
+        return File.ReadAllText(path, encoding);
     }
 }

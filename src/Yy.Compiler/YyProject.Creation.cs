@@ -168,8 +168,8 @@ public sealed partial class YyProject
         WriteStructuredSource(
             path,
             $"""
-            .版本 1
             .程序集 {Name}
+            导入包 "系统.基础"
 
             输出("新建源码文件")
             """);
@@ -181,8 +181,8 @@ public sealed partial class YyProject
 
     private static string CreateEntryTemplate(string projectName, string packageName) =>
         $"""
-        .版本 1
         .程序集 {projectName}
+        导入包 "系统.基础"
 
         ' 项目包：{packageName}
         ' 项目入口。窗体代码位于 Sources/Forms 目录。

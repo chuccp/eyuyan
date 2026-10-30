@@ -145,6 +145,13 @@ public sealed class Parser
             }
 
             var key = Advance().Text;
+            if (string.Equals(key, "版本", StringComparison.Ordinal))
+            {
+                throw Error(
+                    Peek(),
+                    "“.版本”不属于用户源代码；格式版本由工程清单管理。");
+            }
+
             var values = new List<string>();
             while (!AtLineEnd)
             {

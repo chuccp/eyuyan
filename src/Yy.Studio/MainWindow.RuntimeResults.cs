@@ -66,9 +66,9 @@ public partial class MainWindow : Window
             }
             catch (YyCodeFormatException exception)
             {
-                AppendOutput($"✕ 结构化代码错误 · 第 {exception.Line} 行，第 {exception.Column} 列");
+                AppendOutput($"✕ 源代码解析错误 · 第 {exception.Line} 行，第 {exception.Column} 列");
                 AppendOutput("  " + exception.Message);
-                SetStatus("结构化代码无法运行", ErrorBrush);
+                SetStatus("源代码无法运行", ErrorBrush);
                 return false;
             }
         }

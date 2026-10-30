@@ -66,7 +66,8 @@ Run("界面 XML 与生成关系分离", () =>
     Equal("文本框_文本改变", restored.Controls[1].TextChangedEvent);
 
     var userCode = YyFormCompanionFiles.CreateUserCodeDocument(form, restoredBinding);
-    Equal(Yy.Sdk.YySdk.UiPackage, userCode.Packages.Single());
+    True(userCode.Packages.Contains(Yy.Sdk.YySdk.CorePackage), "窗体代码应默认导入语言基础包。");
+    True(userCode.Packages.Contains(Yy.Sdk.YySdk.UiPackage), "窗体代码应默认导入界面包。");
     True(
         userCode.Functions.Any(function => function.Name == "文本框_文本改变"),
         "用户代码应只获得事件入口。");
@@ -129,11 +130,11 @@ Run("补齐事件入口不覆盖用户逻辑", () =>
     Equal("_取消按钮_被单击", document.Functions[1].Name);
 });
 
-Run("结构化代码往返", () =>
+Run("源代码往返", () =>
 {
     const string source = """
-        .版本 1
         .程序集 测试程序
+        导入包 "系统.基础"
         子程序 问候(名称: 文本 = "世界"): 文本
             变量 前缀: 文本 = "你好，"
             返回 前缀 + 名称
@@ -143,8 +144,9 @@ Run("结构化代码往返", () =>
     var document = YyCodeDocumentConverter.FromSource(source);
     Equal(1, document.Functions.Count);
     Equal(1, document.MainStatements.Count);
-    var xml = YyCodeSerializer.Serialize(document);
-    var restored = YyCodeSerializer.Deserialize(xml);
+    var serialized = YyCodeSerializer.Serialize(document);
+    True(!serialized.Contains("<yy:", StringComparison.Ordinal), ".yyc 必须是源码而不是 XML。");
+    var restored = YyCodeSerializer.Deserialize(serialized);
     Equal("测试程序", restored.Name);
     Equal("问候", restored.Functions[0].Name);
     var lines = new List<string>();
@@ -159,7 +161,7 @@ Run("用户代码默认进入VB式代码窗口", () =>
 {
     var source = YyCodeSerializer.Serialize(
         YyCodeDocumentConverter.FromSource(
-            ".版本 1\n.程序集 测试\n子程序 示例()\n    输出(\"你好\")\n结束子程序\n",
+            ".程序集 测试\n子程序 示例()\n    输出(\"你好\")\n结束子程序\n",
             "Sample.yyc"));
     var document = new EditorDocument("Sample.yyc", "Sample.yyc", source);
     True(document.UsePlainCodeEditor, "用户代码应默认进入连续代码窗口。");
@@ -401,6 +403,10 @@ Run("完整项目骨架", () =>
         var entryDocument = YyCodeSerializer.Deserialize(
             File.ReadAllText(Path.Combine(projectRoot, "Sources", "Program.yyc")));
         True(entryDocument.MainStatements.Count > 0, "结构化入口没有命令数据。");
+        True(
+            !File.ReadAllText(Path.Combine(projectRoot, "Sources", "Program.yyc"))
+                .StartsWith("<?xml", StringComparison.OrdinalIgnoreCase),
+            "新建项目入口必须以纯源码保存。");
         Equal(1, project.Forms.Count);
         Equal("_启动窗口", project.StartupForm);
         True(
@@ -490,7 +496,7 @@ Run("纯代码工程不需要窗体", () =>
         Directory.CreateDirectory(Path.Combine(directory, "Sources"));
         var source = YyCodeSerializer.Serialize(
             YyCodeDocumentConverter.FromSource(
-                ".版本 1\n.程序集 算法\n输出(\"纯代码\")\n",
+                ".程序集 算法\n输出(\"纯代码\")\n",
                 "Main.yyc"));
         File.WriteAllText(Path.Combine(directory, "Sources", "Main.yyc"), source);
         Directory.CreateDirectory(Path.Combine(directory, "Resources", "images"));

@@ -101,7 +101,6 @@ public static class YyFormBindingSerializer
     public static string Serialize(YyFormBindingDocument binding)
     {
         var builder = new StringBuilder();
-        builder.AppendLine(".版本 1");
         builder.AppendLine($".程序集 {binding.FormName}.Designer");
         builder.AppendLine("导入包 \"系统.界面\"");
         builder.AppendLine();
@@ -588,6 +587,7 @@ public static class YyFormCompanionFiles
             Name = form.Name + "代码",
             Remark = $"窗体“{form.Name}”的用户逻辑与事件入口。"
         };
+        document.Packages.Add(Yy.Sdk.YySdk.CorePackage);
         document.Packages.Add(Yy.Sdk.YySdk.UiPackage);
         EnsureEventHandlers(document, binding.Events);
         return document;

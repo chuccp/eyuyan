@@ -244,7 +244,7 @@ public sealed class YyFormPreviewWindow : Window
                 codeText = File.ReadAllText(codePath, new UTF8Encoding(false, true));
             }
 
-            code = YyCodeDocumentConverter.ToSource(YyCodeSerializer.Deserialize(codeText));
+            code = codeText;
         }
         catch (Exception exception) when (
             exception is IOException or UnauthorizedAccessException or YyCodeFormatException)

@@ -18,6 +18,7 @@ var tests = new List<(string Name, Action Test)>
     ("跨文件模块导入", TestModuleImport),
     ("源码目录包导入", TestProjectPackageImport),
     ("系统包导入", TestPackageImport),
+    ("包控制函数可见性", TestPackageVisibility),
     ("类型标注与赋值检查", TestTypedVariables),
     ("参数返回值类型检查", TestTypedFunctions),
     ("未知类型诊断", TestUnknownType),
@@ -29,7 +30,8 @@ var tests = new List<(string Name, Action Test)>
     ("语法错误行号", TestParseError),
     ("静态未定义变量诊断", TestUndefinedVariable),
     ("运行时错误行号", TestRuntimeError),
-    ("结构化模型扩展字段往返", TestStructuredModelExtensions),
+    ("源码模型往返", TestStructuredModelExtensions),
+    ("拒绝源码版本头", TestRejectSourceVersionHeader),
     ("语句行解析与全角输入", TestParseStatementText),
     ("官方文本命令", TestOfficialTextCommands),
     ("文本处理组合", TestTextProcessing),
@@ -71,7 +73,6 @@ return failures == 0 ? 0 : 1;
 static void TestOutput()
 {
     var output = Run("""
-        .版本 1
         .程序集 示例
         变量 名字 = "易语"
         输出("你好，" + 名字)
@@ -253,7 +254,6 @@ static void TestProjectPackageImport()
             Path.Combine(toolsDirectory, "问候.yyc"),
             YyCodeSerializer.Serialize(YyCodeDocumentConverter.FromSource(
                 """
-                .版本 1
                 .程序集 tools.问候
                 子程序 取问候(): 文本
                     返回 "来自目录包"
@@ -263,7 +263,6 @@ static void TestProjectPackageImport()
             Path.Combine(toolsDirectory, "计算.yyc"),
             YyCodeSerializer.Serialize(YyCodeDocumentConverter.FromSource(
                 """
-                .版本 1
                 .程序集 tools.计算
                 子程序 取结果(): 数字
                     返回 42
@@ -274,8 +273,8 @@ static void TestProjectPackageImport()
             entryPath,
             YyCodeSerializer.Serialize(YyCodeDocumentConverter.FromSource(
                 """
-                .版本 1
                 .程序集 PackageFolder
+                导入包 "系统.基础"
                 引入 "demo.app.tools"
                 输出(取问候() + "：" + 取结果())
                 """,
@@ -295,16 +294,23 @@ static void TestProjectPackageImport()
 static void TestPackageImport()
 {
     Equal(1, Yy.Sdk.YySdk.Version);
-    Equal(4, Yy.Sdk.YySdk.Packages.Count);
+    Equal(6, Yy.Sdk.YySdk.Packages.Count);
     True(Yy.Sdk.YySdk.IsPackageName("demo.app"), "点分隔包名应有效。");
     True(!Yy.Sdk.YySdk.IsPackageName("demo..app"), "空包路径段应被拒绝。");
     True(!Yy.Sdk.YySdk.IsPackageName("1demo"), "数字开头的包名应被拒绝。");
     True(
         Yy.Sdk.YySdk.Packages.All(package => package.Members.Count > 0),
         "每个系统 SDK 包都应声明成员。");
+    Equal(
+        4,
+        Yy.Sdk.YySdk.Packages.Count(package =>
+            package.Kind == Yy.Sdk.YyPackageKind.LanguageCore));
+    Equal(
+        2,
+        Yy.Sdk.YySdk.Packages.Count(package =>
+            package.Kind == Yy.Sdk.YyPackageKind.Platform));
 
     var program = YyRunner.Compile("""
-        .版本 1
         .程序集 包测试
         导入包 "系统.界面"
         输出("包已导入")
@@ -312,7 +318,7 @@ static void TestPackageImport()
     Equal("系统.界面", program.PackageImports.Single().Name);
 
     var document = YyCodeDocumentConverter.FromSource(
-        ".版本 1\n.程序集 包测试\n导入包 \"系统.界面\"\n");
+        ".程序集 包测试\n导入包 \"系统.界面\"\n");
     Equal("系统.界面", document.Packages.Single());
     var source = YyCodeDocumentConverter.ToSource(document);
     True(source.Contains("导入包 \"系统.界面\"", StringComparison.Ordinal), "包导入没有写回源码。");
@@ -326,20 +332,20 @@ static void TestPackageImport()
     try
     {
         var module = new YyCodeDocument { Name = "数据模块" };
-        module.Packages.Add(Yy.Sdk.YySdk.DataPackage);
+        module.Packages.Add(Yy.Sdk.YySdk.FilePackage);
         File.WriteAllText(
             Path.Combine(temporaryDirectory, "数据模块.yyc"),
             YyCodeSerializer.Serialize(module));
 
         var root = new YyCodeDocument { Name = "包入口" };
-        root.Packages.Add(Yy.Sdk.YySdk.CorePackage);
+        root.Packages.Add(Yy.Sdk.YySdk.UiPackage);
         root.Imports.Add("数据模块.yyc");
         var rootPath = Path.Combine(temporaryDirectory, "程序.yyc");
         File.WriteAllText(rootPath, YyCodeSerializer.Serialize(root));
 
         var merged = YyRunner.CompileFile(rootPath);
         Equal(
-            "系统.基础,系统.数据",
+            "系统.界面,系统.文件",
             string.Join(",", merged.PackageImports.Select(package => package.Name)));
     }
     finally
@@ -350,7 +356,6 @@ static void TestPackageImport()
     try
     {
         YyRunner.Compile("""
-            .版本 1
             导入包 "不存在.包"
             """);
         throw new Exception("未知系统包应被拒绝。");
@@ -359,6 +364,46 @@ static void TestPackageImport()
     {
         True(diagnostic.Message.Contains("找不到系统包", StringComparison.Ordinal), diagnostic.Message);
     }
+
+    var corePackages = YyRunner.Compile("""
+        导入包 "系统.基础"
+        导入包 "系统.集合"
+        导入包 "系统.文本"
+        导入包 "系统.数据"
+        """);
+    Equal(4, corePackages.PackageImports.Count);
+}
+
+static void TestPackageVisibility()
+{
+    try
+    {
+        YyRunner.RunSource(
+            """
+            .程序集 未导入
+            输出("不应该全局可见")
+            """,
+            null);
+        throw new Exception("未导入的基础函数不应可用。");
+    }
+    catch (YyDiagnostic diagnostic)
+    {
+        True(diagnostic.Message.Contains("没有导入", StringComparison.Ordinal), diagnostic.Message);
+        True(
+            diagnostic.Hint?.Contains("系统.基础", StringComparison.Ordinal) == true,
+            diagnostic.Hint ?? "缺少包名提示。");
+    }
+
+    var output = new List<string>();
+    YyRunner.RunSource(
+        """
+        .程序集 已导入
+        导入包 "系统.基础"
+        输出("可见")
+        """,
+        null,
+        output.Add);
+    Equal("可见", string.Join("\n", output));
 }
 
 static void TestTypedVariables()
@@ -501,6 +546,7 @@ static void TestModuleDiagnosticSource()
         结束子程序
         """;
     var entrySource = """
+        导入包 "系统.基础"
         引入 "工具.yyc"
         输出(错误函数())
         """;
@@ -594,47 +640,40 @@ static void TestRuntimeError()
 
 static void TestStructuredModelExtensions()
 {
-    const string legacy = """
-        <yy:代码 xmlns:yy="urn:yy-studio:code:1" 格式版本="1" 名称="旧程序集">
-          <yy:子程序 名称="问候" 返回类型="文本">
-            <yy:参数 名称="名称" 类型="文本" />
-            <yy:变量 名称="前缀" 类型="文本" 值="&quot;你好&quot;" />
-            <yy:返回 值="前缀" />
-          </yy:子程序>
-        </yy:代码>
+    const string source = """
+        .程序集 示例程序
+        子程序 问候(名称: 文本): 文本
+            变量 前缀: 文本 = "你好"
+            返回 前缀
+        结束子程序
         """;
-    var document = Yy.Language.Structured.YyCodeSerializer.Deserialize(legacy);
-    Equal(string.Empty, document.Remark);
-    True(!document.Functions[0].IsPublic, "子程序默认不公开。");
-    Equal(string.Empty, document.Functions[0].Remark);
+    var document = Yy.Language.Structured.YyCodeSerializer.Deserialize(source);
+    Equal("示例程序", document.Name);
     var parameter = document.Functions[0].Parameters[0];
-    True(!parameter.ByRef && !parameter.Nullable && !parameter.IsArray, "参数标志默认关闭。");
-    True(!document.Functions[0].Statements[0].IsStatic, "变量默认非静态。");
+    Equal("名称", parameter.Name);
+    Equal("文本", parameter.TypeName);
 
-    document.Remark = "程序集备注";
-    document.Functions[0].IsPublic = true;
-    document.Functions[0].Remark = "子程序备注";
-    parameter.ByRef = true;
-    parameter.Nullable = true;
-    parameter.IsArray = true;
-    parameter.Remark = "参数备注";
-    document.Functions[0].Statements[0].IsStatic = true;
+    var serialized = Yy.Language.Structured.YyCodeSerializer.Serialize(document);
+    True(serialized.Contains("子程序 问候", StringComparison.Ordinal), "源码往返丢失子程序。");
+    True(!serialized.Contains("<yy:", StringComparison.Ordinal), ".yyc 不应序列化为 XML。");
+    var restored = Yy.Language.Structured.YyCodeSerializer.Deserialize(serialized);
+    Equal("示例程序", restored.Name);
+    Equal("问候", restored.Functions[0].Name);
+}
 
-    var xml = Yy.Language.Structured.YyCodeSerializer.Serialize(document);
-    True(xml.Contains("公开", StringComparison.Ordinal) &&
-         xml.Contains("静态", StringComparison.Ordinal) &&
-         xml.Contains("参考", StringComparison.Ordinal),
-        "新字段应写入 XML。");
-
-    var restored = Yy.Language.Structured.YyCodeSerializer.Deserialize(xml);
-    Equal("程序集备注", restored.Remark);
-    True(restored.Functions[0].IsPublic, "公开标志应往返。");
-    Equal("子程序备注", restored.Functions[0].Remark);
-    var restoredParameter = restored.Functions[0].Parameters[0];
-    True(restoredParameter.ByRef && restoredParameter.Nullable && restoredParameter.IsArray,
-        "参数标志应往返。");
-    Equal("参数备注", restoredParameter.Remark);
-    True(restored.Functions[0].Statements[0].IsStatic, "静态标志应往返。");
+static void TestRejectSourceVersionHeader()
+{
+    try
+    {
+        YyRunner.Compile(".版本 1\n.程序集 示例\n");
+        throw new Exception(".yyc 不应接受版本头。");
+    }
+    catch (YyDiagnostic diagnostic)
+    {
+        True(
+            diagnostic.Message.Contains("格式版本由工程清单管理", StringComparison.Ordinal),
+            diagnostic.Message);
+    }
 }
 
 static void TestParseStatementText()
@@ -768,14 +807,13 @@ static void TestDebugBreakpoint()
         probe.Continue();
     };
     var lines = new List<string>();
-    YyRunner.Run("""
-        .版本 1
+    YyRunner.Run(TestProgram("""
         .程序集 断点示例
         输出("一")
         输出("二")
         输出("三")
         输出("四")
-        """, lines.Add, CancellationToken.None, probe);
+        """), lines.Add, CancellationToken.None, probe);
     Equal("一\n二\n三\n四", string.Join("\n", lines));
     Equal(1, pausedLines.Count);
     Equal(5, pausedLines[0]);
@@ -792,7 +830,7 @@ static void TestControlIdContext()
     };
     var output = new List<string>();
     YyRunner.RunSource(
-        """输出(取控件("@id/主窗口/标题标签").文本)""",
+        TestProgram("""输出(取控件("@id/主窗口/标题标签").文本)"""),
         null,
         output.Add,
         controlResolver: id => controls.TryGetValue(id, out var value) ? value : null);
@@ -802,9 +840,22 @@ static void TestControlIdContext()
 static (string Output, YyRunResult Result) Run(string source)
 {
     var lines = new List<string>();
-    var result = YyRunner.Run(source, lines.Add);
+    var result = YyRunner.Run(TestProgram(source), lines.Add);
     return (string.Join("\n", lines), result);
 }
+
+static string TestProgram(string source) =>
+    source.TrimEnd() +
+    Environment.NewLine +
+    Environment.NewLine +
+    """
+    导入包 "系统.基础"
+    导入包 "系统.集合"
+    导入包 "系统.文本"
+    导入包 "系统.数据"
+    导入包 "系统.界面"
+    导入包 "系统.文件"
+    """;
 
 static string RunFile(string path)
 {

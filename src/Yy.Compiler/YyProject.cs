@@ -458,8 +458,8 @@ public sealed partial class YyProject
 
     private static void WriteStructuredSource(string path, string source)
     {
-        var model = YyCodeDocumentConverter.FromSource(source, path);
-        File.WriteAllText(path, YyCodeSerializer.Serialize(model), new UTF8Encoding(false));
+        _ = YyCodeDocumentConverter.FromSource(source, path);
+        File.WriteAllText(path, source, new UTF8Encoding(false));
     }
 
     private static string ResolveProjectFile(string baseDirectory, string relativePath, string description)

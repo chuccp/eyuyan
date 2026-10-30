@@ -149,12 +149,24 @@ public sealed class ProjectCompiler
         var names = functions
             .Select(function => function.Name)
             .ToHashSet(StringComparer.Ordinal);
+        var packageImports = entryProgram.PackageImports
+            .Select(package => package.Name)
+            .ToHashSet(StringComparer.Ordinal);
+        var mergedPackageImports = entryProgram.PackageImports.ToList();
 
         foreach (var form in project.Forms)
         {
             if (form.CodePath is not null)
             {
                 var codeProgram = ReadProgram(form.CodePath);
+                foreach (var package in codeProgram.PackageImports)
+                {
+                    if (packageImports.Add(package.Name))
+                    {
+                        mergedPackageImports.Add(package);
+                    }
+                }
+
                 foreach (var function in codeProgram.Functions)
                 {
                     if (!names.Add(function.Name))
@@ -211,7 +223,7 @@ public sealed class ProjectCompiler
             [],
             entryProgram.Main)
         {
-            PackageImports = entryProgram.PackageImports
+            PackageImports = mergedPackageImports
         };
     }
 
@@ -223,8 +235,7 @@ public sealed class ProjectCompiler
         }
 
         var content = File.ReadAllText(path, new UTF8Encoding(false, true));
-        var document = YyCodeSerializer.Deserialize(content);
-        return YyRunner.CompileSource(YyCodeDocumentConverter.ToSource(document), path);
+        return YyRunner.CompileSource(content, path);
     }
 
     private static string CreateGeneratedProject(string runtimeProject)

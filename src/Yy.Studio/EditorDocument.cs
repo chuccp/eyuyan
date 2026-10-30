@@ -24,16 +24,7 @@ public sealed class EditorDocument : INotifyPropertyChanged
         _savedText = text;
         if (IsStructuredCode && !IsGeneratedBinding)
         {
-            try
-            {
-                var model = YyCodeSerializer.Deserialize(text);
-                BeginPlainCodeEditing(YyCodeDocumentConverter.ToSource(model));
-            }
-            catch (YyCodeFormatException)
-            {
-                // 损坏文件进入文本修复视图，不再回退到旧表格编辑器。
-                BeginPlainCodeEditing(text);
-            }
+            BeginPlainCodeEditing(text);
         }
     }
 
@@ -131,7 +122,7 @@ public sealed class EditorDocument : INotifyPropertyChanged
 
     public bool IsReadOnlyGenerated => IsGeneratedBinding || IsResourceIndex;
 
-    /// <summary>当前 .yyc 以纯源码视图编辑；磁盘仍保存结构化 XML。</summary>
+    /// <summary>当前 .yyc 以纯源码视图编辑；磁盘和编辑器使用同一份源码。</summary>
     public bool UsePlainCodeEditor
     {
         get => _usePlainCodeEditor;

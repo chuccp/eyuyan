@@ -65,10 +65,10 @@ public partial class MainWindow : Window
         var isForm = document.IsForm;
         var dialog = new SaveFileDialog
         {
-            Title = isForm ? "保存窗体设计" : "保存结构化代码",
+            Title = isForm ? "保存窗体设计" : "保存源代码",
             Filter = isForm
                 ? "窗体设计 (*.yyx)|*.yyx"
-                : "结构化代码 (*.yyc)|*.yyc",
+                : "易语源代码 (*.yyc)|*.yyc",
             DefaultExt = isForm ? ".yyx" : ".yyc",
             AddExtension = true,
             FileName = string.IsNullOrWhiteSpace(document.FilePath)
@@ -120,10 +120,9 @@ public partial class MainWindow : Window
 
             if (document.IsStructuredCode && document.UsePlainCodeEditor)
             {
-                document.Text = YyCodeSerializer.Serialize(
-                    YyCodeDocumentConverter.FromSource(
-                        document.PlainCodeText,
-                        path));
+                var source = document.PlainCodeText;
+                _ = YyCodeDocumentConverter.FromSource(source, path);
+                document.Text = source;
             }
 
             if (document.IsForm)

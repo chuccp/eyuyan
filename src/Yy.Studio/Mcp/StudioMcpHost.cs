@@ -543,8 +543,7 @@ public partial class MainWindow
             return new { source = string.Empty };
         }
 
-        var model = YyCodeSerializer.Deserialize(codeDocument.Text);
-        return new { source = YyCodeDocumentConverter.ToSource(model) };
+        return new { source = codeDocument.PlainCodeText };
     }
 
     private object McpSetSubprogram(string name, string body)
@@ -713,8 +712,7 @@ public partial class MainWindow
 
             var text = codePath is not null && File.Exists(codePath)
                 ? File.ReadAllText(codePath)
-                : YyCodeSerializer.Serialize(
-                    new YyCodeDocument { Name = (_designForm?.Name ?? "窗体") + "代码" });
+                : CreateBlankUserCode((_designForm?.Name ?? "窗体") + "代码");
             codeDocument = new EditorDocument(
                 codePath,
                 Path.GetFileName(codeFileName),
@@ -723,5 +721,13 @@ public partial class MainWindow
         }
 
         return codeDocument;
+    }
+
+    private static string CreateBlankUserCode(string name)
+    {
+        var document = new YyCodeDocument { Name = name };
+        document.Packages.Add(Yy.Sdk.YySdk.CorePackage);
+        document.Packages.Add(Yy.Sdk.YySdk.UiPackage);
+        return YyCodeSerializer.Serialize(document);
     }
 }

@@ -132,7 +132,6 @@ public static class YyCodeDocumentConverter
     public static string ToSource(YyCodeDocument document, IDictionary<YyCodeStatement, int>? lineMap)
     {
         var builder = new StringBuilder();
-        builder.AppendLine(".版本 1");
         builder.Append(".程序集 ").AppendLine(document.Name);
         foreach (var package in document.Packages.Where(value => !string.IsNullOrWhiteSpace(value)))
         {
@@ -144,10 +143,7 @@ public static class YyCodeDocumentConverter
             builder.Append("引入 ").AppendLine(Quote(import));
         }
 
-        if (document.Packages.Count > 0 || document.Imports.Count > 0)
-        {
-            builder.AppendLine();
-        }
+        builder.AppendLine();
 
         foreach (var function in document.Functions)
         {
@@ -193,8 +189,8 @@ public static class YyCodeDocumentConverter
         YyCodeStatementKinds.Assign =>
             statement.Target + " " + statement.Operator + " " + statement.Expression,
         YyCodeStatementKinds.Call => statement.Expression,
-        YyCodeStatementKinds.If => "如果(" + WrapCondition(statement.Condition) + ")则",
-        YyCodeStatementKinds.While => "当(" + WrapCondition(statement.Condition) + ")循环",
+        YyCodeStatementKinds.If => "如果 " + statement.Condition.Trim() + " 则",
+        YyCodeStatementKinds.While => "当 " + statement.Condition.Trim() + " 循环",
         YyCodeStatementKinds.CountLoop =>
             "计次循环 " + statement.Variable + " 从 " + statement.From +
             " 到 " + statement.To + " 步长 " + statement.Step,
@@ -244,7 +240,7 @@ public static class YyCodeDocumentConverter
             var t when t.StartsWith("尝试", StringComparison.Ordinal) => "\n结束尝试",
             _ => string.Empty
         };
-        var wrapped = ".版本 1\n.程序集 _行\n子程序 _行()\n" + trimmed + closer + "\n结束子程序\n";
+        var wrapped = ".程序集 _行\n子程序 _行()\n" + trimmed + closer + "\n结束子程序\n";
         var document = FromSource(wrapped, "_行");
         if (document.Functions.Count != 1 || document.Functions[0].Statements.Count != 1)
         {
@@ -290,8 +286,8 @@ public static class YyCodeDocumentConverter
                     builder.Append(indent).AppendLine(statement.Expression);
                     break;
                 case YyCodeStatementKinds.If:
-                    builder.Append(indent).Append("如果(").Append(WrapCondition(statement.Condition))
-                        .AppendLine(")则");
+                    builder.Append(indent).Append("如果 ").Append(statement.Condition.Trim())
+                        .AppendLine(" 则");
                     EmitStatements(builder, statement.Children, depth + 1, lineMap);
                     if (statement.ElseChildren.Count > 0)
                     {
@@ -302,8 +298,8 @@ public static class YyCodeDocumentConverter
                     builder.Append(indent).AppendLine("结束如果");
                     break;
                 case YyCodeStatementKinds.While:
-                    builder.Append(indent).Append("当(").Append(WrapCondition(statement.Condition))
-                        .AppendLine(")循环");
+                    builder.Append(indent).Append("当 ").Append(statement.Condition.Trim())
+                        .AppendLine(" 循环");
                     EmitStatements(builder, statement.Children, depth + 1, lineMap);
                     builder.Append(indent).AppendLine("结束循环");
                     break;
@@ -524,41 +520,6 @@ public static class YyCodeDocumentConverter
         }
 
         return left + " " + binary.Operator + " " + right;
-    }
-
-    /// <summary>条件文本补一层括号;旧数据自带整体括号的不重复包裹。</summary>
-    private static string WrapCondition(string condition)
-    {
-        var trimmed = (condition ?? string.Empty).Trim();
-        if (trimmed.StartsWith("(", StringComparison.Ordinal) &&
-            trimmed.EndsWith(")", StringComparison.Ordinal))
-        {
-            var depth = 0;
-            var wraps = true;
-            for (var i = 0; i < trimmed.Length; i++)
-            {
-                if (trimmed[i] == '(')
-                {
-                    depth++;
-                }
-                else if (trimmed[i] == ')')
-                {
-                    depth--;
-                    if (depth == 0 && i < trimmed.Length - 1)
-                    {
-                        wraps = false;
-                        break;
-                    }
-                }
-            }
-
-            if (wraps && depth == 0)
-            {
-                return trimmed;
-            }
-        }
-
-        return "(" + trimmed + ")";
     }
 
     private static string Parenthesize(Expression expression) =>

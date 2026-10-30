@@ -19,6 +19,8 @@ internal sealed class YySemanticAnalyzer
     private readonly Dictionary<string, FunctionDeclaration> _functions =
         new(StringComparer.Ordinal);
     private readonly HashSet<string> _predeclaredGlobals = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _importedPackages;
+    private readonly HashSet<string> _visibleBuiltins;
     private Scope _scope = new();
     private FunctionDeclaration? _currentFunction;
     private string? _currentSource;
@@ -27,6 +29,12 @@ internal sealed class YySemanticAnalyzer
     {
         _program = program;
         _rootSourceName = rootSourceName;
+        _importedPackages = program.PackageImports
+            .Select(package => package.Name)
+            .ToHashSet(StringComparer.Ordinal);
+        _visibleBuiltins = Builtins.FunctionNames
+            .Where(name => Yy.Sdk.YySdk.IsBuiltinAvailable(name, _importedPackages))
+            .ToHashSet(StringComparer.Ordinal);
         foreach (var function in program.Functions)
         {
             _functions[function.Name] = function;
@@ -43,7 +51,7 @@ internal sealed class YySemanticAnalyzer
     private void Run()
     {
         _currentSource = _rootSourceName;
-        foreach (var builtin in Builtins.FunctionNames)
+        foreach (var builtin in _visibleBuiltins)
         {
             _scope.TryDeclare(builtin, "函数", isConstant: true, new TokenLocation(1, 1));
         }
@@ -355,6 +363,12 @@ internal sealed class YySemanticAnalyzer
             return "函数";
         }
 
+        if (Builtins.FunctionNames.Contains(identifier.Name))
+        {
+            ReportMissingPackage(identifier.Name, identifier);
+            return Any;
+        }
+
         Report(identifier, $"变量或函数“{identifier.Name}”没有定义");
         return Any;
     }
@@ -456,6 +470,12 @@ internal sealed class YySemanticAnalyzer
 
             if (Builtins.FunctionNames.Contains(identifier.Name))
             {
+                if (!_visibleBuiltins.Contains(identifier.Name))
+                {
+                    ReportMissingPackage(identifier.Name, identifier);
+                    return Any;
+                }
+
                 return InferBuiltinType(identifier.Name);
             }
 
@@ -525,6 +545,19 @@ internal sealed class YySemanticAnalyzer
             node.Column,
             hint,
             sourceName));
+    }
+
+    private void ReportMissingPackage(string functionName, YyNode node)
+    {
+        var packages = Yy.Sdk.YySdk.PackagesProvidingBuiltin(functionName);
+        Report(
+            node,
+            $"函数“{functionName}”没有导入。",
+            packages.Count == 0
+                ? "该函数不属于任何已安装包。"
+                : "请先导入：" + string.Join(
+                    " 或 ",
+                    packages.Select(package => $"导入包 \"{package}\"")));
     }
 
     private sealed class Scope
