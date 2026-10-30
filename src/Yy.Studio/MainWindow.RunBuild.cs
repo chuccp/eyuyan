@@ -407,16 +407,16 @@ public partial class MainWindow : Window
             return;
         }
 
-        _settings.TargetRid = rid;
-        _settings.Save();
+        Configuration.Build.TargetRid = rid;
+        Configuration.Save();
         UpdateCompileTargetChecks();
         SetStatus($"目的操作系统:{(rid == "win-arm64" ? "Windows ARM64" : "Windows x64")}", ReadyBrush);
     }
 
     private void UpdateCompileTargetChecks()
     {
-        TargetOsWinX64MenuItem.IsChecked = _settings.TargetRid == "win-x64";
-        TargetOsWinArm64MenuItem.IsChecked = _settings.TargetRid == "win-arm64";
+        TargetOsWinX64MenuItem.IsChecked = Configuration.Build.TargetRid == "win-x64";
+        TargetOsWinArm64MenuItem.IsChecked = Configuration.Build.TargetRid == "win-arm64";
     }
 
     private async Task CompileProjectAsync(bool selfContained)
@@ -472,7 +472,7 @@ public partial class MainWindow : Window
                 _project,
                 dialog.FileName,
                 selfContained,
-                _settings.TargetRid,
+                Configuration.Build.TargetRid,
                 progress);
             SetStatus("EXE 编译完成", ReadyBrush);
             MessageBox.Show(

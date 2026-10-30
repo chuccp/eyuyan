@@ -154,13 +154,20 @@ public partial class MainWindow : Window
     }
 
     public MainWindow()
+        : this(StudioConfiguration.Load(Environment.GetCommandLineArgs().Skip(1).ToArray()))
     {
+    }
+
+    public MainWindow(StudioConfiguration configuration)
+    {
+        Configuration = configuration;
         StudioTrace.Write("MainWindow ctor begin");
         InitializeComponent();
         StudioTrace.Write("InitializeComponent complete");
 
         _settings = StudioSettings.Load();
         ConfigureEditor();
+        ApplyConfiguredShortcuts();
         ApplySettings();
         UpdateCompileTargetChecks();
         StudioTrace.Write("ConfigureEditor complete");
@@ -200,7 +207,7 @@ public partial class MainWindow : Window
             RefreshStartPageRecent();
         };
         AddStartPage();
-        if (!_settings.NoNewProgramDialog)
+        if (Configuration.Startup.ShowNewProgramDialog)
         {
             // 官方启动第一步:弹出“新建”程序类型对话框(勾选“启动后不再显示”可关闭)。
             Dispatcher.BeginInvoke(new Action(() =>
@@ -213,6 +220,11 @@ public partial class MainWindow : Window
         }
 
         StudioTrace.Write("Initial document complete");
+        if (!string.IsNullOrWhiteSpace(Configuration.LoadWarning))
+        {
+            AppendOutput("配置：" + Configuration.LoadWarning);
+        }
+
         AppendOutput("易语 Studio 已就绪。按 F5 运行当前源码。");
         SetStatus("就绪", ReadyBrush);
         StudioTrace.Write("MainWindow ctor complete");

@@ -21,7 +21,8 @@ public partial class App : Application
         }
 
         DispatcherUnhandledException += OnUnhandledException;
-        var window = new MainWindow();
+        var configuration = StudioConfiguration.Load(e.Args);
+        var window = new MainWindow(configuration);
         MainWindow = window;
         window.Show();
         window.McpAttach(e.Args);

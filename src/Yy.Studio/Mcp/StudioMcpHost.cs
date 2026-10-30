@@ -21,6 +21,8 @@ public partial class MainWindow
     private YyFormPreviewWindow? _lastPreview;
     private int _mcpShotSeq;
 
+    public StudioConfiguration Configuration { get; private set; } = new();
+
     /// <summary>启动 MCP 服务(TCP 127.0.0.1,端口见 %TEMP%\yystudio-mcp.port);args 含 --mcp-stdio 时同时启用 stdio。</summary>
     public void McpAttach(string[] args)
     {
@@ -29,8 +31,25 @@ public partial class MainWindow
             return;
         }
 
+        if (!Configuration.Mcp.Enabled)
+        {
+            AppendOutput("MCP 服务已在 Studio 配置中停用。");
+            return;
+        }
+
+        var port = ReadMcpPortOverride(args) ?? Configuration.Mcp.Port;
         _mcpServer = new StudioMcpServer(McpExecute, action => Dispatcher.Invoke(action));
-        _mcpServer.StartTcp();
+        _mcpServer.StartTcp(
+            port,
+            Configuration.Mcp.AutoFindAvailablePort,
+            Configuration.Mcp.PortAttempts);
+        if (_mcpServer.Port == 0)
+        {
+            AppendOutput($"MCP 无法在端口 {port} 启动，请修改 Studio 配置文件。");
+            _mcpServer = null;
+            return;
+        }
+
         if (Array.Exists(args, argument =>
                 string.Equals(argument, "--mcp-stdio", StringComparison.OrdinalIgnoreCase)))
         {
@@ -39,6 +58,28 @@ public partial class MainWindow
         }
 
         StudioTrace.Write($"MCP server started on port {_mcpServer.Port}");
+    }
+
+    private static int? ReadMcpPortOverride(string[] args)
+    {
+        for (var index = 0; index < args.Length; index++)
+        {
+            if (string.Equals(args[index], "--mcp-port", StringComparison.OrdinalIgnoreCase) &&
+                index + 1 < args.Length &&
+                int.TryParse(args[index + 1], out var value))
+            {
+                return value;
+            }
+
+            const string prefix = "--mcp-port=";
+            if (args[index].StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
+                int.TryParse(args[index][prefix.Length..], out value))
+            {
+                return value;
+            }
+        }
+
+        return null;
     }
 
     private object? McpExecute(string tool, JsonNode? args)
@@ -187,6 +228,13 @@ public partial class MainWindow
                 textVisible = Editor.Visibility == Visibility.Visible,
                 easyFunctions = EasyLanguageEditor.Document?.Functions.Count ?? 0,
                 plainLength = _currentDocument?.PlainCodeText.Length ?? 0
+            },
+            configuration = new
+            {
+                path = Configuration.ConfigurationPath,
+                mcpEnabled = Configuration.Mcp.Enabled,
+                mcpPort = _mcpServer?.Port ?? 0,
+                shortcuts = Configuration.Shortcuts
             },
             form,
             preview = _lastPreview is { } preview

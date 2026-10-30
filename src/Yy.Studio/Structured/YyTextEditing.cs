@@ -118,34 +118,6 @@ public static class YyTextEditing
         return true;
     }
 
-    public static bool HandleShortcut(TextEditor editor, KeyEventArgs e)
-    {
-        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.D)
-        {
-            DuplicateLine(editor);
-            e.Handled = true;
-            return true;
-        }
-
-        if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift) &&
-            e.Key == Key.K)
-        {
-            DeleteLine(editor);
-            e.Handled = true;
-            return true;
-        }
-
-        if (Keyboard.Modifiers == ModifierKeys.Control &&
-            e.Key is Key.OemQuestion or Key.Divide)
-        {
-            ToggleComment(editor);
-            e.Handled = true;
-            return true;
-        }
-
-        return false;
-    }
-
     public static void ToggleComment(TextEditor editor)
     {
         var document = editor.Document;

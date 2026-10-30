@@ -63,9 +63,9 @@ public sealed class EasyLanguageCodeEditor : UserControl
 
     public event Action<TextEditor, YyCodeFunction>? CompletionRequested;
 
-    public event Action<TextEditor, YyCodeFunction>? HelpRequested;
-
     public event Action<TextEditor, YyCodeFunction>? ParameterHintRequested;
+
+    public Func<TextEditor, YyCodeFunction, KeyEventArgs, bool>? ShortcutHandler { get; set; }
 
     public YyCodeDocument? Document => _document;
 
@@ -445,31 +445,7 @@ public sealed class EasyLanguageCodeEditor : UserControl
         };
         editor.TextArea.PreviewKeyDown += (_, e) =>
         {
-            if (e.Key == Key.F1)
-            {
-                if (HelpRequested is not null)
-                {
-                    HelpRequested(editor, function);
-                }
-                else
-                {
-                    HintRequested?.Invoke(
-                        "易语言代码区：输入语句后自动按块缩进；方法头在上述表格中编辑。");
-                }
-
-                e.Handled = true;
-                return;
-            }
-
-            if (e.Key == Key.Space && Keyboard.Modifiers == ModifierKeys.Control)
-            {
-                CompletionRequested?.Invoke(editor, function);
-                e.Handled = true;
-                return;
-            }
-
-            if (YyTextEditing.HandleBackspace(editor, e) ||
-                YyTextEditing.HandleShortcut(editor, e))
+            if (ShortcutHandler?.Invoke(editor, function, e) == true)
             {
                 return;
             }

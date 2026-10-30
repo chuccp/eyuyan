@@ -173,10 +173,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (dialog.SuppressOnStartup && !_settings.NoNewProgramDialog)
+        if (dialog.SuppressOnStartup && Configuration.Startup.ShowNewProgramDialog)
         {
-            _settings.NoNewProgramDialog = true;
-            _settings.Save();
+            Configuration.Startup.ShowNewProgramDialog = false;
+            Configuration.Save();
         }
 
         switch (dialog.SelectedKind)

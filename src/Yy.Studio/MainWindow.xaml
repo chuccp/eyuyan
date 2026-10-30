@@ -130,45 +130,6 @@
             </Setter>
         </Style>
     </Window.Resources>
-    <Window.InputBindings>
-        <KeyBinding Key="N" Modifiers="Control" Command="{x:Static local:MainWindow.NewFileCommand}"
-                    xmlns:local="clr-namespace:Yy.Studio" />
-        <KeyBinding Key="N" Modifiers="Control+Alt" Command="{x:Static local:MainWindow.NewProjectCommand}"
-                    xmlns:local="clr-namespace:Yy.Studio" />
-        <KeyBinding Key="N" Modifiers="Control+Shift" Command="{x:Static local:MainWindow.NewFormCommand}"
-                    xmlns:local="clr-namespace:Yy.Studio" />
-        <KeyBinding Key="O" Modifiers="Control" Command="{x:Static local:MainWindow.OpenFileCommand}"
-                    xmlns:local="clr-namespace:Yy.Studio" />
-        <KeyBinding Key="O" Modifiers="Control+Shift" Command="{x:Static local:MainWindow.OpenFolderCommand}"
-                    xmlns:local="clr-namespace:Yy.Studio" />
-        <KeyBinding Key="S" Modifiers="Control" Command="{x:Static local:MainWindow.SaveFileCommand}"
-                    xmlns:local="clr-namespace:Yy.Studio" />
-        <KeyBinding Key="S" Modifiers="Control+Shift" Command="{x:Static local:MainWindow.SaveAsCommand}"
-                    xmlns:local="clr-namespace:Yy.Studio" />
-        <KeyBinding Key="W" Modifiers="Control" Command="{x:Static local:MainWindow.CloseTabCommand}"
-                    xmlns:local="clr-namespace:Yy.Studio" />
-        <KeyBinding Key="B" Modifiers="Control" Command="{x:Static local:MainWindow.CompileProjectCommand}"
-                    xmlns:local="clr-namespace:Yy.Studio" />
-        <KeyBinding Key="F7" Command="{x:Static local:MainWindow.CompileProjectCommand}"
-                    xmlns:local="clr-namespace:Yy.Studio" />
-        <KeyBinding Key="F5" Command="{x:Static local:MainWindow.RunCommand}"
-                    xmlns:local="clr-namespace:Yy.Studio" />
-        <KeyBinding Key="F5" Modifiers="Control" Command="{x:Static local:MainWindow.RunProjectCommand}"
-                    xmlns:local="clr-namespace:Yy.Studio" />
-        <KeyBinding Key="F5" Modifiers="Shift" Command="{x:Static local:MainWindow.StopCommand}"
-                    xmlns:local="clr-namespace:Yy.Studio" />
-        <KeyBinding Key="F8" Command="{x:Static local:MainWindow.DebugStepCommand}"
-                    xmlns:local="clr-namespace:Yy.Studio" />
-        <KeyBinding Key="F10" Command="{x:Static local:MainWindow.DebugStepOverCommand}"
-                    xmlns:local="clr-namespace:Yy.Studio" />
-        <KeyBinding Key="F8" Modifiers="Shift" Command="{x:Static local:MainWindow.DebugStepOutCommand}"
-                    xmlns:local="clr-namespace:Yy.Studio" />
-        <KeyBinding Key="F4" Command="{x:Static local:MainWindow.DebugRunToCursorCommand}"
-                    xmlns:local="clr-namespace:Yy.Studio" />
-        <KeyBinding Key="F9" Command="{x:Static local:MainWindow.DebugToggleBreakpointCommand}"
-                    xmlns:local="clr-namespace:Yy.Studio" />
-    </Window.InputBindings>
-
     <Window.CommandBindings>
         <CommandBinding Command="{x:Static local:MainWindow.NewFileCommand}" Executed="OnNewFile"
                         xmlns:local="clr-namespace:Yy.Studio" />
@@ -243,7 +204,7 @@
                       VerticalAlignment="Center"
                       shell:WindowChrome.IsHitTestVisibleInChrome="True">
             <MenuItem Header="_F程序" Style="{StaticResource TopMenuItem}">
-                <MenuItem Header="新建" InputGestureText="Ctrl+N" Click="OnNewProgramClick" />
+                <MenuItem Header="新建" Click="OnNewProgramClick" />
                 <MenuItem Header="新建源码" InputGestureText="Ctrl+Shift+Alt+N"
                           Command="{x:Static local:MainWindow.NewFileCommand}"
                           xmlns:local="clr-namespace:Yy.Studio" />
@@ -270,6 +231,7 @@
                 <Separator />
                 <MenuItem Header="打印" InputGestureText="Ctrl+P" Click="OnPrintClick" />
                 <MenuItem Header="系统配置" Click="OnSystemConfigClick" />
+                <MenuItem Header="打开 Studio 配置文件" Click="OnOpenStudioConfigClick" />
                 <MenuItem Header="支持库配置" Click="OnSupportConfigClick" />
                 <MenuItem Header="易模块管理" Click="OnModuleManagerClick" />
                 <MenuItem Header="程序配置" Click="OnProjectPropertiesClick" />
@@ -478,15 +440,18 @@
                 BorderBrush="{StaticResource BorderBrush}"
                 BorderThickness="0,0,0,1">
             <StackPanel Orientation="Horizontal" Margin="2,1">
-                <Button Style="{StaticResource IconButton}" Content="&#xE710;"
+                <Button x:Name="NewProjectButton"
+                        Style="{StaticResource IconButton}" Content="&#xE710;"
                         ToolTip="新建项目 (Ctrl+Alt+N)"
                         Command="{x:Static local:MainWindow.NewProjectCommand}"
                         xmlns:local="clr-namespace:Yy.Studio" />
-                <Button Style="{StaticResource IconButton}" Content="&#xE838;"
+                <Button x:Name="OpenFileButton"
+                        Style="{StaticResource IconButton}" Content="&#xE838;"
                         ToolTip="打开文件 (Ctrl+O)"
                         Command="{x:Static local:MainWindow.OpenFileCommand}"
                         xmlns:local="clr-namespace:Yy.Studio" />
-                <Button Style="{StaticResource IconButton}" Content="&#xE74E;"
+                <Button x:Name="SaveFileButton"
+                        Style="{StaticResource IconButton}" Content="&#xE74E;"
                         ToolTip="保存 (Ctrl+S)"
                         Command="{x:Static local:MainWindow.SaveFileCommand}"
                         xmlns:local="clr-namespace:Yy.Studio" />

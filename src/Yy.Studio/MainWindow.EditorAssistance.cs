@@ -58,7 +58,6 @@ public partial class MainWindow : Window
         Editor.Document.UndoStack.SizeLimit = 500;
         EasyLanguageEditor.CompletionRequested += (editor, function) =>
             ShowCompletionFor(editor, function);
-        EasyLanguageEditor.HelpRequested += ShowEasyLanguageHelp;
         EasyLanguageEditor.ParameterHintRequested += (editor, function) =>
             UpdateParameterHintFor(editor);
         InitializeCodeWindowFolding();
@@ -140,7 +139,7 @@ public partial class MainWindow : Window
 
     private void OnEditorPreviewKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.F1)
+        if (MatchesConfiguredShortcut(e, StudioShortcutActions.Help))
         {
             BottomTabs.SelectedIndex = 1;
             UpdateEditorHelp();
@@ -148,15 +147,35 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (e.Key == Key.Space && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+        if (MatchesConfiguredShortcut(e, StudioShortcutActions.Completion))
         {
             ShowCompletion();
             e.Handled = true;
             return;
         }
 
-        if (YyTextEditing.HandleBackspace(Editor, e) ||
-            YyTextEditing.HandleShortcut(Editor, e))
+        if (MatchesConfiguredShortcut(e, StudioShortcutActions.ToggleComment))
+        {
+            YyTextEditing.ToggleComment(Editor);
+            e.Handled = true;
+            return;
+        }
+
+        if (MatchesConfiguredShortcut(e, StudioShortcutActions.DuplicateLine))
+        {
+            YyTextEditing.DuplicateLine(Editor);
+            e.Handled = true;
+            return;
+        }
+
+        if (MatchesConfiguredShortcut(e, StudioShortcutActions.DeleteLine))
+        {
+            YyTextEditing.DeleteLine(Editor);
+            e.Handled = true;
+            return;
+        }
+
+        if (YyTextEditing.HandleBackspace(Editor, e))
         {
             return;
         }

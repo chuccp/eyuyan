@@ -99,11 +99,32 @@ yy run <工程.yyproj|目录>
 
 `YyStudio.exe` 仅负责可视化编辑和 IDE 内操作；脚本、CI 和批处理可直接调用 `yy.exe`。命令行编译目前需要开发机安装 .NET 10 SDK。
 
+## Studio 配置
+
+Studio 的可编辑配置保存在 `%APPDATA%\YyStudio\YyStudio.json`。首次启动会自动生成，也可通过“工具 → 打开 Studio 配置文件”直接编辑，完整模板见 [YyStudio.example.json](YyStudio.example.json)。
+
+配置文件覆盖：
+
+- MCP 启用状态、端口、自动寻找端口和尝试次数。
+- 编辑器字号、制表宽度和窗体吸附网格。
+- 默认编译目标平台与停用支持库。
+- 新建、打开、保存、编译、运行、调试、补全、帮助、注释和行编辑快捷键。
+
+设置窗口采用 JetBrains 风格双栏布局。也可以在启动时指定配置：
+
+![JetBrains 风格 Studio 设置窗口](docs/images/studio-settings.webp)
+
+```powershell
+YyStudio.exe --config D:\Config\YyStudio.json --mcp-port 38400
+```
+
+详细格式、校验规则和配置优先级见 [Studio 配置](docs/configuration.md)。
+
 ## MCP 接口
 
 Studio 内置 MCP（Model Context Protocol）服务端，AI 客户端可以读取 IDE 状态、打开和保存工程、编辑窗体、创建事件、写入子程序、运行预览并触发界面交互。每个 MCP 工具都调用 Studio 的真实编辑流程，与用户在界面中的操作使用同一套代码路径。
 
-IDE 启动后默认在 `http://127.0.0.1:37213/mcp` 提供 HTTP JSON-RPC 接口，项目根目录的 `.mcp.json` 已包含可直接使用的客户端配置：
+IDE 启动后默认在 `http://127.0.0.1:37213/mcp` 提供 HTTP JSON-RPC 接口。默认端口可以在 `YyStudio.json` 中修改，或通过 `--mcp-port` 临时覆盖；项目根目录的 `.mcp.json` 使用默认端点：
 
 ```json
 {

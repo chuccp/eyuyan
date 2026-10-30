@@ -9,6 +9,7 @@
 | `MainWindow.xaml.cs` | 窗口字段、构造和公共生命周期 |
 | `MainWindow.Chrome.cs` | 自定义顶栏的最小化、最大化、还原和关闭 |
 | `MainWindow.EditorAssistance.cs` | 编辑器配置、补全、参数提示、F1 帮助和快捷键分派 |
+| `MainWindow.Shortcuts.cs` | 从 Studio 配置创建输入绑定并刷新菜单快捷键 |
 | `MainWindow.DocumentCommands.cs` | 新建、打开、保存入口和关闭标签命令 |
 | `MainWindow.DocumentPersistence.cs` | 文档序列化、三文件保存和关闭确认 |
 | `MainWindow.Workspace.cs` | 工作区、程序数据树、文档激活和视图切换 |
@@ -31,6 +32,8 @@
 | `Structured/YyIndentationStrategy.cs` | 易语代码块缩进 |
 | `Structured/EasyLanguageFoldingStrategy.cs` | 子程序、条件和循环折叠 |
 | `EditorDocument.cs` | 结构化存储与连续源码视图之间的状态 |
+| `StudioConfiguration.cs` | `YyStudio.json` 模型、校验、快捷键目录和配置保存 |
+| `SystemConfigDialog.xaml` | JetBrains 风格设置窗口 |
 
 用户代码可以在“易语言代码”和“纯代码”两种呈现间切换。方法声明可以出现在小表格中，但执行语句始终处于连续代码区；两种视图共享补全、参数提示、F1 帮助和自动配对。
 

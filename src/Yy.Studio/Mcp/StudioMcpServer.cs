@@ -31,10 +31,21 @@ public sealed class StudioMcpServer
     /// <summary>实际监听端口(0=未启动)。</summary>
     public int Port { get; private set; }
 
-    /// <summary>在回环地址启动 HTTP 传输;端口被占用则顺延 10 个。写 %TEMP%\yystudio-mcp.port 供发现。</summary>
-    public void StartTcp()
+    /// <summary>在回环地址启动 HTTP 传输，并按配置选择端口。写 %TEMP%\yystudio-mcp.port 供发现。</summary>
+    public void StartTcp(
+        int preferredPort = PreferredPort,
+        bool autoFindAvailablePort = true,
+        int portAttempts = 10)
     {
-        for (var port = PreferredPort; port < PreferredPort + 10; port++)
+        if (preferredPort is < 1024 or > 65535)
+        {
+            return;
+        }
+
+        var attempts = autoFindAvailablePort
+            ? Math.Clamp(portAttempts, 1, 65536 - preferredPort)
+            : 1;
+        for (var port = preferredPort; port < preferredPort + attempts; port++)
         {
             try
             {

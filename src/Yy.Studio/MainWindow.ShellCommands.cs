@@ -326,19 +326,52 @@ public partial class MainWindow : Window
 
     private void ApplySettings()
     {
-        Editor.FontSize = _settings.EditorFontSize;
-        Editor.Options.IndentationSize = _settings.TabWidth;
-        SnapCheckBox.IsChecked = _settings.SnapGrid;
+        Editor.FontSize = Configuration.Editor.FontSize;
+        Editor.Options.IndentationSize = Configuration.Editor.TabWidth;
+        SnapCheckBox.IsChecked = Configuration.Designer.SnapGrid;
     }
 
     private void OnSystemConfigClick(object sender, RoutedEventArgs e)
     {
-        var dialog = new SystemConfigDialog(_settings) { Owner = this };
+        var dialog = new SystemConfigDialog(Configuration) { Owner = this };
+        dialog.Applied += updated =>
+        {
+            Configuration = updated;
+            ApplySettings();
+            ApplyConfiguredShortcuts();
+        };
         if (dialog.ShowDialog() == true)
         {
-            _settings.Save();
-            ApplySettings();
             SetStatus("系统配置已保存", ReadyBrush);
+        }
+    }
+
+    private void OnOpenStudioConfigClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var path = Configuration.ConfigurationPath ?? StudioConfiguration.UserFilePath;
+            Configuration.ConfigurationPath = path;
+            if (!File.Exists(path))
+            {
+                Configuration.Save();
+            }
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = path,
+                UseShellExecute = true
+            });
+            ShowHint($"已打开 Studio 配置：{path}\n修改 MCP 端口等配置后需要重启 Studio。");
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            MessageBox.Show(
+                this,
+                "无法打开 Studio 配置文件：\n" + exception.Message,
+                "Studio 配置",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
@@ -346,14 +379,14 @@ public partial class MainWindow : Window
     {
         var dialog = new SupportConfigDialog(
             StudioCatalog.Categories.Select(category => category.Name),
-            _settings.DisabledLibraries.ToHashSet(StringComparer.Ordinal))
+            Configuration.Libraries.Disabled.ToHashSet(StringComparer.Ordinal))
         {
             Owner = this
         };
         if (dialog.ShowDialog() == true)
         {
-            _settings.DisabledLibraries = dialog.CollectDisabled().ToList();
-            _settings.Save();
+            Configuration.Libraries.Disabled = dialog.CollectDisabled().ToList();
+            Configuration.Save();
             BuildSupportTree();
             SetStatus("支持库配置已保存", ReadyBrush);
         }
@@ -540,7 +573,7 @@ public partial class MainWindow : Window
         };
         foreach (var category in StudioCatalog.Categories)
         {
-            if (_settings.DisabledLibraries.Contains(category.Name))
+            if (Configuration.Libraries.Disabled.Contains(category.Name))
             {
                 continue;
             }

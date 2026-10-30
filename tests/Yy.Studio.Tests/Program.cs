@@ -1,5 +1,6 @@
 using System.IO;
 using System.Windows.Automation;
+using System.Windows.Input;
 using Yy.Language;
 using Yy.Studio;
 using Yy.Compiler;
@@ -183,6 +184,94 @@ Run("编辑器自动配对输入", () =>
 
     var skip = YyTextEditing.GetPairAction("()", 1, 0, ")");
     Equal(YyPairActionKind.SkipClosing, skip.Kind);
+});
+
+Run("Studio 配置文件解析", () =>
+{
+    var configuration = StudioConfiguration.Parse(
+        """
+        {
+          "格式版本": 1,
+          "MCP": {
+            "启用": true,
+            "端口": 38123,
+            "自动寻找可用端口": false,
+            "端口尝试次数": 3
+          },
+          "快捷键": {
+            "运行": ["Ctrl+R"],
+            "编译": []
+          }
+        }
+        """,
+        "YyStudio.json");
+    Equal(1, configuration.FormatVersion);
+    Equal(38123, configuration.Mcp.Port);
+    True(!configuration.Mcp.AutoFindAvailablePort, "MCP 自动端口配置没有读取。");
+    Equal(3, configuration.Mcp.PortAttempts);
+    Equal("YyStudio.json", configuration.ConfigurationPath);
+    Equal(Key.R, configuration.GetGestures(StudioShortcutActions.Run).Single().Key);
+    Equal(0, configuration.GetGestures(StudioShortcutActions.Compile).Count);
+    Equal(
+        Key.S,
+        configuration.GetGestures(StudioShortcutActions.SaveFile).Single().Key);
+
+    try
+    {
+        StudioConfiguration.Parse(
+            """{"格式版本":1,"MCP":{"端口":80}}""");
+        throw new Exception("无效 MCP 端口应被拒绝。");
+    }
+    catch (InvalidDataException exception)
+    {
+        True(exception.Message.Contains("1024", StringComparison.Ordinal), exception.Message);
+    }
+
+    try
+    {
+        StudioConfiguration.Parse(
+            """
+            {
+              "格式版本": 1,
+              "快捷键": {
+                "运行": ["Ctrl+S"],
+                "保存": ["Ctrl+S"]
+              }
+            }
+            """);
+        throw new Exception("重复快捷键应被拒绝。");
+    }
+    catch (InvalidDataException exception)
+    {
+        True(exception.Message.Contains("同时分配", StringComparison.Ordinal), exception.Message);
+    }
+});
+
+Run("JetBrains 风格设置窗口", () =>
+{
+    Exception? failure = null;
+    var thread = new Thread(() =>
+    {
+        try
+        {
+            var configuration = StudioConfiguration.Parse(
+                """{"格式版本":1,"MCP":{"端口":38123}}""");
+            var dialog = new SystemConfigDialog(configuration);
+            Equal(940d, dialog.Width);
+            dialog.Close();
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+        }
+    });
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
+    thread.Join();
+    if (failure is not null)
+    {
+        throw failure;
+    }
 });
 
 Run("项目清单读取", () =>
