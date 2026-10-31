@@ -86,21 +86,9 @@ public partial class MainWindow : Window
 
     private void OnToggleExplorer(object sender, RoutedEventArgs e)
     {
-        if (ProjectExplorerPanel.Visibility == Visibility.Visible)
-        {
-            _explorerWidth = ExplorerColumn.Width;
-            ProjectExplorerPanel.Visibility = Visibility.Collapsed;
-            ExplorerSplitter.Visibility = Visibility.Collapsed;
-            ExplorerColumn.MinWidth = 0;
-            ExplorerColumn.Width = new GridLength(0);
-        }
-        else
-        {
-            ProjectExplorerPanel.Visibility = Visibility.Visible;
-            ExplorerSplitter.Visibility = Visibility.Visible;
-            ExplorerColumn.MinWidth = 180;
-            ExplorerColumn.Width = _explorerWidth.Value > 0 ? _explorerWidth : new GridLength(252);
-        }
+        SetProjectToolWindowVisible(
+            ProjectExplorerPanel.Visibility != Visibility.Visible);
+        PersistWindowLayout(markCustom: true);
     }
 
     private void OnToggleToolboxPanel(object sender, RoutedEventArgs e)
@@ -114,19 +102,23 @@ public partial class MainWindow : Window
         if (InspectorPanel.Visibility == Visibility.Visible)
         {
             InspectorPanel.Visibility = Visibility.Collapsed;
-            RightToolsPanel.Margin = new Thickness(0);
         }
         else
         {
             InspectorPanel.Visibility = Visibility.Visible;
-            RightToolsPanel.Margin = new Thickness(0, 0, 132, 0);
         }
+
+        UpdateRightToolsColumn();
+        PersistWindowLayout(markCustom: true);
     }
 
     private void OnToggleStatusBar(object sender, RoutedEventArgs e)
     {
-        StatusBarRow.Visibility =
-            ToggleStatusBarMenuItem.IsChecked ? Visibility.Visible : Visibility.Collapsed;
+        var visible = sender is MenuItem item
+            ? item.IsChecked
+            : ToggleStatusBarMenuItem.IsChecked;
+        SetStatusBarVisible(visible);
+        PersistWindowLayout(markCustom: true);
     }
 
     private void OnShowWorkTab(object sender, RoutedEventArgs e)
@@ -136,15 +128,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        ProjectExplorerPanel.Visibility = Visibility.Visible;
-        if (tag == "程序")
-        {
-            WorkTabs.SelectedIndex = 0;
-        }
-        else if (tag == "属性")
-        {
-            WorkTabs.SelectedIndex = 1;
-        }
+        ShowRightToolsTab(tag == "程序" ? 0 : 1);
     }
 
     private void OnOpenDataTableView(object sender, RoutedEventArgs e)
@@ -465,27 +449,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private void BuildWindowMenu()
-    {
-        WindowMenu.Items.Clear();
-        foreach (var document in _documents)
-        {
-            var item = new MenuItem
-            {
-                Header = document.DisplayName,
-                Tag = document,
-                IsChecked = ReferenceEquals(document, _currentDocument)
-            };
-            item.Click += (_, _) => DocumentTabs.SelectedItem = document;
-            WindowMenu.Items.Add(item);
-        }
-
-        if (WindowMenu.Items.Count == 0)
-        {
-            WindowMenu.Items.Add(new MenuItem { Header = "（无打开的窗口）", IsEnabled = false });
-        }
-    }
-
     private void OnWindowClosing(object? sender, CancelEventArgs e)
     {
         if (_runCancellation is not null)
@@ -514,6 +477,8 @@ public partial class MainWindow : Window
                 return;
             }
         }
+
+        PersistWindowLayout(markCustom: false);
     }
 
 }

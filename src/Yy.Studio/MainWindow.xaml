@@ -92,6 +92,43 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="TopBarActionButton" TargetType="Button">
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Margin" Value="4,5,8,5" />
+            <Setter Property="Padding" Value="9,0" />
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Chrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#EAF2FA" />
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="#C8E0F5" />
+                                <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#D6E9FA" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
     <Window.CommandBindings>
         <CommandBinding Command="{x:Static local:MainWindow.NewFileCommand}" Executed="OnNewFile"
@@ -222,12 +259,23 @@
             </MenuItem>
 
             <MenuItem Header="_V查看" Style="{StaticResource TopMenuItem}">
-                <MenuItem x:Name="ToggleStatusBarMenuItem" Header="状态条"
+                <MenuItem x:Name="ToggleStatusBarMenuItem" Header="状态栏"
                           IsCheckable="True" IsChecked="True" Click="OnToggleStatusBar" />
                 <Separator />
-                <MenuItem Header="工作夹" InputGestureText="Alt+1" Click="OnShowWorkTab" Tag="程序" />
-                <MenuItem Header="工作与状态组合夹" InputGestureText="Alt+3" Click="OnToggleExplorer" />
-                <MenuItem Header="窗口组件箱" InputGestureText="Alt+4" Click="OnToggleToolboxPanel" />
+                <MenuItem x:Name="ViewToolsMenu"
+                          Header="工具窗口"
+                          SubmenuOpened="OnViewToolsMenuOpened" />
+                <MenuItem Header="布局">
+                    <MenuItem Header="默认布局"
+                              Click="OnApplyLayoutPreset"
+                              Tag="默认" />
+                    <MenuItem Header="专注代码"
+                              Click="OnApplyLayoutPreset"
+                              Tag="专注代码" />
+                    <MenuItem Header="窗体设计"
+                              Click="OnApplyLayoutPreset"
+                              Tag="窗体设计" />
+                </MenuItem>
                 <Separator />
                 <MenuItem Header="全局变量表" Click="OnOpenDataTableView" Tag="全局变量" />
                 <MenuItem Header="常量表" Click="OnOpenDataTableView" Tag="常量表" />
@@ -319,6 +367,27 @@
                 <StackPanel Grid.Column="3"
                             Orientation="Horizontal"
                             shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button x:Name="LayoutButton"
+                            Style="{StaticResource TopBarActionButton}"
+                            AutomationProperties.Name="窗口布局"
+                            ToolTip="配置工具窗口和窗口布局"
+                            Click="OnLayoutButtonClick">
+                        <Button.ContextMenu>
+                            <ContextMenu x:Name="LayoutContextMenu"
+                                         Opened="OnLayoutContextMenuOpened" />
+                        </Button.ContextMenu>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="▦"
+                                       Margin="0,0,6,0"
+                                       FontSize="13"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="布局" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Border Width="1"
+                            Height="18"
+                            Margin="0,10,3,10"
+                            Background="{StaticResource BorderBrush}" />
                     <Button x:Name="CaptionMinimizeButton"
                             Style="{StaticResource CaptionButton}"
                             AutomationProperties.Name="最小化窗口"
@@ -622,7 +691,9 @@
         </Border>
 
         <!-- ================= 主体:左工作与状态组合夹 | 设计中心 | 右窗口组件箱 ================= -->
-        <Grid Background="{StaticResource WorkspaceBrush}" ClipToBounds="True">
+        <Grid x:Name="WorkspaceGrid"
+              Background="{StaticResource WorkspaceBrush}"
+              ClipToBounds="True">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition x:Name="ExplorerColumn" Width="260" MinWidth="180" />
                 <ColumnDefinition Width="4" />
@@ -635,6 +706,36 @@
                 <RowDefinition Height="5" />
                 <RowDefinition x:Name="BottomToolWindowRow" Height="172" MinHeight="96" />
             </Grid.RowDefinitions>
+
+            <Button x:Name="LeftToolWindowRailButton"
+                    Grid.Column="0"
+                    Grid.RowSpan="3"
+                    Width="28"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Stretch"
+                    Padding="0,8"
+                    Visibility="Collapsed"
+                    ToolTip="恢复左侧工具窗口"
+                    Click="OnToolWindowRailClick" />
+            <Button x:Name="RightToolWindowRailButton"
+                    Grid.Column="4"
+                    Grid.RowSpan="3"
+                    Width="28"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Stretch"
+                    Padding="0,8"
+                    Visibility="Collapsed"
+                    ToolTip="恢复右侧工具窗口"
+                    Click="OnToolWindowRailClick" />
+            <Button x:Name="BottomToolWindowRailButton"
+                    Grid.Column="2"
+                    Grid.Row="2"
+                    Height="28"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Top"
+                    Visibility="Collapsed"
+                    ToolTip="恢复底部工具窗口"
+                    Click="OnToolWindowRailClick" />
 
             <!-- 左:项目目录 -->
             <Border Grid.Column="0" x:Name="ProjectExplorerPanel"

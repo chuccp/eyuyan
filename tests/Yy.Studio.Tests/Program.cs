@@ -210,6 +210,7 @@ Run("编辑器自动配对输入", () =>
 
 Run("帮助开发文档覆盖语言与 SDK", DocumentationRegression.VerifyCatalog);
 Run("开发文档窗口可创建", DocumentationRegression.VerifyWindow);
+Run("IDEA 式窗口布局配置", WindowLayoutRegression.Verify);
 
 Run("Studio 配置文件解析", () =>
 {

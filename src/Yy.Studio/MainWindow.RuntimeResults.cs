@@ -249,12 +249,6 @@ public partial class MainWindow : Window
         OutputBox.ScrollToEnd();
     }
 
-    private void ShowConsolePanel()
-    {
-        BottomToolWindowPanel.Visibility = Visibility.Visible;
-        BottomTabs.SelectedIndex = 1;
-    }
-
     private void SetStatus(string text, Brush brush)
     {
         StatusText.Text = text;

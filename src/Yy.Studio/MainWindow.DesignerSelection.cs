@@ -374,7 +374,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        // 官方快捷键:Ctrl+E 菜单编辑器、Ctrl+L 插入局部变量、Ctrl+Enter 预览被设计窗口、Alt+1..4 面板
+        // IDE 快捷键：Ctrl+E 菜单编辑器、Ctrl+L 局部变量、Ctrl+Enter 设计预览、Alt+1..5 工具窗口
         if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && e.Key == Key.E)
         {
             OnMenuEditorClick(sender, e);
@@ -397,22 +397,28 @@ public partial class MainWindow : Window
         }
 
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
-        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Alt) && key is Key.D1 or Key.D2 or Key.D3 or Key.D4)
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Alt) &&
+            key is Key.D1 or Key.D2 or Key.D3 or Key.D4 or Key.D5)
         {
             switch (key)
             {
                 case Key.D1:
-                    ProjectExplorerPanel.Visibility = Visibility.Visible;
-                    WorkTabs.SelectedIndex = 1;
+                    SetProjectToolWindowVisible(true);
+                    ProjectDirectoryTree.Focus();
+                    PersistWindowLayout(markCustom: true);
                     break;
                 case Key.D2:
-                    ProjectExplorerPanel.Visibility = Visibility.Visible;
-                    WorkTabs.SelectedIndex = 0;
+                    ShowRightToolsTab(0);
                     break;
                 case Key.D3:
-                    OnToggleExplorer(sender, e);
+                    ShowRightToolsTab(1);
                     break;
                 case Key.D4:
+                    ShowConsolePanel();
+                    BottomTabs.Focus();
+                    PersistWindowLayout(markCustom: true);
+                    break;
+                case Key.D5:
                     OnToggleToolboxPanel(sender, e);
                     break;
             }

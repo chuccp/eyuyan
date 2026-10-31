@@ -400,6 +400,7 @@ public partial class MainWindow : Window
         DataTableViewHost.Visibility = Visibility.Visible;
         InspectorPanel.Visibility = Visibility.Collapsed;
         RightToolsPanel.Margin = new Thickness(0);
+        UpdateRightToolsColumn();
 
         _dataTableView.Load(_project, kind, () => _project.SaveManifest());
         SetStatus($"数据表：{kind}", ReadyBrush);
@@ -709,12 +710,12 @@ public partial class MainWindow : Window
 
     private void HideInspectorColumn()
     {
-        // 官方布局:窗口组件箱常驻右侧,不随文档视图隐藏。
+        UpdateRightToolsColumn();
     }
 
     private void RestoreInspectorColumn()
     {
-        // 官方布局:窗口组件箱常驻右侧,不随文档视图隐藏。
+        UpdateRightToolsColumn();
     }
 
 }

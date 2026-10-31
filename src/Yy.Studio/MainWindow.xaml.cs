@@ -141,7 +141,6 @@ public partial class MainWindow : Window
     private string? _lastClipText;
     private readonly StartPageView _startPageView = new();
     private List<YyControlModel> _designerClipboard = [];
-    private GridLength _explorerWidth = new(240);
     private string? _helpFunctionsSource;
     private Dictionary<string, FunctionDeclaration> _helpFunctions = new(StringComparer.Ordinal);
     private CancellationTokenSource? _runCancellation;
@@ -165,6 +164,7 @@ public partial class MainWindow : Window
         StudioTrace.Write("MainWindow ctor begin");
         InitializeComponent();
         ConfigureIdeWorkspaceLayout();
+        ApplyWindowLayoutConfiguration();
         StudioTrace.Write("InitializeComponent complete");
 
         _settings = StudioSettings.Load();

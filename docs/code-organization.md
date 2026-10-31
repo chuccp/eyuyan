@@ -21,6 +21,7 @@
 | `MainWindow.RunBuild.cs` | 工程/源码运行、原生进程生命周期、调试、监视、搜寻和编译 |
 | `MainWindow.RuntimeResults.cs` | 控制台、执行结果、诊断、状态与变量显示 |
 | `MainWindow.ShellCommands.cs` | 外壳菜单、面板、资源、模块与窗口菜单 |
+| `MainWindow.WindowLayout.cs` | IDEA 式工具窗停靠、显示/最小化/隐藏、恢复栏和布局持久化 |
 | `DocumentationCatalog.cs` | 语言、SDK 和命令参考的内置文档模型与搜索 |
 | `DocumentationWindow.*` | 帮助菜单中的可搜索开发文档窗口 |
 | `Mcp/StudioMcpHost.cs` | MCP 工具到真实 IDE 操作路径的分派 |
