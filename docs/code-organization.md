@@ -71,7 +71,7 @@
 | `src/Yy.Compiler` | 无 WPF 依赖的工程协议、窗体模型、资源索引和 AST 汇总 |
 | `src/Yy.Compiler/ProjectCompiler.cs` | 校验项目并汇总入口、窗体和模块源码 |
 | `tools/Yy.Cli` | `yy.exe` 命令行入口 |
-| `tools/Yy.Cli/Program.cs` | `build`、`native`、`check`、`run`、`version` 子命令 |
+| `tools/Yy.Cli/Program.cs` | `build`、`check`、`run`、`version` 子命令 |
 
 `YyStudio` 和 `Yy.Cli` 都通过 `Yy.Native` 编译应用；`Yy.Cli` 不得引用 `Yy.Studio` 或 WPF。Studio 的 WPF 代码只实现 IDE 与设计预览，不会进入编译产物。
 

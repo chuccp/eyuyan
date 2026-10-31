@@ -20,7 +20,6 @@ internal static class CliApplication
             return args[0].ToLowerInvariant() switch
             {
                 "build" => BuildNative(args[1..]),
-                "native" => BuildNative(args[1..]),
                 "check" => Check(args[1..]),
                 "run" => await RunProjectAsync(args[1..]),
                 "version" or "--version" or "-v" => PrintVersion(),
@@ -55,7 +54,7 @@ internal static class CliApplication
             if (!File.Exists(input) ||
                 !string.Equals(Path.GetExtension(input), ".yyc", StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidDataException("yy native 需要一个 .yyc 源文件、.yyproj 或项目目录。");
+                throw new InvalidDataException("yy build 需要一个 .yyc 源文件、.yyproj 或项目目录。");
             }
 
             var output = Path.GetFullPath(
@@ -161,19 +160,18 @@ internal static class CliApplication
             易语命令行编译器
 
             用法：
-              yy build <工程.yyproj|目录> [-o 输出.exe]
-              yy native <源码.yyc|工程.yyproj|目录> [-o 输出.exe]
+              yy build <源码.yyc|工程.yyproj|目录> [-o 输出.exe]
               yy check <工程.yyproj|目录>
               yy run <工程.yyproj|目录>
               yy version
 
             示例：
               yy build examples/原生窗体 -o Dist/原生窗体.exe
-              yy native examples/Sources/原生入门.yyc -o Dist/原生入门.exe
+              yy build examples/Sources/原生入门.yyc -o Dist/原生入门.exe
               yy check examples/原生窗体
               yy run examples/原生窗体
 
-            build/native 使用自研 Win64/PE 后端，不生成 C#、C++、Rust 或 LLVM IR，
+            build 使用自研 Win64/PE 后端，不生成 C#、C++、Rust 或 LLVM IR，
             编译结果不依赖 .NET 或 C Runtime。
             """);
     }

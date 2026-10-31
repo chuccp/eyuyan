@@ -160,6 +160,7 @@ Run("源代码往返", () =>
 
 Run("用户代码默认进入经典视图", () =>
 {
+    FoldingRegression.VerifySortedFoldings();
     var source = YyCodeSerializer.Serialize(
         YyCodeDocumentConverter.FromSource(
             ".程序集 测试\n子程序 示例()\n    输出(\"你好\")\n结束子程序\n",

@@ -54,7 +54,13 @@ public static class EasyLanguageFoldingStrategy
             });
         }
 
-        return foldings;
+        // AvalonEdit 要求折叠起点严格有序；经典视图由多个子程序片段重建时，
+        // 文档遍历顺序不一定等于最终起点顺序。
+        return foldings
+            .Where(folding => folding.EndOffset > folding.StartOffset)
+            .OrderBy(folding => folding.StartOffset)
+            .ThenByDescending(folding => folding.EndOffset)
+            .ToArray();
     }
 
     private static FoldingStart? GetStart(string text, int offset)

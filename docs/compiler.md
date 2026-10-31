@@ -15,14 +15,13 @@
 
 ```powershell
 yy check <工程.yyproj|目录>
-yy build <工程.yyproj|目录> [-o 输出.exe]
-yy native <源码.yyc|工程.yyproj|目录> [-o 输出.exe]
+yy build <源码.yyc|工程.yyproj|目录> [-o 输出.exe]
 yy run <工程.yyproj|目录>
 yy version
 ```
 
 - `check` 校验工程清单、三文件结构、资源和语言代码，不生成 EXE。
-- `build` 和 `native` 是同一原生构建入口；工程默认输出到 `.yyproj` 指定的文件名。
+- `build` 是唯一应用构建入口，直接接收源码、工程清单或目录；工程默认输出到 `.yyproj` 指定的文件名。
 - `build` 没有目标框架、运行时标识或独立/框架依赖选项。
 - `run` 在临时目录构建并启动原生程序，程序退出后清理临时产物。
 - 开发命令行编译器需要安装 .NET 10 SDK；生成的应用不需要 .NET、CLR 或 C Runtime。

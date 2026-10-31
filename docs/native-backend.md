@@ -5,7 +5,7 @@
 ## 编译流程
 
 ```text
-yy native 程序.yyc -o 程序.exe
+yy build 程序.yyc -o 程序.exe
         ↓
 易语解析器与语义分析
         ↓
@@ -83,7 +83,7 @@ ExitProcess
 对 `.yyproj` 或项目目录执行：
 
 ```powershell
-yy native .\examples\原生窗体 -o .\artifacts\原生窗体.exe
+yy build .\examples\原生窗体 -o .\artifacts\原生窗体.exe
 ```
 
 编译器从启动窗体生成：

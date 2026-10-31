@@ -52,7 +52,7 @@
 - JDK 式系统 SDK 包边界、`导入包` 上下文补全和 Swing 式跨 UI 技术契约。
 - 默认“经典视图”和“纯代码”模式共用同一份用户代码。
 - 项目可编译为不依赖 .NET、CLR、WPF 或 CRT 的 Win64 单文件 EXE。
-- `yy build` 和 `yy native` 使用同一个原生后端，顶层语句直接作为隐式主程序。
+- `yy build` 直接使用自研原生后端，顶层语句作为隐式主程序。
 - 条件、`当`循环、`计次循环`、`遍历`、`跳出`和`继续`。
 - JSON、文本、集合、文件、时间等内置命令。
 - UTF-8 文件、行列诊断、运行控制台和可取消执行。
@@ -103,23 +103,22 @@ dotnet run --project .\src\Yy.Studio\Yy.Studio.csproj
 ```powershell
 dotnet run --project .\tools\Yy.Cli -- check .\examples\原生窗体
 dotnet run --project .\tools\Yy.Cli -- build .\examples\原生窗体 -o .\artifacts\原生窗体.exe
-dotnet run --project .\tools\Yy.Cli -- native .\examples\Sources\原生入门.yyc -o .\artifacts\原生入门.exe
-dotnet run --project .\tools\Yy.Cli -- native .\examples\原生窗体 -o .\artifacts\原生窗体.exe
+dotnet run --project .\tools\Yy.Cli -- build .\examples\Sources\原生入门.yyc -o .\artifacts\原生入门.exe
+dotnet run --project .\tools\Yy.Cli -- build .\examples\原生窗体 -o .\artifacts\原生窗体.exe
 dotnet run --project .\tools\Yy.Cli -- run .\examples\MCP资源演示
 ```
 
 发布后使用 `yy.exe`：
 
 ```powershell
-yy build <工程.yyproj|目录> [-o 输出.exe]
-yy native <源码.yyc|工程.yyproj|目录> [-o 输出.exe]
+yy build <源码.yyc|工程.yyproj|目录> [-o 输出.exe]
 yy check <工程.yyproj|目录>
 yy run <工程.yyproj|目录>
 ```
 
 `YyStudio.exe` 仅负责可视化编辑和 IDE 内操作；脚本、CI 和批处理可直接调用 `yy.exe`。命令行编译目前需要开发机安装 .NET 10 SDK。
 
-`yy build` 与 `yy native` 使用自研 Win64 指令生成器和 PE32+ 写出器，不经过 C#、C++、Rust 或 LLVM。顶层语句就是隐式主程序，不需要声明 `main`。当前原生后端覆盖文本/整数输出、动态文本、基础数组与对象、文件读写、目录列举、子进程、变量、算术、控制流、基础子程序，以及 Win32 原生窗口、动态控件文本、PNG/JPEG 图片框和按钮事件。JSON、异常和编译期图片资源嵌入仍在补齐；未实现能力会直接给出编译诊断，不会回退到 C#/WPF。详见 [原生后端](docs/native-backend.md)。
+`yy build` 直接调用自研 Win64 指令生成器和 PE32+ 写出器，不经过 C#、C++、Rust 或 LLVM。顶层语句就是隐式主程序，不需要声明 `main`。当前原生后端覆盖文本/整数输出、动态文本、基础数组与对象、文件读写、目录列举、子进程、变量、算术、控制流、基础子程序，以及 Win32 原生窗口、动态控件文本、PNG/JPEG 图片框和按钮事件。JSON、异常和编译期图片资源嵌入仍在补齐；未实现能力会直接给出编译诊断，不会回退到 C#/WPF。详见 [原生后端](docs/native-backend.md)。
 
 ## 系统 SDK 与包导入
 
