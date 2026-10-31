@@ -21,7 +21,7 @@
 
 每个子程序使用一张紧凑的方法声明表，代码正文在表格下方连续编辑。支持对象/过程导航、语法着色、参数提示、补全和块缩进。
 
-![经典视图](docs/images/studio-code-window.webp)
+![经典视图](docs/images/studio-classic-view.webp)
 
 ### 窗体设计器
 
