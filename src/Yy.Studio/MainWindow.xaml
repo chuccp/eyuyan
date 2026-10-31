@@ -200,7 +200,6 @@
                 <MenuItem Header="打印" InputGestureText="Ctrl+P" Click="OnPrintClick" />
                 <MenuItem Header="系统配置" Click="OnSystemConfigClick" />
                 <MenuItem Header="打开 Studio 配置文件" Click="OnOpenStudioConfigClick" />
-                <MenuItem Header="支持库配置" Click="OnSupportConfigClick" />
                 <MenuItem Header="易模块管理" Click="OnModuleManagerClick" />
                 <MenuItem Header="程序配置" Click="OnProjectPropertiesClick" />
                 <Separator />
@@ -227,7 +226,6 @@
                           IsCheckable="True" IsChecked="True" Click="OnToggleStatusBar" />
                 <Separator />
                 <MenuItem Header="工作夹" InputGestureText="Alt+1" Click="OnShowWorkTab" Tag="程序" />
-                <MenuItem Header="命令夹" InputGestureText="Alt+2" Click="OnShowWorkTab" Tag="支持库" />
                 <MenuItem Header="工作与状态组合夹" InputGestureText="Alt+3" Click="OnToggleExplorer" />
                 <MenuItem Header="窗口组件箱" InputGestureText="Alt+4" Click="OnToggleToolboxPanel" />
                 <Separator />
@@ -305,7 +303,8 @@
             </MenuItem>
 
             <MenuItem Header="_H帮助" Style="{StaticResource TopMenuItem}">
-                <MenuItem Header="语法速查" Click="OnSyntaxClick" />
+                <MenuItem Header="易语开发文档" Click="OnDocumentationClick" />
+                <Separator />
                 <MenuItem Header="关于易语 Studio" Click="OnAboutClick" />
             </MenuItem>
                 </Menu>
@@ -412,7 +411,7 @@
                                  FontSize="12"
                                  VerticalScrollBarVisibility="Auto" />
                     </TabItem>
-                    <TabItem Header="输出">
+                    <TabItem Header="控制台">
                         <Grid Background="{StaticResource EditorBrush}">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="26" />
@@ -657,17 +656,12 @@
                 </DockPanel>
             </Border>
 
-            <!-- 右:支持库、程序数据、属性 -->
+            <!-- 右:程序数据、属性 -->
             <Border Grid.Column="4" x:Name="RightToolsPanel"
                     Grid.RowSpan="3"
                     Margin="0,0,132,0"
                     Background="{StaticResource PanelBrush}">
                 <TabControl x:Name="WorkTabs" TabStripPlacement="Top">
-                    <TabItem Header="支持库">
-                        <TreeView x:Name="SupportTree"
-                                  SelectedItemChanged="OnSupportTreeSelectionChanged"
-                                  PreviewMouseLeftButtonDown="OnSupportTreeDoubleClick" />
-                    </TabItem>
                     <TabItem Header="程序">
                         <TreeView x:Name="ProjectTree"
                                   SelectedItemChanged="OnProjectTreeSelectionChanged"
@@ -871,19 +865,19 @@
                         <StackPanel Grid.Column="2"
                                     Orientation="Horizontal">
                             <Button x:Name="EasyLanguageCodeButton"
-                                    Content="易语言代码"
+                                    Content="经典视图"
                                     Click="OnShowEasyLanguageCode"
                                     Style="{StaticResource PanelButton}"
                                     Padding="9,2"
                                     Margin="0,0,3,0"
-                                    ToolTip="显示程序集、对象/过程、折叠标记和命令语法色" />
+                                    ToolTip="显示经典方法表、对象/过程导航、流程线和连续代码画布" />
                             <Button x:Name="PlainCodeButton"
                                     Content="纯代码"
                                     Click="OnShowPlainCode"
                                     Style="{StaticResource PanelButton}"
                                     Padding="9,2"
                                     Margin="0,0,6,0"
-                                    ToolTip="隐藏易语言导航装饰，以普通源码方式编辑" />
+                                    ToolTip="隐藏经典视图导航装饰，以普通源码方式编辑" />
                         </StackPanel>
                         <Button Grid.Column="3"
                                 Content="格式化"

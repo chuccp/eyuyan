@@ -29,10 +29,12 @@ using Yy.Studio.Structured;
 namespace Yy.Studio;
 
 /// <summary>
-/// 外壳菜单、面板开关、工具、支持库、资源、模块和窗口菜单。
+/// 外壳菜单、面板开关、工具、资源、模块和窗口菜单。
 /// </summary>
 public partial class MainWindow : Window
 {
+    private DocumentationWindow? _documentationWindow;
+
     private void OnClearOutput(object sender, RoutedEventArgs e)
     {
         OutputBox.Clear();
@@ -41,41 +43,24 @@ public partial class MainWindow : Window
 
     private void OnExitClick(object sender, RoutedEventArgs e) => Close();
 
-    private void OnSyntaxClick(object sender, RoutedEventArgs e)
+    private void OnDocumentationClick(object sender, RoutedEventArgs e)
     {
-        MessageBox.Show(
-            """
-            易语 3 快速语法
+        if (_documentationWindow is { IsVisible: true } existing)
+        {
+            existing.Activate();
+            return;
+        }
 
-            变量 名称 = "值"
-            变量 年龄: 数字 = 20
-            常量 周长 = 2 * 3.14 * 半径
-
-            如果 条件 则
-                ...
-            否则
-                ...
-            结束如果
-
-            计次循环 序号 从 1 到 10
-                ...
-            结束循环
-
-            遍历 元素 于 集合
-                ...
-            结束遍历
-
-            子程序 问候(姓名: 文本 = "世界"): 文本
-                返回 "你好，" + 姓名
-            结束子程序
-
-            集合：[1, 2, 3]
-            对象：{姓名: "林川", 年龄: 20}
-            模块：引入 "工具.yyc"
-            """,
-            "语法速查",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
+        var window = new DocumentationWindow { Owner = this };
+        window.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(_documentationWindow, window))
+            {
+                _documentationWindow = null;
+            }
+        };
+        _documentationWindow = window;
+        window.Show();
     }
 
     private void OnAboutClick(object sender, RoutedEventArgs e)
@@ -152,17 +137,13 @@ public partial class MainWindow : Window
         }
 
         ProjectExplorerPanel.Visibility = Visibility.Visible;
-        if (tag == "支持库")
+        if (tag == "程序")
         {
             WorkTabs.SelectedIndex = 0;
         }
-        else if (tag == "程序")
-        {
-            WorkTabs.SelectedIndex = 1;
-        }
         else if (tag == "属性")
         {
-            WorkTabs.SelectedIndex = 2;
+            WorkTabs.SelectedIndex = 1;
         }
     }
 
@@ -362,23 +343,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnSupportConfigClick(object sender, RoutedEventArgs e)
-    {
-        var dialog = new SupportConfigDialog(
-            StudioCatalog.Categories.Select(category => category.Name),
-            Configuration.Libraries.Disabled.ToHashSet(StringComparer.Ordinal))
-        {
-            Owner = this
-        };
-        if (dialog.ShowDialog() == true)
-        {
-            Configuration.Libraries.Disabled = dialog.CollectDisabled().ToList();
-            Configuration.Save();
-            BuildSupportTree();
-            SetStatus("支持库配置已保存", ReadyBrush);
-        }
-    }
-
     private void OnModuleManagerClick(object sender, RoutedEventArgs e)
     {
         var dialog = new ModuleManagerDialog(_workspacePath) { Owner = this };
@@ -501,140 +465,6 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>命令夹分类行:分类小图标 + 名称(对齐官方支持库夹)。</summary>
-    private static FrameworkElement CategoryHeader(string name)
-    {
-        var (glyph, color) = name switch
-        {
-            "流程控制" => ("◆", "#000080"),
-            "算术运算" => ("＋", "#008000"),
-            "逻辑比较" => ("?", "#800080"),
-            "位运算" => ("01", "#008080"),
-            "变量操作" => ("x", "#800000"),
-            "数组操作" => ("≣", "#000080"),
-            "环境存取" => ("⌂", "#808000"),
-            "拼音处理" => ("♪", "#800080"),
-            "文本操作" => ("A", "#008000"),
-            "字节集操作" => ("▤", "#008080"),
-            "数值转换" => ("#", "#800000"),
-            "时间操作" => ("◷", "#000080"),
-            "磁盘操作" => ("▣", "#808000"),
-            "文件读写" => ("≣", "#008000"),
-            "系统处理" => ("⚙", "#800080"),
-            "媒体播放" => ("▶", "#008080"),
-            "程序调试" => ("❚❚", "#800000"),
-            "其他" => ("…", "#808080"),
-            "数据库" => ("▦", "#000080"),
-            "网络通信" => ("◎", "#008000"),
-            "控制台操作" => (">_", "#800080"),
-            "数据类型" => ("T", "#008080"),
-            "常量" => ("c", "#800000"),
-            _ => ("●", "#808080")
-        };
-        var panel = new StackPanel { Orientation = Orientation.Horizontal };
-        panel.Children.Add(new TextBlock
-        {
-            Text = glyph,
-            Width = 18,
-            FontSize = 10,
-            FontWeight = FontWeights.Bold,
-            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(color)!),
-            VerticalAlignment = VerticalAlignment.Center
-        });
-        panel.Children.Add(new TextBlock
-        {
-            Text = name,
-            FontSize = 12,
-            VerticalAlignment = VerticalAlignment.Center
-        });
-        return panel;
-    }
-
-    private void BuildSupportTree()
-    {
-        SupportTree.Items.Clear();
-        var root = new TreeViewItem
-        {
-            Header = "系统核心支持库",
-            IsExpanded = true
-        };
-        foreach (var category in StudioCatalog.Categories)
-        {
-            if (Configuration.Libraries.Disabled.Contains(category.Name))
-            {
-                continue;
-            }
-
-            var categoryItem = new TreeViewItem
-            {
-                Header = CategoryHeader(category.Name),
-                Tag = category
-            };
-            if (category.Commands.Count == 0)
-            {
-                categoryItem.Items.Add(new TreeViewItem
-                {
-                    Header = "（暂无命令）",
-                    Foreground = new SolidColorBrush(Color.FromRgb(128, 128, 128))
-                });
-            }
-            else
-            {
-                foreach (var command in category.Commands)
-                {
-                    categoryItem.Items.Add(new TreeViewItem
-                    {
-                        Header = command.Name,
-                        Tag = command
-                    });
-                }
-            }
-
-            root.Items.Add(categoryItem);
-        }
-
-        SupportTree.Items.Add(root);
-    }
-
-    private void OnSupportTreeSelectionChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
-    {
-        switch (e.NewValue)
-        {
-            case TreeViewItem { Tag: BuiltinDoc command }:
-                ShowHint(command.Signature + "\n" + command.Description);
-                break;
-            case TreeViewItem { Tag: CommandCategory category }:
-                ShowHint(category.Commands.Count > 0
-                    ? "“" + category.Name + "”分类包含 " + category.Commands.Count + " 条命令：\n" +
-                      string.Join("、", category.Commands.Select(command => command.Name)) +
-                      "\n\n展开分类后双击命令即可插入代码。"
-                    : "“" + category.Name + "”分类暂无命令，后续版本补充。");
-                break;
-        }
-    }
-
-    private void OnSupportTreeDoubleClick(object sender, MouseButtonEventArgs e)
-    {
-        if (e.ClickCount != 2)
-        {
-            return;
-        }
-
-        if (SupportTree.SelectedItem is not TreeViewItem { Tag: BuiltinDoc command })
-        {
-            return;
-        }
-
-        if (Editor.Visibility == Visibility.Visible &&
-            _currentDocument is not null)
-        {
-            Editor.Document.Insert(Editor.CaretOffset, command.Name);
-            Editor.Focus();
-            SetStatus($"已插入命令 {command.Name}()", ReadyBrush);
-            e.Handled = true;
-        }
-    }
-
     private void BuildWindowMenu()
     {
         WindowMenu.Items.Clear();
@@ -661,6 +491,19 @@ public partial class MainWindow : Window
         if (_runCancellation is not null)
         {
             _runCancellation.Cancel();
+        }
+
+        if (_runningNativeProcess is { HasExited: false } process)
+        {
+            try
+            {
+                process.Kill(entireProcessTree: true);
+            }
+            catch (Exception exception) when (
+                exception is InvalidOperationException or Win32Exception)
+            {
+                // The native process exited between the state check and shutdown.
+            }
         }
 
         foreach (var document in _documents.Where(document => document.IsDirty).ToList())

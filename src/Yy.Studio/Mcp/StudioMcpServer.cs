@@ -395,7 +395,7 @@ public sealed class StudioMcpServer
           {"name":"get_code","description":"读取用户代码文件的易语源码文本(含 子程序/结束子程序 结构)，不读取自动生成关系文件。","inputSchema":{"type":"object","properties":{},"additionalProperties":false}},
           {"name":"set_subprogram","description":"写入一个事件/子程序的语句体。body 为易语语句行(支持 变量/如果/否则/结束如果/赋值/调用 等),行与行用 \\n 分隔;整段替换该子程序的语句,子程序不存在则创建。","inputSchema":{"type":"object","properties":{"name":{"type":"string"},"body":{"type":"string"}},"required":["name","body"],"additionalProperties":false}},
           {"name":"delete_subprogram","description":"从当前窗体的用户代码删除指定子程序，不修改自动生成关系；随后调用 save_program 持久化。","inputSchema":{"type":"object","properties":{"name":{"type":"string"}},"required":["name"],"additionalProperties":false}},
-          {"name":"run_preview","description":"运行窗体预览(等同 F5/运行→预览),预览窗口打开时自动执行窗体载入事件。","inputSchema":{"type":"object","properties":{},"additionalProperties":false}},
+          {"name":"run_preview","description":"打开设计器预览窗口(等同 运行→预览/Ctrl+Enter),自动执行窗体载入事件；F5 用于编译并运行原生工程。","inputSchema":{"type":"object","properties":{},"additionalProperties":false}},
           {"name":"preview_click","description":"在预览窗口触发控件的事件(按钮=被单击),等待事件执行完成,返回事件输出/状态文本。","inputSchema":{"type":"object","properties":{"control":{"type":"string"}},"required":["control"],"additionalProperties":false}},
           {"name":"preview_get_text","description":"读取预览窗口中控件的当前文本。","inputSchema":{"type":"object","properties":{"control":{"type":"string"}},"required":["control"],"additionalProperties":false}},
           {"name":"preview_close","description":"关闭预览窗口。","inputSchema":{"type":"object","properties":{},"additionalProperties":false}}

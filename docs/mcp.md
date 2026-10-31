@@ -30,7 +30,7 @@
 | `create_event` | 创建官方命名事件子程序(被单击/创建完毕…) |
 | `get_code` / `set_subprogram` | 读易语源码 / 写事件子程序语句体 |
 | `delete_subprogram` | 删除当前用户代码中的冗余子程序 |
-| `run_preview` | 运行窗体预览(F5) |
+| `run_preview` | 打开设计器预览，等同“运行 → 预览”或 `Ctrl+Enter`；不是 `F5` 原生工程运行 |
 | `preview_click` | 预览中触发按钮事件,等待执行完成 |
 | `preview_get_text` / `preview_close` | 读预览控件文本 / 关闭预览 |
 
@@ -56,7 +56,7 @@
 `examples/看图软件/` 是完全通过 MCP 接口构建的看图软件:
 图片框 + 上一张/下一张 + 隐藏状态框(索引框/路径框),`取目录文件` 列图、循环切换,
 事件命名对齐官方(`__启动窗口_创建完毕`、`_上一张按钮_被单击`)。工程使用完整
-`.yyproj`、`Sources/`、`Resources/` 结构，所有控件通过 `取控件("@id/...")` 访问。
+`.yyproj`、`Sources/`、`Resources/` 结构。用户代码直接使用控件名和窗口名，`@id/...` 由 `.Designer.yyc` 自动维护。
 
 `examples/MCP资源演示/` 也是通过 MCP 从空白工程创建：两个图片资源导入
 `Resources/images`，源码位于 `Sources/`，窗体标题栏和图片框使用 `@资源/图片/...` 标识，

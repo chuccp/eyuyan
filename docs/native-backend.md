@@ -54,7 +54,7 @@ PE32+ 节、导入表和机器码写出
 - `RegisterClassExW`、`CreateWindowExW`、`ShowWindow` 和原生消息循环。
 - Win32 `STATIC`、`BUTTON`、`EDIT`、`COMBOBOX`、`LISTBOX` 控件。
 - 按钮单击事件到原生易语子程序的分发。
-- `取控件("@id/...").文本/标题` 的动态读取与写入。
+- `结果标签.文本`、`窗口.标题` 等生成上下文的读取与写入；`取控件("@id/...")` 保留为底层动态入口。
 
 ## PE 与系统接口
 

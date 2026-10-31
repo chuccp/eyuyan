@@ -51,7 +51,7 @@ public partial class MainWindow : Window
         ApplyCodePresentation(_currentDocument);
         SetStatus(
             useEasyLanguage
-                ? "易语言代码窗口"
+                ? "经典视图"
                 : "纯代码编辑",
             ReadyBrush);
     }
@@ -87,8 +87,8 @@ public partial class MainWindow : Window
             catch (Exception exception)
             {
                 StudioTrace.Write("EasyLanguageEditor load failed: " + exception);
-                CodeWindowContext.Text = "易语言代码窗口载入失败：" + exception.Message;
-                ShowHint("易语言代码窗口载入失败：" + exception.Message);
+                CodeWindowContext.Text = "经典视图载入失败：" + exception.Message;
+                ShowHint("经典视图载入失败：" + exception.Message);
                 EasyLanguageEditor.Visibility = Visibility.Collapsed;
                 Editor.Visibility = Visibility.Visible;
                 ParameterHintBar.Visibility = Visibility.Visible;

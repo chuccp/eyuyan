@@ -77,6 +77,7 @@ public partial class MainWindow : Window
         var cancellation = new CancellationTokenSource();
         _runCancellation = cancellation;
         OutputBox.Clear();
+        ShowConsolePanel();
         var isDebugRun = debugger is not null;
         RunInfoText.Text = isDebugRun ? "调试运行…" : "正在运行…";
         SetRunningState(true);
@@ -246,6 +247,12 @@ public partial class MainWindow : Window
     {
         OutputBox.AppendText(text + Environment.NewLine);
         OutputBox.ScrollToEnd();
+    }
+
+    private void ShowConsolePanel()
+    {
+        BottomToolWindowPanel.Visibility = Visibility.Visible;
+        BottomTabs.SelectedIndex = 1;
     }
 
     private void SetStatus(string text, Brush brush)

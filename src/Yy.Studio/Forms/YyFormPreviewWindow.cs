@@ -339,10 +339,12 @@ public sealed class YyFormPreviewWindow : Window
             ["高"] = _form.Height
         };
         _controlVariables["窗口"] = window;
+        _controlVariables[_form.Name] = window;
         _controlVariablesById[_form.Name] = window;
         var formId = YyResourceIndex.FormId(_form.Name);
         _controlVariablesById[formId] = window;
         builder.AppendLine($"变量 窗口: 对象 = 取控件({Quote(formId)})");
+        builder.AppendLine($"变量 {_form.Name}: 对象 = 取控件({Quote(formId)})");
         builder.AppendLine(code);
         builder.AppendLine(eventName + "()");
         return builder.ToString();

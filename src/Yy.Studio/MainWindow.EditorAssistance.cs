@@ -73,16 +73,26 @@ public partial class MainWindow : Window
             .TakeWhile(statement => statement.Kind == YyCodeStatementKinds.Variable)
             .FirstOrDefault(statement =>
                 string.Equals(statement.Name, word, StringComparison.Ordinal));
+        var form = GetAssociatedFormForCurrentDocument();
+        var control = form?.Controls.FirstOrDefault(item =>
+            string.Equals(item.Name, word, StringComparison.Ordinal));
+        var isWindowAlias = form is not null &&
+            (string.Equals(word, form.Name, StringComparison.Ordinal) ||
+             string.Equals(word, "窗口", StringComparison.Ordinal));
         var callable = FindCallable(word);
         EditorHelpBox.Text = parameter is not null
             ? $"参数：{parameter.Name}\n类型：{parameter.TypeName ?? "任意"}\n\n{parameter.Remark}"
             : local is not null
                 ? $"局部变量：{local.Name}\n类型：{local.TypeName ?? "任意"}\n\n{local.Remark}"
-                : callable is not null
-                    ? $"{callable.Value.Signature}\n\n{callable.Value.Description}\n\n" +
-                      "Ctrl+Space：补全；Ctrl+/：注释；Ctrl+D：复制行；Ctrl+Shift+K：删除行。"
-                    : "将光标移到命令、函数、参数或变量上查看帮助。\n\n" +
-                      "Ctrl+Space：补全；Ctrl+/：注释；Ctrl+D：复制行；Ctrl+Shift+K：删除行。";
+                : control is not null
+                    ? $"界面组件：{control.Name}\n类型：{control.Type}\n资源标识由 Designer.yyc 自动维护。"
+                    : isWindowAlias
+                        ? $"当前窗口：{form!.Name}\n可使用“{form.Name}.标题”或“窗口.标题”访问窗口。"
+                        : callable is not null
+                            ? $"{callable.Value.Signature}\n\n{callable.Value.Description}\n\n" +
+                              "Ctrl+Space：补全；Ctrl+/：注释；Ctrl+D：复制行；Ctrl+Shift+K：删除行。"
+                            : "将光标移到命令、函数、控件、参数或变量上查看帮助。\n\n" +
+                              "Ctrl+Space：补全；Ctrl+/：注释；Ctrl+D：复制行；Ctrl+Shift+K：删除行。";
         BottomTabs.SelectedIndex = 1;
     }
 
@@ -297,6 +307,17 @@ public partial class MainWindow : Window
 
         if (form is not null)
         {
+            foreach (var alias in new[] { form.Name, "窗口" })
+            {
+                if (known.Add(alias))
+                {
+                    data.Add(new CompletionData(
+                        alias,
+                        $"窗口上下文 · {form.Title}",
+                        CompletionKind.Component));
+                }
+            }
+
             foreach (var control in form.Controls)
             {
                 if (known.Add(control.Name))

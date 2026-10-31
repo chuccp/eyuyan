@@ -76,7 +76,7 @@ public static class StudioCatalog
     ];
 
     /// <summary>
-    /// 系统核心支持库命令分类(对齐官方 krnln.fne 分类表):
+    /// 内置命令参考分类:
     /// 流程控制/算术运算/逻辑比较/位运算/变量操作/数组操作/环境存取/拼音处理/文本操作/
     /// 字节集操作/数值转换/时间操作/磁盘操作/文件读写/系统处理/媒体播放/程序调试/其他/
     /// 数据库/网络通信/控制台操作。空白分类为后续版本预留。
@@ -109,10 +109,6 @@ public static class StudioCatalog
         new("数据类型", []),
         new("常量", [])
     ];
-
-    /// <summary>官方系统核心支持库说明(支持库配置对话框显示)。</summary>
-    public const string CoreLibraryDescription =
-        "本支持库是易语的核心库,为系统本身和每个易程序提供必需的功能支持。";
 
     private static IReadOnlyList<BuiltinDoc> Find(params string[] names) =>
         names

@@ -10,15 +10,7 @@ internal sealed partial class NativeEmitter
         Language.Syntax.MemberExpression member,
         NativeContext context)
     {
-        if (member.Target is not Language.Syntax.CallExpression
-            {
-                Callee: Language.Syntax.IdentifierExpression { Name: "取控件" },
-                Arguments:
-                [
-                    Language.Syntax.LiteralExpression { Value: string id }
-                ]
-            } ||
-            !_uiHandles.TryGetValue(id, out var handle))
+        if (!TryGetUiHandle(member.Target, context, out var handle))
         {
             return false;
         }

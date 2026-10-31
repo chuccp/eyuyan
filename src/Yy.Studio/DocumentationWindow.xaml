@@ -1,0 +1,301 @@
+<Window x:Class="Yy.Studio.DocumentationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="易语开发文档"
+        Width="1120"
+        Height="760"
+        MinWidth="820"
+        MinHeight="560"
+        WindowStyle="None"
+        ResizeMode="CanResize"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display"
+        Background="{DynamicResource WindowBrush}"
+        Foreground="{DynamicResource TextBrush}"
+        PreviewKeyDown="OnPreviewKeyDown">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="38"
+                            ResizeBorderThickness="6"
+                            GlassFrameThickness="0"
+                            CornerRadius="0"
+                            UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <Style x:Key="DocCloseButton" TargetType="Button">
+            <Setter Property="Width" Value="46" />
+            <Setter Property="Height" Value="38" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Chrome"
+                                Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#C42B1C" />
+                                <Setter Property="Foreground" Value="White" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#A52618" />
+                                <Setter Property="Foreground" Value="White" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="DocNavItem" TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="12,7" />
+            <Setter Property="Margin" Value="6,1" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="ItemBackground"
+                                Background="Transparent"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ItemBackground"
+                                        Property="Background"
+                                        Value="#EAF2FA" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemBackground"
+                                        Property="Background"
+                                        Value="#D9EAF7" />
+                                <Setter Property="Foreground"
+                                        Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="ItemBackground"
+                                        Property="BorderBrush"
+                                        Value="#8BB8DF" />
+                                <Setter TargetName="ItemBackground"
+                                        Property="BorderThickness"
+                                        Value="1" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="DocumentViewerStyle" TargetType="FlowDocumentScrollViewer">
+            <Setter Property="Background" Value="{DynamicResource PanelRaisedBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="IsToolBarVisible" Value="False" />
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+            <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="Zoom" Value="100" />
+        </Style>
+    </Window.Resources>
+
+    <Border Background="{DynamicResource WindowBrush}"
+            BorderBrush="#B8C0C8"
+            BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="38" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0"
+                    Background="#F6F8FA"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="0,0,0,1">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0"
+                                Orientation="Horizontal"
+                                Margin="10,0,16,0"
+                                VerticalAlignment="Center">
+                        <Image Width="16"
+                               Height="16"
+                               Margin="0,0,9,0"
+                               Source="Assets/YyStudio.ico"
+                               RenderOptions.BitmapScalingMode="HighQuality" />
+                        <TextBlock Text="易语开发文档"
+                                   FontWeight="SemiBold"
+                                   FontSize="12"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Text="语言 · SDK · 命令参考"
+                                   Margin="12,0,0,0"
+                                   Foreground="{DynamicResource MutedBrush}"
+                                   FontSize="11"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                    <Button Grid.Column="2"
+                            Style="{StaticResource DocCloseButton}"
+                            Content="&#xE8BB;"
+                            AutomationProperties.Name="关闭开发文档"
+                            shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                            Click="OnCloseClick" />
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="276" MinWidth="220" MaxWidth="380" />
+                    <ColumnDefinition Width="1" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0"
+                        Background="#F4F6F8"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="0,0,1,0">
+                    <DockPanel>
+                        <Border DockPanel.Dock="Top"
+                                Padding="14,13,14,10">
+                            <StackPanel>
+                                <TextBlock Text="开发文档"
+                                           FontSize="15"
+                                           FontWeight="SemiBold" />
+                                <TextBlock Text="语言、系统 SDK 与内置命令"
+                                           Margin="0,3,0,11"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource MutedBrush}" />
+                                <Border Background="{DynamicResource PanelRaisedBrush}"
+                                        BorderBrush="{DynamicResource BorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="4"
+                                        Padding="8,0">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0"
+                                                   Text="⌕"
+                                                   Margin="0,0,7,0"
+                                                   FontSize="15"
+                                                   Foreground="{DynamicResource MutedBrush}"
+                                                   VerticalAlignment="Center" />
+                                        <TextBox x:Name="SearchBox"
+                                                 Grid.Column="1"
+                                                 Height="30"
+                                                 BorderThickness="0"
+                                                 Background="Transparent"
+                                                 VerticalContentAlignment="Center"
+                                                 SpellCheck.IsEnabled="False"
+                                                 ToolTip="搜索标题、语法、包名、命令和说明"
+                                                 TextChanged="OnSearchTextChanged" />
+                                        <TextBlock x:Name="SearchPlaceholder"
+                                                   Grid.Column="1"
+                                                   Text="搜索语言、SDK 或命令"
+                                                   Margin="2,0,0,0"
+                                                   Foreground="{DynamicResource MutedBrush}"
+                                                   FontSize="11"
+                                                   IsHitTestVisible="False"
+                                                   VerticalAlignment="Center" />
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock x:Name="NoResultsText"
+                                   DockPanel.Dock="Bottom"
+                                   Text="没有匹配的文档"
+                                   Margin="14,8,14,12"
+                                   Foreground="{DynamicResource MutedBrush}"
+                                   FontSize="11"
+                                   Visibility="Collapsed" />
+
+                        <ListBox x:Name="TopicList"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 Padding="0,2,0,8"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ItemContainerStyle="{StaticResource DocNavItem}"
+                                 SelectionChanged="OnTopicSelectionChanged">
+                            <ListBox.GroupStyle>
+                                <GroupStyle>
+                                    <GroupStyle.HeaderTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Name}"
+                                                       Margin="18,12,10,4"
+                                                       FontSize="10.5"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource MutedBrush}" />
+                                        </DataTemplate>
+                                    </GroupStyle.HeaderTemplate>
+                                </GroupStyle>
+                            </ListBox.GroupStyle>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Title}"
+                                                   FontSize="12"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding Summary}"
+                                                   Margin="0,2,0,0"
+                                                   FontSize="10.5"
+                                                   Foreground="{DynamicResource MutedBrush}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+                </Border>
+
+                <GridSplitter Grid.Column="1"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Stretch"
+                              Background="Transparent"
+                              ResizeBehavior="PreviousAndNext" />
+
+                <Border Grid.Column="2"
+                        Background="{DynamicResource PanelRaisedBrush}">
+                    <DockPanel>
+                        <Border DockPanel.Dock="Top"
+                                Padding="32,24,32,18"
+                                BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="0,0,0,1">
+                            <StackPanel>
+                                <TextBlock x:Name="DocSectionText"
+                                           FontSize="10.5"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource AccentBrush}" />
+                                <TextBlock x:Name="DocTitleText"
+                                           Margin="0,5,0,0"
+                                           FontSize="24"
+                                           FontWeight="SemiBold"
+                                           TextWrapping="Wrap" />
+                                <TextBlock x:Name="DocSummaryText"
+                                           Margin="0,7,0,0"
+                                           FontSize="12.5"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                        <FlowDocumentScrollViewer x:Name="DocumentViewer"
+                                                  Style="{StaticResource DocumentViewerStyle}" />
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

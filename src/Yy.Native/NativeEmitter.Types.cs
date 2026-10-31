@@ -17,14 +17,9 @@ internal sealed partial class NativeEmitter
                 field.Kind,
             IdentifierExpression identifier when context.Types.TryGetValue(identifier.Name, out var kind) =>
                 kind,
-            MemberExpression
-            {
-                Member: "文本" or "标题",
-                Target: CallExpression
-                {
-                    Callee: IdentifierExpression { Name: "取控件" }
-                }
-            } => NativeValueKind.Text,
+            MemberExpression { Member: "文本" or "标题" } member
+                when TryGetUiHandle(member.Target, context, out _) =>
+                NativeValueKind.Text,
             UnaryExpression { Operator: "非" or "!" } => NativeValueKind.Boolean,
             UnaryExpression => NativeValueKind.Integer,
             BinaryExpression binary when binary.Operator is

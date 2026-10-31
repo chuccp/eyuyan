@@ -63,20 +63,31 @@ public static class YyTextEditing
 
     public static bool HandleTextEntering(TextEditor editor, TextCompositionEventArgs e)
     {
+        if (!TryHandleTextInput(editor, e.Text))
+        {
+            return false;
+        }
+
+        e.Handled = true;
+        return true;
+    }
+
+    /// <summary>执行自动配对输入；不依赖 WPF TextComposition，便于无选区行为回归测试。</summary>
+    public static bool TryHandleTextInput(TextEditor editor, string input)
+    {
         var selection = editor.TextArea.Selection;
-        var start = selection.SurroundingSegment.Offset;
-        var length = selection.SurroundingSegment.Length;
-        var action = GetPairAction(editor.Text, start, length, e.Text);
+        var segment = selection.SurroundingSegment;
+        var start = segment?.Offset ?? editor.CaretOffset;
+        var length = segment?.Length ?? 0;
+        var action = GetPairAction(editor.Text, start, length, input);
         switch (action.Kind)
         {
             case YyPairActionKind.SkipClosing:
                 editor.CaretOffset = Math.Min(editor.Document.TextLength, start + 1);
-                e.Handled = true;
                 return true;
             case YyPairActionKind.InsertPair:
                 editor.Document.Insert(start, action.Opening + action.Closing);
                 editor.CaretOffset = start + action.Opening.Length;
-                e.Handled = true;
                 return true;
             case YyPairActionKind.WrapSelection:
                 var selected = editor.Document.GetText(start, length);
@@ -85,7 +96,6 @@ public static class YyTextEditing
                 editor.Select(
                     start + action.Opening.Length,
                     Math.Max(0, selected.Length));
-                e.Handled = true;
                 return true;
             default:
                 return false;

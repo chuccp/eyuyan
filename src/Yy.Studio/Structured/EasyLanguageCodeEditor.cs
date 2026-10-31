@@ -275,7 +275,7 @@ public sealed class EasyLanguageCodeEditor : UserControl
         {
             Background = Brushes.Transparent,
             BorderThickness = new Thickness(0),
-            Padding = new Thickness(18, 4, 8, 6),
+            Padding = new Thickness(0, 2, 8, 4),
             Child = body
         });
         _content.Children.Add(new Border { Height = 7, Background = Brushes.Transparent });
@@ -430,6 +430,8 @@ public sealed class EasyLanguageCodeEditor : UserControl
             }
 
             _dirtyFunctions.Add(function);
+            editor.TextArea.TextView.InvalidateLayer(
+                ICSharpCode.AvalonEdit.Rendering.KnownLayer.Background);
             UpdateBodyHeight(editor);
             foreach (var (bodyEditor, manager) in _foldings
                          .Where(pair => ReferenceEquals(pair.Editor, editor)))
@@ -451,6 +453,15 @@ public sealed class EasyLanguageCodeEditor : UserControl
             }
         };
         var foldingManager = FoldingManager.Install(editor.TextArea);
+        var foldingMargin = editor.TextArea.LeftMargins
+            .OfType<FoldingMargin>()
+            .LastOrDefault();
+        if (foldingMargin is not null)
+        {
+            editor.TextArea.LeftMargins.Remove(foldingMargin);
+        }
+
+        editor.TextArea.TextView.BackgroundRenderers.Add(new EasyLanguageFlowRenderer());
         foldingManager.UpdateFoldings(
             EasyLanguageFoldingStrategy.CreateFoldings(editor.Document),
             -1);
@@ -487,7 +498,22 @@ public sealed class EasyLanguageCodeEditor : UserControl
             start++;
         }
 
-        return string.Join('\n', lines.Skip(start)).TrimEnd();
+        return RemoveCommonIndent(string.Join('\n', lines.Skip(start)).TrimEnd());
+    }
+
+    private static string RemoveCommonIndent(string body)
+    {
+        var lines = body.Replace("\r\n", "\n").Split('\n');
+        var nonEmpty = lines.Where(line => !string.IsNullOrWhiteSpace(line)).ToArray();
+        if (nonEmpty.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        var indent = nonEmpty.Min(line => line.TakeWhile(char.IsWhiteSpace).Count());
+        return string.Join(
+            '\n',
+            lines.Select(line => line.Length >= indent ? line[indent..] : string.Empty));
     }
 
     private StackPanel CreateTable(IReadOnlyList<double> widths)

@@ -12,6 +12,7 @@ internal sealed partial class NativeEmitter
     private const int WmDestroy = 0x0002;
     private const int WmCommand = 0x0111;
     private readonly Dictionary<string, string> _uiHandles = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _uiAliases = new(StringComparer.Ordinal);
     private readonly List<NativeUiControl> _uiControls = [];
     private string _windowClassLabel = string.Empty;
     private string _windowTitleLabel = string.Empty;
@@ -73,6 +74,8 @@ internal sealed partial class NativeEmitter
         _windowTitleLabel = _data.AddUtf16String(_form.Title);
         _windowHandleLabel = AddHandleSlot("ui_window_" + _form.Name);
         _uiHandles[Yy.Compiler.YyResourceIndex.FormId(_form.Name)] = _windowHandleLabel;
+        _uiAliases[_form.Name] = _windowHandleLabel;
+        _uiAliases["窗口"] = _windowHandleLabel;
 
         for (var index = 0; index < _form.Controls.Count; index++)
         {
@@ -80,6 +83,7 @@ internal sealed partial class NativeEmitter
             var id = Yy.Compiler.YyResourceIndex.ControlId(_form.Name, control.Name);
             var handle = AddHandleSlot("ui_control_" + index);
             _uiHandles[id] = handle;
+            _uiAliases.TryAdd(control.Name, handle);
             _uiControls.Add(new NativeUiControl(
                 id,
                 control.Name,
@@ -304,12 +308,7 @@ internal sealed partial class NativeEmitter
         Expression value,
         NativeContext context)
     {
-        if (member.Target is not CallExpression
-            {
-                Callee: IdentifierExpression { Name: "取控件" },
-                Arguments: [LiteralExpression { Value: string id }]
-            } ||
-            !_uiHandles.TryGetValue(id, out var handle))
+        if (!TryGetUiHandle(member.Target, context, out var handle))
         {
             return false;
         }
@@ -356,6 +355,47 @@ internal sealed partial class NativeEmitter
         _code.Pop(NativeRegister.Rcx);
         _code.CallCode("__yy_write_control_text");
         return true;
+    }
+
+    private bool TryGetUiHandle(
+        Expression target,
+        NativeContext context,
+        out string handle)
+    {
+        handle = string.Empty;
+        if (target is IdentifierExpression identifier)
+        {
+            // 用户变量和参数可以遮蔽生成控件名，保持普通词法作用域。
+            if (context.Slots.ContainsKey(identifier.Name))
+            {
+                return false;
+            }
+
+            if (_uiAliases.TryGetValue(identifier.Name, out var aliasHandle))
+            {
+                handle = aliasHandle;
+                return true;
+            }
+
+            return false;
+        }
+
+        if (target is CallExpression
+            {
+                Callee: IdentifierExpression { Name: "取控件" },
+                Arguments: [LiteralExpression { Value: string id }]
+            })
+        {
+            if (_uiHandles.TryGetValue(id, out var idHandle))
+            {
+                handle = idHandle;
+                return true;
+            }
+
+            return false;
+        }
+
+        return false;
     }
 
     private void AddImport(string dll, string function)

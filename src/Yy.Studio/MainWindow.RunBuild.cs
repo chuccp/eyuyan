@@ -34,8 +34,29 @@ namespace Yy.Studio;
 /// </summary>
 public partial class MainWindow : Window
 {
+    private System.Diagnostics.Process? _runningNativeProcess;
+    private bool _nativeRunWasStopped;
+
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
     private async void OnRun(object sender, ExecutedRoutedEventArgs e)
     {
+        if (_debugPaused is not null && _debugProbe is not null)
+        {
+            _debugPaused = null;
+            _debugProbe.Continue();
+            SetStatus("调试继续（全速）…", WarningBrush);
+            RunInfoText.Text = "调试运行中…";
+            return;
+        }
+
+        if (_project is not null)
+        {
+            await RunProjectAsync();
+            return;
+        }
+
         if (_currentDocument?.IsStartPage == true)
         {
             ShowHint("请先在起始页“新建”或“打开…”一个程序。");
@@ -45,15 +66,6 @@ public partial class MainWindow : Window
         if (_currentDocument?.IsForm == true)
         {
             PreviewCurrentForm();
-            return;
-        }
-
-        if (_debugPaused is not null && _debugProbe is not null)
-        {
-            _debugPaused = null;
-            _debugProbe.Continue();
-            SetStatus("调试继续（全速）…", WarningBrush);
-            RunInfoText.Text = "调试运行中…";
             return;
         }
 
@@ -349,6 +361,11 @@ public partial class MainWindow : Window
 
     private async void OnRunProject(object sender, ExecutedRoutedEventArgs e)
     {
+        await RunProjectAsync();
+    }
+
+    private async Task RunProjectAsync()
+    {
         if (_project is null)
         {
             MessageBox.Show(
@@ -359,39 +376,121 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (_runningNativeProcess is { HasExited: false } running)
+        {
+            running.Refresh();
+            if (running.MainWindowHandle != IntPtr.Zero)
+            {
+                SetForegroundWindow(running.MainWindowHandle);
+            }
+
+            ShowConsolePanel();
+            AppendOutput($"[{DateTime.Now:HH:mm:ss}] 项目已在运行，PID {running.Id}。");
+            SetStatus("项目正在运行", WarningBrush);
+            return;
+        }
+
         if (!SaveDocumentsForBuild())
         {
             return;
         }
 
+        OutputBox.Clear();
+        ShowConsolePanel();
+        RunInfoText.Text = "正在编译项目…";
+        _nativeRunWasStopped = false;
         var output = Path.Combine(
             Path.GetTempPath(),
             "yy-native-run-" + Guid.NewGuid().ToString("N") + ".exe");
+        System.Diagnostics.Process? process = null;
         try
         {
             _project = YyProject.LoadForDirectory(_project.DirectoryPath)
                 ?? throw new InvalidDataException("项目清单已经不存在。");
             SetStatus("正在编译原生项目…", WarningBrush);
-            await Task.Run(() => NativeCompiler.CompileProject(_project, output));
+            AppendOutput(
+                $"[{DateTime.Now:HH:mm:ss}] 编译 {_project.Name} → {output}");
+            var build = await Task.Run(() => NativeCompiler.CompileProject(_project, output));
+            AppendOutput(
+                $"[{DateTime.Now:HH:mm:ss}] 编译完成 · {build.ImageSize:N0} 字节");
             SetStatus("正在运行原生项目", ReadyBrush);
-            using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            var startInfo = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = output,
                 WorkingDirectory = _project.DirectoryPath,
                 UseShellExecute = false
-            }) ?? throw new InvalidOperationException("无法启动原生项目。");
+            };
+            var isConsoleProject = _project.Forms.Count == 0;
+            if (isConsoleProject)
+            {
+                startInfo.RedirectStandardOutput = true;
+                startInfo.RedirectStandardError = true;
+                startInfo.CreateNoWindow = true;
+            }
+
+            process = System.Diagnostics.Process.Start(startInfo)
+                ?? throw new InvalidOperationException("无法启动原生项目。");
+            _runningNativeProcess = process;
+            if (isConsoleProject)
+            {
+                process.OutputDataReceived += (_, args) =>
+                {
+                    if (args.Data is not null)
+                    {
+                        Dispatcher.BeginInvoke(new Action(() => AppendOutput(args.Data)));
+                    }
+                };
+                process.ErrorDataReceived += (_, args) =>
+                {
+                    if (args.Data is not null)
+                    {
+                        Dispatcher.BeginInvoke(new Action(() => AppendOutput("[错误] " + args.Data)));
+                    }
+                };
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+            }
+
+            RunInfoText.Text = $"运行中 · PID {process.Id}";
+            AppendOutput($"[{DateTime.Now:HH:mm:ss}] 已启动，PID {process.Id}。");
             await process.WaitForExitAsync();
-            SetStatus("原生项目已退出", ReadyBrush);
+            if (isConsoleProject)
+            {
+                process.WaitForExit();
+            }
+
+            if (_nativeRunWasStopped)
+            {
+                AppendOutput($"[{DateTime.Now:HH:mm:ss}] 程序已停止。");
+                SetStatus("原生项目已停止", WarningBrush);
+                RunInfoText.Text = "已停止";
+            }
+            else
+            {
+                AppendOutput(
+                    $"[{DateTime.Now:HH:mm:ss}] 程序已退出，退出码 {process.ExitCode}。");
+                SetStatus("原生项目已退出", ReadyBrush);
+                RunInfoText.Text = $"已退出 · {process.ExitCode}";
+            }
         }
         catch (Exception exception) when (
             exception is IOException or UnauthorizedAccessException or
                 InvalidDataException or NativeCompileException or InvalidOperationException)
         {
+            ShowConsolePanel();
+            AppendOutput($"[{DateTime.Now:HH:mm:ss}] 运行失败：{exception.Message}");
             SetStatus("原生项目运行失败", ErrorBrush);
+            RunInfoText.Text = "运行失败";
             MessageBox.Show(exception.Message, "运行项目", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
         {
+            if (ReferenceEquals(_runningNativeProcess, process))
+            {
+                _runningNativeProcess = null;
+            }
+
+            process?.Dispose();
             try
             {
                 File.Delete(output);
@@ -508,8 +607,41 @@ public partial class MainWindow : Window
         return true;
     }
 
-    private void OnStop(object sender, ExecutedRoutedEventArgs e)
+    private async void OnStop(object sender, ExecutedRoutedEventArgs e)
     {
+        if (_runningNativeProcess is { HasExited: false } process)
+        {
+            _nativeRunWasStopped = true;
+            ShowConsolePanel();
+            AppendOutput($"[{DateTime.Now:HH:mm:ss}] 正在停止 PID {process.Id}…");
+            try
+            {
+                if (!process.CloseMainWindow())
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                else
+                {
+                    await Task.Delay(1200);
+                    process.Refresh();
+                    if (!process.HasExited)
+                    {
+                        process.Kill(entireProcessTree: true);
+                    }
+                }
+            }
+            catch (Exception exception) when (
+                exception is InvalidOperationException or NotSupportedException or
+                    System.ComponentModel.Win32Exception)
+            {
+                // The process exited between the state check and the stop request.
+            }
+
+            SetStatus("正在停止原生项目…", WarningBrush);
+            RunInfoText.Text = "正在停止…";
+            return;
+        }
+
         if (_runCancellation is not null)
         {
             _debugProbe?.Stop();

@@ -159,7 +159,7 @@
                                 <TextBox x:Name="FontSizeBox" Style="{StaticResource SettingBox}" />
                             </StackPanel>
                             <TextBlock Style="{StaticResource SettingHint}"
-                                       Text="允许范围 8–28。修改后立即应用到纯代码和易语言代码编辑器。" />
+                                       Text="允许范围 8–28。修改后立即应用到纯代码和经典视图编辑器。" />
                             <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
                                 <TextBlock Style="{StaticResource SettingLabel}" Text="制表宽度" />
                                 <TextBox x:Name="TabWidthBox" Style="{StaticResource SettingBox}" />

@@ -105,7 +105,7 @@ public static class YyFormBindingSerializer
         builder.AppendLine("导入包 \"系统.界面\"");
         builder.AppendLine();
         builder.AppendLine("' 此文件由易语 Studio 自动生成，请勿手工修改。");
-        builder.AppendLine("' 控件通过 @id/... 资源标识进入界面上下文。");
+        builder.AppendLine("' @id/... 只保存在生成关系中；用户代码使用控件名或窗口名访问。");
         builder.AppendLine(
             $"界面({Quote(binding.FormName)}, {Quote(binding.UiFile)}, {Quote(binding.CodeFile)})");
         builder.AppendLine();
@@ -569,7 +569,9 @@ public static class YyFormCompanionFiles
             function.Statements.Add(new YyCodeStatement
             {
                 Kind = YyCodeStatementKinds.Call,
-                Expression = $"' 在这里编写“{item.Owner} · {item.EventName}”的用户逻辑。"
+                Expression =
+                    $"' 在此编写“{item.Owner} · {item.EventName}”逻辑；" +
+                    "可直接使用生成的窗口名、控件名和属性。"
             });
             document.Functions.Add(function);
             changed = true;

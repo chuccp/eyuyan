@@ -158,7 +158,7 @@ Run("源代码往返", () =>
     Equal("你好，世界", string.Join("\n", lines));
 });
 
-Run("用户代码默认进入VB式代码窗口", () =>
+Run("用户代码默认进入经典视图", () =>
 {
     var source = YyCodeSerializer.Serialize(
         YyCodeDocumentConverter.FromSource(
@@ -166,7 +166,7 @@ Run("用户代码默认进入VB式代码窗口", () =>
             "Sample.yyc"));
     var document = new EditorDocument("Sample.yyc", "Sample.yyc", source);
     True(document.UsePlainCodeEditor, "用户代码应默认进入连续代码窗口。");
-    True(document.UseEasyLanguagePresentation, "用户代码应默认使用易语言代码窗口。");
+    True(document.UseEasyLanguagePresentation, "用户代码应默认使用经典视图。");
     True(
         document.PlainCodeText.Contains(".程序集 测试", StringComparison.Ordinal),
         "代码窗口没有取得可编辑源码。");
@@ -192,6 +192,7 @@ Run("用户代码默认进入VB式代码窗口", () =>
 
 Run("编辑器自动配对输入", () =>
 {
+    TextEditingRegression.VerifyNoSelectionPairing();
     var insert = YyTextEditing.GetPairAction("", 0, 0, "(");
     Equal(YyPairActionKind.InsertPair, insert.Kind);
     Equal("(", insert.Opening);
@@ -205,6 +206,9 @@ Run("编辑器自动配对输入", () =>
     var skip = YyTextEditing.GetPairAction("()", 1, 0, ")");
     Equal(YyPairActionKind.SkipClosing, skip.Kind);
 });
+
+Run("帮助开发文档覆盖语言与 SDK", DocumentationRegression.VerifyCatalog);
+Run("开发文档窗口可创建", DocumentationRegression.VerifyWindow);
 
 Run("Studio 配置文件解析", () =>
 {
@@ -328,10 +332,10 @@ Run("看图软件示例工程", () =>
     Equal("看图软件", project!.Name);
     Equal(3, project.ResourceTable.Count);
     var code = File.ReadAllText(project.Forms[0].CodePath!);
-    True(code.Contains("取控件(\"@id/_启动窗口/路径框\")", StringComparison.Ordinal),
-        "看图软件没有通过资源 ID 访问控件。");
-    True(!code.Contains("路径框.文本", StringComparison.Ordinal),
-        "看图软件仍残留直接控件名访问。");
+    True(code.Contains("路径框.文本", StringComparison.Ordinal),
+        "看图软件没有使用生成的控件上下文。");
+    True(!code.Contains("@id/", StringComparison.Ordinal),
+        "用户代码不应直接出现界面资源 ID。");
 });
 
 Run("唯一原生应用编译器", () =>

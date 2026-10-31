@@ -6,7 +6,7 @@
 
 | 程序 | 职责 |
 |---|---|
-| `YyStudio.exe` | WPF 可视化 IDE，负责项目、窗体、代码、设计预览和交互 |
+| `YyStudio.exe` | WPF 可视化 IDE，负责项目、窗体、经典视图/纯代码编辑、设计预览、工程运行控制台和交互 |
 | `yy.exe` | 命令行编译器，负责检查、构建和运行 Windows 原生程序 |
 
 `yy.exe` 不引用 Studio 或 WPF。IDE 编译按钮和命令行构建使用同一个 `NativeCompiler`，应用代码只经过自研 Win64 后端。
@@ -52,7 +52,7 @@ yy version
 
 ## 窗体与事件
 
-原生编译器从 `.yyx` 读取窗体、控件、位置和视觉属性，从 `.Designer.yyc` 读取控件事件到用户子程序的映射。生成结果包括：
+原生编译器从 `.yyx` 读取窗体、控件、位置和视觉属性，从 `.Designer.yyc` 读取控件事件到用户子程序的映射。用户代码使用 `结果标签.文本`、`窗口.标题` 等生成上下文，不需要手写 `@id/...`。生成结果包括：
 
 - Win32 窗口类和窗口过程。
 - `STATIC`、`BUTTON`、`EDIT`、`COMBOBOX`、`LISTBOX` 等原生控件。
@@ -61,7 +61,7 @@ yy version
 - `WM_COMMAND` 按钮事件分发。
 - `SetWindowTextW` 原生文本更新。
 
-`.yyx` 只保存界面；`.Designer.yyc` 只保存自动关系；用户逻辑始终位于 `.yyc`。设计器预览可以使用 Studio 内的 WPF 渲染，但预览不会进入编译产物，也不是编译后端。
+`.yyx` 只保存界面；`.Designer.yyc` 只保存 `@id/...` 映射和事件关系；用户逻辑始终位于 `.yyc`。IDE 中 `F5` 编译并运行当前工程，底部控制台显示编译、PID、输出和退出码；`Ctrl+Enter` 才使用 Studio 内的独立设计预览。两者都不会改变编译后端。
 
 ## 资源
 

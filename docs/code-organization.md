@@ -18,9 +18,11 @@
 | `MainWindow.DesignerSelection.cs` | 选择、剪贴板、层级、撤销与重做 |
 | `MainWindow.DesignerProperties.cs` | 属性夹、事件选择与属性提交 |
 | `MainWindow.FormIntegration.cs` | 预览、事件入口、组件关联和关系文件协调 |
-| `MainWindow.RunBuild.cs` | 运行、调试、监视、搜寻和编译 |
-| `MainWindow.RuntimeResults.cs` | 执行结果、诊断、状态与变量显示 |
-| `MainWindow.ShellCommands.cs` | 外壳菜单、支持库、资源、模块与窗口菜单 |
+| `MainWindow.RunBuild.cs` | 工程/源码运行、原生进程生命周期、调试、监视、搜寻和编译 |
+| `MainWindow.RuntimeResults.cs` | 控制台、执行结果、诊断、状态与变量显示 |
+| `MainWindow.ShellCommands.cs` | 外壳菜单、面板、资源、模块与窗口菜单 |
+| `DocumentationCatalog.cs` | 语言、SDK 和命令参考的内置文档模型与搜索 |
+| `DocumentationWindow.*` | 帮助菜单中的可搜索开发文档窗口 |
 | `Mcp/StudioMcpHost.cs` | MCP 工具到真实 IDE 操作路径的分派 |
 
 ## 代码编辑窗口
@@ -36,7 +38,7 @@
 | `StudioConfiguration.cs` | `YyStudio.json` 模型、校验、快捷键目录和配置保存 |
 | `SystemConfigDialog.xaml` | JetBrains 风格设置窗口 |
 
-用户代码可以在“易语言代码”和“纯代码”两种呈现间切换。方法声明可以出现在小表格中，但执行语句始终处于连续代码区；两种视图共享补全、参数提示、F1 帮助和自动配对。
+用户代码可以在“经典视图”和“纯代码”两种呈现间切换。方法声明可以出现在小表格中，但执行语句始终处于连续代码区；两种视图共享补全、参数提示、F1 帮助和自动配对。
 
 ## 项目模型
 

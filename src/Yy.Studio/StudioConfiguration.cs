@@ -25,9 +25,6 @@ public sealed class StudioConfiguration
     [JsonPropertyName("窗体设计器")]
     public StudioDesignerConfiguration Designer { get; set; } = new();
 
-    [JsonPropertyName("支持库")]
-    public StudioLibraryConfiguration Libraries { get; set; } = new();
-
     [JsonPropertyName("启动")]
     public StudioStartupConfiguration Startup { get; set; } = new();
 
@@ -137,8 +134,6 @@ public sealed class StudioConfiguration
             throw new InvalidDataException("编辑器制表宽度必须在 1 到 16 之间。");
         }
 
-        Libraries ??= new StudioLibraryConfiguration();
-        Libraries.Disabled ??= [];
         Startup ??= new StudioStartupConfiguration();
         Shortcuts ??= StudioShortcutActions.CreateDefaults();
         foreach (var (name, gestures) in StudioShortcutActions.CreateDefaults())
@@ -258,12 +253,6 @@ public sealed class StudioDesignerConfiguration
 {
     [JsonPropertyName("吸附网格")]
     public bool SnapGrid { get; set; } = true;
-}
-
-public sealed class StudioLibraryConfiguration
-{
-    [JsonPropertyName("停用")]
-    public List<string> Disabled { get; set; } = [];
 }
 
 public sealed class StudioStartupConfiguration

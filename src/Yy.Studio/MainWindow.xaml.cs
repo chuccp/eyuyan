@@ -192,7 +192,6 @@ public partial class MainWindow : Window
             OnDesignerPaste,
             (_, args) => args.CanExecute =
                 DesignerPanel.Visibility == Visibility.Visible && _designerClipboard.Count > 0));
-        BuildSupportTree();
         ControlToolbox.ItemsSource = ToolboxItems;
         DocumentTabs.ItemsSource = _documents;
         Grid.SetRow(_startPageView, 3);
