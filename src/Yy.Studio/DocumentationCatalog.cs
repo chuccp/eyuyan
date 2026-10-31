@@ -429,6 +429,8 @@ public static class DocumentationCatalog
             Block(
                 DocumentationBlockKind.Api, "Ctrl+Space\n打开代码补全。"),
             Block(
+                DocumentationBlockKind.Api, "Ctrl+Alt+L\n格式化当前纯代码文件。"),
+            Block(
                 DocumentationBlockKind.Api, "Ctrl+/\n切换当前行或所选行的注释。"),
             Block(
                 DocumentationBlockKind.Api, "Ctrl+D / Ctrl+Shift+K\n复制当前行；删除当前行。"),

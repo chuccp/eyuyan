@@ -932,7 +932,6 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel x:Name="CodeNavigationPanel"
                                     Grid.Column="0"
@@ -980,12 +979,6 @@
                                     Margin="0,0,6,0"
                                     ToolTip="隐藏经典视图导航装饰，以普通源码方式编辑" />
                         </StackPanel>
-                        <Button Grid.Column="3"
-                                Content="格式化"
-                                Click="OnFormatPlainCode"
-                                Style="{StaticResource PanelButton}"
-                                Padding="9,2"
-                                ToolTip="按易语块结构重新缩进和格式化当前代码" />
                     </Grid>
                 </Border>
 

@@ -51,7 +51,10 @@ public partial class MainWindow : Window
         Editor.TextArea.IndentationStrategy = new YyIndentationStrategy();
         Editor.TextArea.TextView.LineTransformers.Add(new CurrentLineColorizer(Editor));
         Editor.TextArea.TextView.CurrentLineBackground = Brushes.Transparent;
-        SearchPanel.Install(Editor.TextArea);
+        var searchPanel = SearchPanel.Install(Editor.TextArea);
+        AttachCodeEditorContextMenu(Editor, searchPanel, includeFormat: true);
+        EasyLanguageEditor.ContextMenuFactory = (editor, bodySearchPanel) =>
+            CreateCodeEditorContextMenu(editor, bodySearchPanel, includeFormat: false);
         Editor.TextArea.Caret.PositionChanged += OnCaretPositionChanged;
         Editor.TextArea.TextEntering += OnEditorTextEntering;
         Editor.TextArea.TextEntered += OnEditorTextEntered;
@@ -150,6 +153,13 @@ public partial class MainWindow : Window
 
     private void OnEditorPreviewKeyDown(object? sender, KeyEventArgs e)
     {
+        if (MatchesConfiguredShortcut(e, StudioShortcutActions.FormatCode))
+        {
+            FormatCurrentPlainCode();
+            e.Handled = true;
+            return;
+        }
+
         if (MatchesConfiguredShortcut(e, StudioShortcutActions.Help))
         {
             BottomTabs.SelectedIndex = 1;
@@ -191,6 +201,37 @@ public partial class MainWindow : Window
             return;
         }
     }
+
+    private void AttachCodeEditorContextMenu(
+        TextEditor editor,
+        SearchPanel searchPanel,
+        bool includeFormat)
+    {
+        editor.TextArea.PreviewMouseRightButtonDown += (_, e) =>
+        {
+            CodeEditorContextMenu.MoveCaretToPointer(editor, e);
+            editor.TextArea.ContextMenu = CreateCodeEditorContextMenu(
+                editor,
+                searchPanel,
+                includeFormat);
+        };
+    }
+
+    private ContextMenu CreateCodeEditorContextMenu(
+        TextEditor editor,
+        SearchPanel searchPanel,
+        bool includeFormat) =>
+        CodeEditorContextMenu.Create(
+            editor,
+            searchPanel,
+            includeFormat ? FormatCurrentPlainCode : null,
+            DisplayGestures(StudioShortcutActions.FormatCode),
+            sourceEditor => ShowCompletionFor(sourceEditor, null),
+            () =>
+            {
+                BottomTabs.SelectedIndex = 1;
+                UpdateEditorHelp();
+            });
 
     private void ShowCompletion() => ShowCompletionFor(Editor, null);
 

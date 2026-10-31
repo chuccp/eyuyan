@@ -9,6 +9,7 @@ using ICSharpCode.AvalonEdit;
 using ICSharpCode.AvalonEdit.Folding;
 using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.Highlighting.Xshd;
+using ICSharpCode.AvalonEdit.Search;
 using Yy.Language;
 using Yy.Language.Structured;
 
@@ -66,6 +67,8 @@ public sealed class EasyLanguageCodeEditor : UserControl
     public event Action<TextEditor, YyCodeFunction>? ParameterHintRequested;
 
     public Func<TextEditor, YyCodeFunction, KeyEventArgs, bool>? ShortcutHandler { get; set; }
+
+    public Func<TextEditor, SearchPanel, ContextMenu>? ContextMenuFactory { get; set; }
 
     public YyCodeDocument? Document => _document;
 
@@ -422,6 +425,12 @@ public sealed class EasyLanguageCodeEditor : UserControl
         };
         editor.TextArea.Caret.PositionChanged += (_, _) =>
             ParameterHintRequested?.Invoke(editor, function);
+        var searchPanel = SearchPanel.Install(editor.TextArea);
+        editor.TextArea.PreviewMouseRightButtonDown += (_, e) =>
+        {
+            Yy.Studio.CodeEditorContextMenu.MoveCaretToPointer(editor, e);
+            editor.TextArea.ContextMenu = ContextMenuFactory?.Invoke(editor, searchPanel);
+        };
         editor.TextChanged += (_, _) =>
         {
             if (_building)

@@ -10,7 +10,7 @@ using Yy.Studio.Structured;
 namespace Yy.Studio;
 
 /// <summary>
-/// VB/易语言式代码窗口顶部导航：对象、过程和格式化。
+/// VB/易语言式代码窗口顶部导航：对象、过程和代码视图切换。
 /// </summary>
 public partial class MainWindow : Window
 {
@@ -407,7 +407,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnFormatPlainCode(object sender, RoutedEventArgs e)
+    private void FormatCurrentPlainCode()
     {
         if (_currentDocument is not
             {

@@ -22,7 +22,7 @@
 
 每个子程序使用一张紧凑的方法声明表，代码正文在表格下方连续编辑。支持对象/过程导航、语法着色、参数提示、补全和块缩进。
 
-![经典视图](docs/images/studio-classic-view-idea.webp)
+![经典视图](docs/images/studio-classic-view-editor.webp)
 
 ### 窗体设计器
 
@@ -86,12 +86,16 @@ dotnet run --project .\src\Yy.Studio\Yy.Studio.csproj
 - `Ctrl+W`：关闭当前标签。
 - `Ctrl+Space`：代码补全。
 - `F1`：当前位置的函数、命令、参数或变量帮助。
+- `Ctrl+Alt+L`：格式化当前纯代码文件。
 - `Ctrl+/`：切换当前行或所选行的注释。
 - `Ctrl+D`：复制当前行或所选内容。
 - `Ctrl+Shift+K`：删除当前行或所选内容。
 - `Alt+1`：项目；`Alt+2`：程序；`Alt+3`：属性；`Alt+4`：控制台；`Alt+5`：窗口组件箱。
 
 代码窗口右上角可切换“经典视图”和“纯代码”。
+纯代码和经典视图正文支持 IDEA 式右键菜单，包含撤销、剪贴板、查找、补全、行编辑和上下文帮助；纯代码菜单额外提供“格式化代码”。
+
+![纯代码编辑器右键菜单](docs/images/studio-editor-context-menu.webp)
 
 新建项目请按 `Ctrl+Alt+N`，或在“程序 → 新建”选择窗口/控制台/模块。确认类型后必须先填写项目位置、项目名和包名；Studio 创建磁盘工程后才进入 IDE。源码与资源分别写入 `Sources/`、`Resources/`，详见 [项目结构](docs/projects.md) 和 [界面架构](docs/architecture.md)。
 

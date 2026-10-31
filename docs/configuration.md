@@ -126,6 +126,7 @@ Ctrl+/
 | 切换断点 | `F9` |
 | 代码补全 | `Ctrl+Space` |
 | 上下文帮助 | `F1` |
+| 格式化代码 | `Ctrl+Alt+L` |
 | 切换注释 | `Ctrl+/` |
 | 复制当前行 | `Ctrl+D` |
 | 删除当前行 | `Ctrl+Shift+K` |

@@ -409,6 +409,7 @@ public static class StudioShortcutActions
     public const string DebugToggleBreakpoint = "切换断点";
     public const string Completion = "代码补全";
     public const string Help = "上下文帮助";
+    public const string FormatCode = "格式化代码";
     public const string ToggleComment = "切换注释";
     public const string DuplicateLine = "复制当前行";
     public const string DeleteLine = "删除当前行";
@@ -434,6 +435,7 @@ public static class StudioShortcutActions
             DebugToggleBreakpoint,
             Completion,
             Help,
+            FormatCode,
             ToggleComment,
             DuplicateLine,
             DeleteLine
@@ -461,6 +463,7 @@ public static class StudioShortcutActions
         [DebugToggleBreakpoint] = ["F9"],
         [Completion] = ["Ctrl+Space"],
         [Help] = ["F1"],
+        [FormatCode] = ["Ctrl+Alt+L"],
         [ToggleComment] = ["Ctrl+/"],
         [DuplicateLine] = ["Ctrl+D"],
         [DeleteLine] = ["Ctrl+Shift+K"]
