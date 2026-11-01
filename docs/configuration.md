@@ -79,7 +79,7 @@
 连接示例：
 
 ```powershell
-YyStudio.exe --mcp-port 38400
+YyStudio --mcp-port 38400
 ```
 
 该命令行参数只覆盖本次启动的端口。端口变化后，引用固定
@@ -87,7 +87,7 @@ YyStudio.exe --mcp-port 38400
 
 ## 快捷键
 
-快捷键配置文件使用统一的文本格式；Windows WPF 宿主当前直接映射为 `KeyGesture`，macOS 宿主将映射为 AppKit 快捷键。例如：
+快捷键配置使用平台无关的文本格式，Avalonia 宿主统一解析并映射到键盘事件；迁移期 WPF 宿主仍保留自己的映射。例如：
 
 ```text
 F5

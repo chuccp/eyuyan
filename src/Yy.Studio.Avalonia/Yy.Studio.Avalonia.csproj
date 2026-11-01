@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+    <RootNamespace>Yy.Studio.Avalonia</RootNamespace>
+    <AssemblyName>YyStudio</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Highlighting/Yy.xshd" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.18" />
+    <PackageReference Include="Avalonia.AvaloniaEdit" Version="11.3.0" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.18" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.18" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Yy.Studio.Core\Yy.Studio.Core.csproj" />
+    <ProjectReference Include="..\Yy.Language\Yy.Language.csproj" />
+    <ProjectReference Include="..\Yy.Native\Yy.Native.csproj" />
+    <ProjectReference Include="..\Yy.Sdk\Yy.Sdk.csproj" />
+  </ItemGroup>
+</Project>

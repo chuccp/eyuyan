@@ -1,0 +1,495 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Yy.Studio.Avalonia.MainWindow"
+        Title="易语 Studio"
+        Width="1280"
+        Height="820"
+        MinWidth="900"
+        MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        Background="#F4F7FB"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        KeyDown="OnWindowKeyDown"
+        Closing="OnWindowClosing"
+        Closed="OnWindowClosed">
+  <DockPanel LastChildFill="True">
+
+
+    <Border x:Name="WindowTitleBar"
+            DockPanel.Dock="Top"
+            Height="40"
+            Background="#F7F7F8"
+            BorderBrush="#E1E7EE"
+            BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="48,Auto,*,Auto">
+        <Border Grid.Column="0"
+                Width="48"
+                Height="40"
+                Background="Transparent"
+                PointerPressed="OnTitleBarPointerPressed"
+                DoubleTapped="OnTitleBarDoubleTapped">
+          <Border Width="24" Height="24"
+                  Background="#2563EB"
+                  CornerRadius="6"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center">
+            <TextBlock Text="易"
+                       Foreground="White"
+                       FontSize="13"
+                       FontWeight="SemiBold"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center" />
+          </Border>
+        </Border>
+          <Menu x:Name="MainMenu"
+                Grid.Column="1"
+                Background="Transparent"
+                Padding="4,0"
+                VerticalAlignment="Center">
+          <MenuItem Header="文件">
+            <MenuItem Header="新建工程…" Click="OnNewProject" />
+            <MenuItem Header="新建程序…" Click="OnNewProgram" />
+            <Separator />
+            <MenuItem Header="打开工程…" Click="OnOpenProject" />
+            <MenuItem Header="打开文件…" Click="OnOpenFile" />
+            <MenuItem Header="打开文件夹…" Click="OnOpenFolder" />
+            <MenuItem Header="重新加载工程" Click="OnReloadProject" />
+            <Separator />
+            <MenuItem Header="保存" Click="OnSaveCurrent" />
+            <MenuItem Header="另存为…" Click="OnSaveAs" />
+            <MenuItem Header="保存全部" Click="OnSaveAll" />
+            <MenuItem Header="关闭标签" Click="OnCloseCurrent" />
+            <Separator />
+            <MenuItem Header="系统配置…" Click="OnSystemConfig" />
+            <MenuItem Header="打开 Studio 配置文件" Click="OnOpenStudioConfig" />
+            <Separator />
+            <MenuItem Header="退出" Click="OnExit" />
+          </MenuItem>
+          <MenuItem Header="编辑">
+            <MenuItem Header="撤销" Click="OnEditUndo" />
+            <MenuItem Header="重做" Click="OnEditRedo" />
+            <Separator />
+            <MenuItem Header="剪切" Click="OnEditCut" />
+            <MenuItem Header="复制" Click="OnEditCopy" />
+            <MenuItem Header="粘贴" Click="OnEditPaste" />
+            <MenuItem Header="全选" Click="OnEditSelectAll" />
+            <Separator />
+            <MenuItem Header="格式化代码" Click="OnFormatCode" />
+          </MenuItem>
+          <MenuItem Header="运行">
+            <MenuItem Header="运行" Click="OnRunProject" />
+            <MenuItem Header="停止运行" Click="OnStopProgram" />
+            <Separator />
+            <MenuItem Header="单步" Click="OnDebugStep" />
+            <MenuItem Header="单步跳过" Click="OnDebugStepOver" />
+            <MenuItem Header="跳出" Click="OnDebugStepOut" />
+            <MenuItem Header="运行到光标" Click="OnDebugRunToLine" />
+            <Separator />
+            <MenuItem Header="切换断点" Click="OnDebugToggleBreakpoint" />
+          </MenuItem>
+          <MenuItem Header="插入">
+            <MenuItem Header="新建窗体" Click="OnNewForm" />
+            <MenuItem Header="新建源码" Click="OnNewSource" />
+            <MenuItem Header="新子程序" Click="OnInsertSubprogram" />
+            <MenuItem Header="新资源">
+              <MenuItem Header="图片" Click="OnAddImageResource" />
+              <MenuItem Header="声音" Click="OnAddSoundResource" />
+            </MenuItem>
+            <Separator />
+            <MenuItem Header="全局变量表" Click="OnOpenDataTable" Tag="全局变量" />
+            <MenuItem Header="常量表" Click="OnOpenDataTable" Tag="常量表" />
+            <MenuItem Header="资源表" Click="OnOpenDataTable" Tag="资源表" />
+          </MenuItem>
+          <MenuItem Header="数据库">
+            <MenuItem Header="数据库设计器" Click="OnDatabaseDesigner" />
+            <MenuItem Header="数据绑定" Click="OnDataBind" />
+          </MenuItem>
+          <MenuItem Header="工程">
+            <MenuItem Header="项目属性…" Click="OnProjectProperties" />
+            <MenuItem Header="模块管理…" Click="OnModuleManager" />
+            <Separator />
+            <MenuItem Header="新建窗体" Click="OnNewForm" />
+            <MenuItem Header="新建源码" Click="OnNewSource" />
+            <Separator />
+            <MenuItem Header="检查" Click="OnCheckProject" />
+            <MenuItem Header="编译" Click="OnBuildProject" />
+            <MenuItem Header="运行" Click="OnRunProject" />
+            <MenuItem Header="停止" Click="OnStopProgram" />
+          </MenuItem>
+          <MenuItem Header="查看">
+            <MenuItem Header="布局">
+              <MenuItem Header="默认布局" Click="OnLayoutPreset" Tag="默认" />
+              <MenuItem Header="专注代码" Click="OnLayoutPreset" Tag="专注代码" />
+              <MenuItem Header="窗体设计" Click="OnLayoutPreset" Tag="窗体设计" />
+            </MenuItem>
+            <MenuItem Header="工具窗口">
+              <MenuItem Header="项目" Click="OnToggleProjectWindow" />
+              <MenuItem Header="程序与属性" Click="OnToggleWorkWindow" />
+              <MenuItem Header="控制台" Click="OnToggleConsoleWindow" />
+            </MenuItem>
+            <MenuItem Header="状态栏" Click="OnToggleStatusBar" />
+            <MenuItem Header="移动工具窗口">
+              <MenuItem Header="项目 → 左侧" Click="OnMoveToolWindow" Tag="Project|Left" />
+              <MenuItem Header="项目 → 右侧" Click="OnMoveToolWindow" Tag="Project|Right" />
+              <MenuItem Header="项目 → 底部" Click="OnMoveToolWindow" Tag="Project|Bottom" />
+              <MenuItem Header="程序与属性 → 左侧" Click="OnMoveToolWindow" Tag="Work|Left" />
+              <MenuItem Header="程序与属性 → 右侧" Click="OnMoveToolWindow" Tag="Work|Right" />
+              <MenuItem Header="程序与属性 → 底部" Click="OnMoveToolWindow" Tag="Work|Bottom" />
+              <MenuItem Header="控制台 → 左侧" Click="OnMoveToolWindow" Tag="Console|Left" />
+              <MenuItem Header="控制台 → 右侧" Click="OnMoveToolWindow" Tag="Console|Right" />
+              <MenuItem Header="控制台 → 底部" Click="OnMoveToolWindow" Tag="Console|Bottom" />
+            </MenuItem>
+            <Separator />
+            <MenuItem Header="全局变量表" Click="OnOpenDataTable" Tag="全局变量" />
+            <MenuItem Header="常量表" Click="OnOpenDataTable" Tag="常量表" />
+            <MenuItem Header="资源表" Click="OnOpenDataTable" Tag="资源表" />
+            <Separator />
+            <MenuItem Header="数据库设计器" Click="OnDatabaseDesigner" />
+            <MenuItem Header="数据绑定" Click="OnDataBind" />
+            <Separator />
+            <MenuItem Header="预览被设计窗口" Click="OnPreviewForm" />
+          </MenuItem>
+          <MenuItem x:Name="WindowMenu" Header="窗口" />
+          <MenuItem Header="帮助">
+            <MenuItem Header="易语开发文档" Click="OnDocumentation" />
+            <Separator />
+            <MenuItem Header="关于易语 Studio" Click="OnAbout" />
+          </MenuItem>
+        </Menu>
+        <Border Grid.Column="2"
+                Background="Transparent"
+                Padding="16,0"
+                PointerPressed="OnTitleBarPointerPressed"
+                DoubleTapped="OnTitleBarDoubleTapped">
+          <TextBlock x:Name="TitleDocumentText"
+                     Text="易语 Studio"
+                     Foreground="#66778B"
+                     FontSize="11.5"
+                     VerticalAlignment="Center"
+                     HorizontalAlignment="Center"
+                     TextTrimming="CharacterEllipsis" />
+        </Border>
+        <StackPanel Grid.Column="3"
+                    Orientation="Horizontal"
+                    VerticalAlignment="Center"
+                    Margin="0,0,6,0"
+                    Spacing="2">
+          <Button x:Name="LayoutButton"
+                  Content="▦ 布局"
+                  Padding="10,4"
+                  Background="Transparent"
+                  BorderThickness="0">
+            <Button.ContextMenu>
+              <ContextMenu>
+                <MenuItem Header="默认布局" Click="OnLayoutPreset" Tag="默认" />
+                <MenuItem Header="专注代码" Click="OnLayoutPreset" Tag="专注代码" />
+                <MenuItem Header="窗体设计" Click="OnLayoutPreset" Tag="窗体设计" />
+                <Separator />
+                <MenuItem Header="项目工具窗口" Click="OnToggleProjectWindow" />
+                <MenuItem Header="程序与属性" Click="OnToggleWorkWindow" />
+                <MenuItem Header="控制台" Click="OnToggleConsoleWindow" />
+              </ContextMenu>
+            </Button.ContextMenu>
+          </Button>
+          <Button Content="—" Click="OnMinimizeWindow" Padding="10,3"
+                  Background="Transparent" BorderThickness="0" FontSize="14" />
+          <Button x:Name="MaximizeWindowButton" Content="□" Click="OnMaximizeRestoreWindow"
+                  Padding="10,3" Background="Transparent" BorderThickness="0" FontSize="14" />
+          <Button Content="×" Click="OnCloseWindow" Padding="10,3"
+                  Background="Transparent" BorderThickness="0" FontSize="16" />
+        </StackPanel>
+      </Grid>
+    </Border>
+    <Border DockPanel.Dock="Top"
+            Background="White"
+            BorderBrush="#E6EAF0"
+            BorderThickness="0,0,0,1"
+            Padding="10,7">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <Button Content="打开工程" Click="OnOpenProject" Padding="12,5" />
+        <Button Content="打开文件" Click="OnOpenFile" Padding="12,5" />
+        <Button Content="保存" Click="OnSaveCurrent" Padding="12,5" />
+        <Button x:Name="CheckButton" Content="检查" Click="OnCheckProject" Padding="12,5" />
+        <Button x:Name="BuildButton" Content="编译" Click="OnBuildProject" Padding="12,5" />
+        <Button x:Name="RunButton" Content="运行" Click="OnRunProject" Padding="12,5" />
+        <Button x:Name="StopButton" Content="停止" Click="OnStopProgram" Padding="12,5"
+                IsEnabled="False" />
+        <TextBlock Text="目标" VerticalAlignment="Center" Margin="14,0,2,0"
+                   Foreground="#66707B" />
+        <ComboBox x:Name="TargetBox" Width="150" Padding="8,4" />
+      </StackPanel>
+    </Border>
+
+    <Border x:Name="StatusBarRow"
+            DockPanel.Dock="Bottom"
+            Background="White"
+            BorderBrush="#E6EAF0"
+            BorderThickness="0,1,0,0"
+            Padding="12,5">
+      <DockPanel>
+        <TextBlock x:Name="StatusText"
+                   DockPanel.Dock="Left"
+                   Text="就绪"
+                   Foreground="#506070"
+                   VerticalAlignment="Center" />
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="14">
+          <Button x:Name="McpEndpointButton"
+                  Content="MCP 未启用"
+                  Click="OnCopyMcpEndpoint"
+                  Background="Transparent"
+                  BorderThickness="0"
+                  Padding="4,1"
+                  Foreground="#2563EB" />
+          <TextBlock x:Name="CaretText" Text="行 1，列 1"
+                     Foreground="#8A97A6" VerticalAlignment="Center" />
+          <TextBlock Text="UTF-8 · Avalonia"
+                     Foreground="#8A97A6" VerticalAlignment="Center" />
+          <TextBlock x:Name="ProjectStatusText"
+                     Text="未打开工程"
+                     Foreground="#8A97A6"
+                     VerticalAlignment="Center" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <Grid x:Name="SideActionShell" Margin="6,6,6,4" ColumnDefinitions="34,*,34">
+      <Border Grid.Column="0"
+              Background="#F7F7F8"
+              BorderBrush="#E6EAF0"
+              BorderThickness="1"
+              CornerRadius="8"
+              Padding="0,6">
+        <StackPanel Spacing="2">
+          <Button Content="▶" ToolTip.Tip="运行 (F5)" Click="OnRunProject"
+                  Width="30" Height="32" Background="Transparent" BorderThickness="0" />
+          <Button Content="▶▶" ToolTip.Tip="运行项目 (Ctrl+F5)" Click="OnRunProject"
+                  Width="30" Height="32" Background="Transparent" BorderThickness="0" FontSize="11" />
+          <Button Content="■" ToolTip.Tip="停止 (Shift+F5)" Click="OnStopProgram"
+                  Width="30" Height="32" Background="Transparent" BorderThickness="0" Foreground="#C94F4F" />
+          <Button Content="⚒" ToolTip.Tip="编译 (Ctrl+B)" Click="OnBuildProject"
+                  Width="30" Height="32" Background="Transparent" BorderThickness="0" />
+          <Button Content="●" ToolTip.Tip="切换断点 (F9)" Click="OnDebugToggleBreakpoint"
+                  Width="30" Height="32" Background="Transparent" BorderThickness="0" Foreground="#C94F4F" />
+          <Button Content="▤" ToolTip.Tip="项目工具窗口" Click="OnToggleProjectWindow"
+                  Width="30" Height="32" Background="Transparent" BorderThickness="0" />
+          <Button Content="⌘" ToolTip.Tip="Studio 设置" Click="OnSystemConfig"
+                  Width="30" Height="32" Background="Transparent" BorderThickness="0" />
+        </StackPanel>
+      </Border>
+      <Grid x:Name="ToolWindowHost" Grid.Column="1" Margin="4,0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="260" MinWidth="180" />
+        <ColumnDefinition Width="5" />
+        <ColumnDefinition Width="*" MinWidth="420" />
+        <ColumnDefinition Width="5" />
+        <ColumnDefinition Width="360" MinWidth="220" />
+      </Grid.ColumnDefinitions>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="*" MinHeight="200" />
+        <RowDefinition Height="5" />
+        <RowDefinition Height="190" MinHeight="96" />
+      </Grid.RowDefinitions>
+
+      <Border x:Name="ProjectPanel"
+              Grid.Column="0" Grid.Row="0"
+              Background="White"
+              BorderBrush="#E6EAF0"
+              BorderThickness="1"
+              CornerRadius="8"
+              Padding="0,0,0,6">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top"
+                     Text="项目"
+                     FontWeight="SemiBold"
+                     Foreground="#33404F"
+                     Margin="12,10,12,6" />
+          <TreeView x:Name="ProjectTree"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Padding="4"
+                    DoubleTapped="OnProjectTreeDoubleTapped">
+            <TreeView.Styles>
+              <Style Selector="TreeViewItem">
+                <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+              </Style>
+            </TreeView.Styles>
+            <TreeView.ItemTemplate>
+              <TreeDataTemplate ItemsSource="{Binding Children}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <TextBlock Text="{Binding Icon}" Foreground="#7A8794" />
+                  <TextBlock Text="{Binding Name}" Padding="0,1" />
+                </StackPanel>
+              </TreeDataTemplate>
+            </TreeView.ItemTemplate>
+            <TreeView.ContextMenu>
+              <ContextMenu>
+                <MenuItem Header="打开" Click="OnOpenSelectedNode" />
+                <MenuItem Header="在文件管理器中显示" Click="OnRevealSelectedNode" />
+              </ContextMenu>
+            </TreeView.ContextMenu>
+          </TreeView>
+        </DockPanel>
+      </Border>
+
+      <GridSplitter x:Name="ProjectSplitter"
+                    Grid.Column="1" Grid.Row="0"
+                    Background="Transparent"
+                    ResizeDirection="Columns" />
+
+      <Border x:Name="EditorPanel"
+              Grid.Column="2" Grid.Row="0"
+              Background="White"
+              BorderBrush="#E6EAF0"
+              BorderThickness="1"
+              CornerRadius="8"
+              ClipToBounds="True">
+        <TabControl x:Name="DocumentTabs"
+                    Background="Transparent"
+                    Padding="0"
+                    SelectionChanged="OnDocumentTabsSelectionChanged" />
+      </Border>
+
+      <GridSplitter x:Name="WorkSplitter"
+                    Grid.Column="3" Grid.Row="0"
+                    Background="Transparent"
+                    ResizeDirection="Columns" />
+
+      <Border x:Name="WorkPanel"
+              Grid.Column="4" Grid.Row="0"
+              Background="White"
+              BorderBrush="#E6EAF0"
+              BorderThickness="1"
+              CornerRadius="8"
+              ClipToBounds="True">
+        <TabControl x:Name="WorkTabs">
+          <TabItem Header="程序">
+            <DockPanel>
+              <TextBlock DockPanel.Dock="Top"
+                         Text="当前工程结构"
+                         FontWeight="SemiBold"
+                         Foreground="#33404F"
+                         Margin="12,10,12,6" />
+              <TreeView x:Name="ProgramOutline"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Margin="6,0,6,6"
+                        DoubleTapped="OnWorkTreeDoubleTapped">
+                <TreeView.Styles>
+                  <Style Selector="TreeViewItem">
+                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                  </Style>
+                </TreeView.Styles>
+                <TreeView.ItemTemplate>
+                  <TreeDataTemplate ItemsSource="{Binding Children}">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                      <TextBlock Text="{Binding Icon}" Foreground="#7A8794" />
+                      <TextBlock Text="{Binding Name}" />
+                    </StackPanel>
+                  </TreeDataTemplate>
+                </TreeView.ItemTemplate>
+              </TreeView>
+            </DockPanel>
+          </TabItem>
+          <TabItem Header="属性">
+            <ScrollViewer>
+              <ContentControl x:Name="WorkPropertyHost">
+                <StackPanel Margin="12,10" Spacing="8">
+                  <TextBlock Text="属性"
+                             FontWeight="SemiBold"
+                             Foreground="#33404F" />
+                  <TextBlock x:Name="PropertySummary"
+                             Text="选择代码、窗体或控件后显示摘要。"
+                             TextWrapping="Wrap"
+                             Foreground="#66778B" />
+                </StackPanel>
+              </ContentControl>
+            </ScrollViewer>
+          </TabItem>
+        </TabControl>
+      </Border>
+
+      <GridSplitter x:Name="ConsoleSplitter"
+                    Grid.ColumnSpan="5" Grid.Row="1"
+                    Background="Transparent"
+                    ResizeDirection="Rows" />
+
+      <Border x:Name="ConsolePanel"
+              Grid.ColumnSpan="5" Grid.Row="2"
+              Background="White"
+              BorderBrush="#E6EAF0"
+              BorderThickness="1"
+              CornerRadius="8"
+              ClipToBounds="True">
+        <TabControl x:Name="BottomTabs" Padding="0">
+          <TabItem Header="控制台">
+            <DockPanel>
+              <Button DockPanel.Dock="Right"
+                      Content="清空"
+                      Click="OnClearConsole"
+                      Padding="10,3"
+                      Margin="0,4,8,0"
+                      VerticalAlignment="Top"
+                      HorizontalAlignment="Right" />
+              <TextBox x:Name="ConsoleText"
+                       IsReadOnly="True"
+                       AcceptsReturn="True"
+                       TextWrapping="NoWrap"
+                       FontFamily="Menlo,Consolas,monospace"
+                       FontSize="12"
+                       BorderThickness="0"
+                       Background="Transparent"
+                       Padding="12,4,12,8"
+                       ScrollViewer.VerticalScrollBarVisibility="Auto"
+                       ScrollViewer.HorizontalScrollBarVisibility="Auto" />
+            </DockPanel>
+          </TabItem>
+          <TabItem Header="变量">
+            <ListBox x:Name="VariableList" Background="Transparent" BorderThickness="0" />
+          </TabItem>
+          <TabItem Header="监视">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="6" Margin="8,6">
+                <TextBox x:Name="WatchInputBox" Width="220" Watermark="变量名" />
+                <Button Content="加入监视" Click="OnAddWatch" />
+                <Button Content="移除" Click="OnRemoveWatch" />
+              </StackPanel>
+              <ListBox x:Name="WatchList" Background="Transparent" BorderThickness="0" />
+            </DockPanel>
+          </TabItem>
+          <TabItem Header="调用表">
+            <ListBox x:Name="CallStackList" Background="Transparent" BorderThickness="0" />
+          </TabItem>
+          <TabItem Header="搜寻">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="6" Margin="8,6">
+                <TextBox x:Name="SearchInputBox" Width="240" Watermark="在当前文档中搜寻" />
+                <Button Content="搜寻" Click="OnSearch" />
+              </StackPanel>
+              <ListBox x:Name="SearchResultsList"
+                       Background="Transparent"
+                       BorderThickness="0"
+                       DoubleTapped="OnSearchResultDoubleTapped" />
+            </DockPanel>
+          </TabItem>
+        </TabControl>
+      </Border>
+      </Grid>
+      <Border Grid.Column="2"
+              Background="#F7F7F8"
+              BorderBrush="#E6EAF0"
+              BorderThickness="1"
+              CornerRadius="8"
+              Padding="0,6">
+        <StackPanel Spacing="2">
+          <Button Content="▤" ToolTip.Tip="程序与属性" Click="OnToggleWorkWindow"
+                  Width="30" Height="32" Background="Transparent" BorderThickness="0" />
+          <Button Content="▥" ToolTip.Tip="控制台" Click="OnToggleConsoleWindow"
+                  Width="30" Height="32" Background="Transparent" BorderThickness="0" />
+          <Button Content="?" ToolTip.Tip="易语开发文档" Click="OnDocumentation"
+                  Width="30" Height="32" Background="Transparent" BorderThickness="0" />
+        </StackPanel>
+      </Border>
+    </Grid>
+  </DockPanel>
+</Window>

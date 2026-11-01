@@ -1,0 +1,17 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Yy.Studio.Avalonia.Features.Forms.FormPreviewWindow"
+        Title="易语窗体" Width="800" Height="520">
+  <Grid RowDefinitions="*,Auto">
+    <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                  VerticalScrollBarVisibility="Auto">
+      <Canvas x:Name="FormCanvas" ClipToBounds="True" />
+    </ScrollViewer>
+    <Border Grid.Row="1"
+            Background="#F1F5F9" BorderBrush="#DBE2EA" BorderThickness="0,1,0,0">
+      <TextBlock x:Name="EventOutput" Text="事件输出会显示在这里。"
+                 Foreground="#66778B" FontSize="11" Margin="8,4"
+                 TextTrimming="CharacterEllipsis" />
+    </Border>
+  </Grid>
+</Window>

@@ -18,6 +18,18 @@ dotnet run --project "$root/tests/Yy.Sdk.Tests/Yy.Sdk.Tests.csproj" -c Release
 echo "运行原生后端测试..."
 dotnet run --project "$root/tests/Yy.Native.Backends.Tests/Yy.Native.Backends.Tests.csproj" -c Release
 
+echo "运行 Studio 核心测试..."
+dotnet run --project "$root/tests/Yy.Studio.Core.Tests/Yy.Studio.Core.Tests.csproj" -c Release
+
+echo "运行 Avalonia Studio 工程编译烟雾测试..."
+if [[ "$(uname -s)" == "Linux" ]]; then
+    dotnet run --project "$root/src/Yy.Studio.Avalonia/Yy.Studio.Avalonia.csproj" -c Release -- \
+        --smoke "$root/examples/原生窗体" --target windows-x64
+else
+    dotnet run --project "$root/src/Yy.Studio.Avalonia/Yy.Studio.Avalonia.csproj" -c Release -- \
+        --smoke "$root/examples/原生窗体"
+fi
+
 mkdir -p "$samples"
 
 echo "编译 Windows 控制台示例..."
@@ -52,6 +64,11 @@ if [[ -n "$host_rid" ]]; then
     echo "发布命令行编译器（${host_rid}）..."
     dotnet publish "$cli_project" -c Release -r "$host_rid" --self-contained false \
         -o "$artifacts/publish/yy-$host_rid"
+
+    echo "发布 Avalonia Studio（${host_rid}）..."
+    dotnet publish "$root/src/Yy.Studio.Avalonia/Yy.Studio.Avalonia.csproj" \
+        -c Release -r "$host_rid" --self-contained false \
+        -o "$artifacts/publish/YyStudio-$host_rid"
 fi
 
 echo ""
@@ -62,4 +79,5 @@ echo "  $samples/原生入门.macos-arm64"
 echo "  $samples/原生窗体.macos-arm64"
 if [[ -n "$host_rid" ]]; then
     echo "  $artifacts/publish/yy-$host_rid/yy"
+    echo "  $artifacts/publish/YyStudio-$host_rid/YyStudio"
 fi

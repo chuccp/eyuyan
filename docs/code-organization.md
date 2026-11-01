@@ -1,10 +1,29 @@
 # 代码模块与体积约束
 
-易语 Studio 已从单文件窗口类拆分为按职责组织的 partial class。当前 Windows 宿主使用 WPF partial class；平台无关模型必须与窗口类型解耦，供后续 AppKit 宿主共享。纯业务逻辑应进入独立服务或模型类。
+易语 Studio 正在整体迁移到 Avalonia。`src/Yy.Studio.Avalonia` 是唯一继续开发的 Studio UI，平台无关的工程会话和模型位于 `src/Yy.Studio.Core`；迁移期 WPF `legacy/Yy.Studio.Wpf` 只保留为功能对照，不再新增能力，功能对齐后删除。纯业务逻辑进入 Core 服务，不进入窗口类。
 
 原生编译器同样按层拆分：`src/Yy.Native/Semantics` 保存平台无关类型分析和值模型，`src/Yy.Native/Backends/<平台>` 保存代码生成与可执行文件写出。新增平台只增加后端目录并注册到 `NativeBackendRegistry`，不得修改共享语义或复制语言规则。
 
-## 窗口模块
+## Avalonia Studio
+
+| 文件 | 职责 |
+|---|---|
+| `src/Yy.Studio.Avalonia/App.axaml` | Avalonia 应用、Fluent 主题和 AvaloniaEdit 主题 |
+| `src/Yy.Studio.Avalonia/MainWindow.axaml` | 顶栏、项目树、文档区、控制台和状态栏 |
+| `src/Yy.Studio.Avalonia/MainWindow.axaml.cs` | 窗口生命周期、快捷键和公共状态 |
+| `src/Yy.Studio.Avalonia/MainWindow.Project.cs` | 工程打开、源码树、文档打开/保存和标签 |
+| `src/Yy.Studio.Avalonia/MainWindow.Build.cs` | 检查、编译、运行、PID 和输出回传 |
+| `src/Yy.Studio.Avalonia/MainWindow.Mcp.cs` | MCP 传输、状态、截图、工程/文件工具 |
+| `src/Yy.Studio.Avalonia/Editor/YyCodeEditor.cs` | AvaloniaEdit 编辑器、XHZD 着色、行号和搜索 |
+| `src/Yy.Studio.Avalonia/Features/...` | 设置、文档、窗体设计、项目对话框等迁移功能 |
+| `src/Yy.Studio.Core/Workspace/StudioWorkspace.cs` | 工程加载、源码树、项目/单文件编译 |
+| `src/Yy.Studio.Core/Configuration/...` | `YyStudio.json` 模型与校验 |
+| `src/Yy.Studio.Core/Documentation/...` | 内置开发文档目录与搜索 |
+| `src/Yy.Studio.Core/Mcp/StudioMcpServer.cs` | MCP JSON-RPC、HTTP/stdio 传输 |
+
+## WPF 迁移参考（冻结）
+
+以下文件只在迁移期用于逐项对照，不再新增功能：
 
 | 文件 | 职责 |
 |---|---|
@@ -85,14 +104,14 @@
 
 | 项目或文件 | 职责 |
 |---|---|
-| `src/Yy.Compiler` | 无 WPF 依赖的工程协议、窗体模型、资源索引和 AST 汇总 |
+| `src/Yy.Compiler` | 无 UI 依赖的工程协议、窗体模型、资源索引和 AST 汇总 |
 | `src/Yy.Compiler/ProjectCompiler.cs` | 校验项目并汇总入口、窗体和模块源码 |
 | `tools/Yy.Cli` | `yy` / `yy.exe` 命令行入口和目标选择 |
 | `tools/Yy.Cli/Program.cs` | `build`、`check`、`run`、`version` 子命令 |
 | `tests/Yy.Native.Backends.Tests` | 后端注册表、Mach-O 结构、内嵌签名、交叉编译和 macOS 运行时 |
 | `docs/backend-architecture.md` | 后端契约、共享语义和新增平台流程 |
 
-`YyStudio` 和 `Yy.Cli` 都通过 `Yy.Native` 编译应用；`Yy.Cli` 不得引用 `Yy.Studio`、WPF 或 AppKit。Studio 的平台窗口代码只实现 IDE 与设计预览，不会进入用户程序产物。
+`YyStudio` 和 `Yy.Cli` 都通过 `Yy.Native` 编译应用；`Yy.Cli` 不得引用 Studio、Avalonia 或 WPF。Avalonia Studio 只实现 IDE 与设计预览，不会进入用户程序产物。
 
 ## 体积门槛
 

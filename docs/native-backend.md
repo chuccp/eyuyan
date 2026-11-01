@@ -1,6 +1,6 @@
 # 自研原生后端
 
-`Yy.Native` 是不依赖 LLVM、Rust、C++ 或 .NET 运行时的原生编译后端。Windows 已实现 Win64 机器码和 PE32+ 输出；macOS Apple Silicon 已实现 ARM64 Mach-O 控制台与常用 AppKit 窗体控件，AppKit Studio 宿主仍在开发。两种后端共享 `Yy.Native/Semantics` 中的类型规则、栈槽模型和值布局。
+`Yy.Native` 是不依赖 LLVM、Rust、C++ 或 .NET 运行时的原生编译后端。Windows 已实现 Win64 机器码和 PE32+ 输出；macOS Apple Silicon 已实现 ARM64 Mach-O 控制台与常用 AppKit 窗体控件；Studio 使用 Avalonia 跨平台宿主，不再开发 AppKit 专用 Studio。两种后端共享 `Yy.Native/Semantics` 中的类型规则、栈槽模型和值布局。
 
 ## 编译流程
 
@@ -100,7 +100,7 @@ ExitProcess
 - `打开窗口`/`显示窗口`/`关闭窗口`、模态 `runModalForWindow:`、窗体 `参数`/`结果`、系统关闭按取消处理。
 - 内嵌 ad-hoc 签名，生成后可直接在当前 Mac 上运行。
 
-尚未实现：最大长度、窗口图标、AppKit Studio 宿主、`.app` 打包、JSON、异常保护和 `macos-x64`。
+尚未实现：最大长度、窗口图标、`.app` 打包、JSON、异常保护和 `macos-x64`。
 
 ## AppKit 窗体
 

@@ -77,25 +77,29 @@ Resources/
 - 工具窗口停靠位置、显示状态、尺寸、右侧活动页、状态栏可见性和布局预设写入 `YyStudio.json`，重启后恢复。
 - 状态栏必须显示实际 MCP HTTP 地址；地址随自动端口选择变化，并支持点击复制。
 - 底部“控制台”必须显示原生项目编译、启动、PID、标准输出、错误输出和退出码；运行项目时自动展开。
+- Avalonia Studio 已使用共享自定义顶栏、窗口按钮和工具窗停靠；不得为此复制平台窗口实现。
 
 ## IDE 与命令行工具分离
 
-- `src/Yy.Studio` 只负责 WPF IDE 和用户交互，输出 `YyStudio.exe`。
-- `src/Yy.Compiler` 负责工程模型、窗体协议、资源索引和源码汇总，不得引用 WPF 或 Studio。
+- Studio 统一使用 Avalonia 单一 UI 代码库：`src/Yy.Studio.Avalonia` 输出跨平台 `YyStudio`，同一份界面代码服务 Windows、macOS，并为 Linux 预留。
+- `legacy/Yy.Studio.Wpf` 是迁移期的 WPF 参考宿主，只用于比对既有功能，不再新增界面能力；Avalonia 功能对齐后删除。编译器、SDK、CLI 和 Avalonia Studio 不得引用 WPF 工程。
+- 整体迁移必须保持功能完整：设置、快捷键、文档、新建工程/程序、项目属性、模块/数据库/数据表、代码补全与经典视图、窗体设计器与预览、MCP、布局持久化都要在 Avalonia 中落地，不能以简化壳替代。迁移期 WPF 只作为逐项对照来源。
+- `src/Yy.Compiler` 负责工程模型、窗体协议、资源索引和源码汇总，不得引用 Avalonia、WPF 或 Studio。
 - `tools/Yy.Cli` 只引用 `Yy.Compiler`，输出 `yy.exe`，提供 `build`、`check`、`run` 和 `version` 子命令。
 - IDE 的编译按钮与 `yy.exe` 必须调用同一个 `ProjectCompiler`，不得维护两套编译逻辑。
 - 命令行编译必须能独立于 Studio 界面运行，适合脚本、CI 和批处理。
-- 发布产物至少包含 `YyStudio.exe`、`yy.exe` 和示例目标程序，文档必须明确各自职责。
+- 发布产物至少包含跨平台 `YyStudio`、`yy.exe` 和示例目标程序，文档必须明确各自职责。
 
 ## 单代码库与双原生目标
 
 - 语言前端、工程模型、SDK、IR 和公共 IDE 模型只维护一份源码，不为 Windows/macOS 复制业务实现。
 - 构建目标使用 `auto`、`windows-x64`、`macos-arm64`、`macos-x64`；`auto` 按宿主操作系统和进程架构解析。
-- `windows-x64` 生成 PE32+ 并调用 Win32、GDI+/DirectWrite；`macos-arm64` 生成 ARM64 Mach-O，通过 libSystem/libobjc/Foundation/AppKit 连接系统接口，控制台和常用窗体控件已实现。`macos-x64` 和 AppKit Studio 宿主仍在开发。
+- `windows-x64` 生成 PE32+ 并调用 Win32、GDI+/DirectWrite；`macos-arm64` 生成 ARM64 Mach-O，通过 libSystem/libobjc/Foundation/AppKit 连接系统接口，控制台和常用窗体控件已实现。`macos-x64` 仍在开发。
 - 平台后端通过 `Yy.Native/Backends` 的 `INativeBackend` 注册；类型推断、栈槽、值布局和内置命令目录由 `Yy.Native/Semantics` 共享。不得在 `NativeCompiler`、CLI 或 IDE 中散落平台 `if`。
 - 禁止把 Win32 API 映射成 Cocoa API 的模拟兼容层；平台能力由各自原生后端实现。
-- Studio 的平台窗口代码放在 `Platforms/Windows/`、`Platforms/MacOS/`，共享模型和命令放在公共目录；不得把平台分支散落成大量 `#if`。
-- macOS 后端或宿主尚未实现时必须在构建阶段明确报错，不能静默生成 Windows PE、生成其他架构或回退到其他运行时。
+- Studio 使用 Avalonia 单一 UI 代码库，不按平台复制项目树、编辑器、菜单或工具窗。平台差异只允许出现在 Avalonia 后端和最小的 `Platforms/` 适配层，不得散落 `#if`。
+- macOS 原生后端或 Linux 原生后端尚未实现时必须在构建阶段明确报错，不能静默生成 Windows PE、生成其他架构或回退到其他运行时。
+- Linux 原生编译后端尚未实现；Avalonia Studio 可以在 Linux 运行，但构建目标必须明确报错。新增 Linux 目标时，必须同时登记 `linux-*`、注册后端、补充 CLI 帮助、文档和真实可执行文件测试，不能只让 Studio 启动就宣称支持。
 - 新增系统或架构时，必须同时登记目标、注册后端、补充 CLI 帮助、文档和真实可执行文件测试。
 
 ## 自研原生后端
@@ -180,7 +184,7 @@ Resources/
 - 系统包通过顶层 `导入包 "包名"` 声明；根源码与被引入模块的依赖合并后使用。
 - 项目源码目录包通过顶层 `引入 "项目包名.子目录"` 导入，编辑器在引号内提供目录候选。
 - 包名必须经过 SDK 目录校验，编辑器在 `导入包 "` 上下文提供包候选。
-- 界面 SDK 使用稳定 ID、原生句柄、属性枚举和无装箱值协议；公开层不得引用 WPF、AppKit、`object`、反射或泛型服务定位。Studio 只负责设计预览，编译产物按目标通过 Win32 或 AppKit 原生后端适配。
+- 界面 SDK 使用稳定 ID、原生句柄、属性枚举和无装箱值协议；公开层不得引用 WPF、Avalonia、AppKit、`object`、反射或泛型服务定位。Studio 只负责设计预览，编译产物按目标通过 Win32 或 AppKit 原生后端适配。
 - 用户界面访问以生成层提供的窗体结构体、控件成员、`参数/结果` 和稳定 ID 映射为准；`.Designer.yyc` 持有 `@id/...`，用户 `.yyc` 只使用窗体名、控件名和属性。
 - 当前已按导入包控制内置函数可见性；规划包会明确拒绝导入。外部包、语义版本、类型/成员级隔离仍需后续实现，新增能力时必须同步格式、补全、诊断、文档和测试。
 
@@ -198,9 +202,9 @@ Resources/
 ## 开发与验证
 
 - 单个手写 C# 文件目标不超过 800 行，硬性上限为 900 行；生成目录不参与统计。
-- WPF 窗口按职责使用 partial class 拆分；可复用协议、解析、生成和文件协调逻辑进入独立服务。
+- Avalonia 视图按职责使用 partial class 拆分；可复用协议、解析、生成、工程会话和文件协调逻辑进入独立服务。
 - 详细模块边界见 `docs/code-organization.md`，不得用 `Part1`、`Misc`、`Helpers` 一类名称继续堆积代码。
-- C# 模型层保持与 WPF 视图解耦，使生成和文件协议可以由测试项目直接验证。
+- C# 模型层保持与 Avalonia 视图解耦，使生成和文件协议可以由测试项目直接验证。
 - 新增工程规则必须同步更新 `docs/architecture.md`、格式文档、示例和回归测试。
 - 验证至少运行：
 
@@ -210,9 +214,10 @@ dotnet run --project .\tests\Yy.Language.Tests\Yy.Language.Tests.csproj
 dotnet run --project .\tests\Yy.Sdk.Tests\Yy.Sdk.Tests.csproj
 dotnet run --project .\tests\Yy.Native.Backends.Tests\Yy.Native.Backends.Tests.csproj
 dotnet run --project .\tests\Yy.Native.Tests\Yy.Native.Tests.csproj
-dotnet run --project .\tests\Yy.Studio.Tests\Yy.Studio.Tests.csproj
+dotnet run --project .\tests\Yy.Studio.Core.Tests\Yy.Studio.Core.Tests.csproj
+dotnet run --project .\src\Yy.Studio.Avalonia -- --smoke examples\原生窗体
 ```
 
-- 非 Windows 主机自动启用 `EnableWindowsTargeting`，可编译 WPF 项目但不能运行；`Yy.Native.Backends.Tests` 会在 Apple Silicon macOS 上真实运行生成的 Mach-O。
+- 非 Windows 主机自动启用 `EnableWindowsTargeting`，可编译迁移期 WPF 项目但不能运行；Avalonia Studio 可在 macOS/Linux 直接运行。`Yy.Native.Backends.Tests` 会在 Apple Silicon macOS 上真实运行生成的 Mach-O。
 - macOS/Linux 使用 `./build.sh` 完成解决方案构建、跨平台测试、示例编译和 CLI 发布。
 - 涉及编译、预览或事件执行时，还应在 Windows 上运行 `YY_COMPILE_SMOKE=1` 的桌面编译烟雾测试。

@@ -6,7 +6,7 @@
     <RootNamespace>Yy.Studio.Tests</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Yy.Studio\Yy.Studio.csproj" />
+    <ProjectReference Include="..\Yy.Studio.Wpf\Yy.Studio.csproj" />
   </ItemGroup>
 </Project>
 

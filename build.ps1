@@ -4,11 +4,11 @@ $tests = Join-Path $root "tests\Yy.Language.Tests\Yy.Language.Tests.csproj"
 $nativeTests = Join-Path $root "tests\Yy.Native.Tests\Yy.Native.Tests.csproj"
 $sdkTests = Join-Path $root "tests\Yy.Sdk.Tests\Yy.Sdk.Tests.csproj"
 $backendTests = Join-Path $root "tests\Yy.Native.Backends.Tests\Yy.Native.Backends.Tests.csproj"
-$studioTests = Join-Path $root "tests\Yy.Studio.Tests\Yy.Studio.Tests.csproj"
+$studioCoreTests = Join-Path $root "tests\Yy.Studio.Core.Tests\Yy.Studio.Core.Tests.csproj"
 $compilerCli = Join-Path $root "tools\Yy.Cli\Yy.Cli.csproj"
 $nativeSampleExe = Join-Path $root "artifacts\samples\原生入门.exe"
 $nativeUiSampleExe = Join-Path $root "artifacts\samples\原生窗体.exe"
-$studio = Join-Path $root "src\Yy.Studio\Yy.Studio.csproj"
+$studio = Join-Path $root "src\Yy.Studio.Avalonia\Yy.Studio.Avalonia.csproj"
 $output = Join-Path $root "artifacts\publish\YyStudio"
 $compilerOutput = Join-Path $root "artifacts\publish\yy"
 
@@ -20,14 +20,10 @@ Write-Host "运行 SDK 包测试..."
 dotnet run --project $sdkTests -c Release
 Write-Host "运行原生后端测试..."
 dotnet run --project $backendTests -c Release
-$env:YY_COMPILE_SMOKE = "1"
-try {
-    dotnet run --project $studioTests -c Release
-}
-finally {
-    Remove-Item Env:YY_COMPILE_SMOKE -ErrorAction SilentlyContinue
-}
-
+Write-Host "运行 Studio 核心测试..."
+dotnet run --project $studioCoreTests -c Release
+Write-Host "运行 Avalonia Studio 工程编译烟雾测试..."
+dotnet run --project $studio -c Release -- --smoke (Join-Path $root "examples\原生窗体")
 Write-Host "编译原生命令行示例..."
 dotnet run --project $compilerCli -c Release -- `
     build `
@@ -62,7 +58,7 @@ dotnet run --project $compilerCli -c Release -- `
     -o `
     $macFormSample
 
-Write-Host "发布 Windows 桌面版..."
+Write-Host "发布 Windows Avalonia 桌面版..."
 dotnet publish $studio `
     -c Release `
     -r win-x64 `

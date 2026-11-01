@@ -1,12 +1,14 @@
 # 易语 Studio
 
-易语 Studio 是一个中文桌面开发环境，以现代 IDE 技术重制易语言的开发体验，把界面设计、中文代码编辑、项目管理和应用编译整合在同一个工作区。Windows IDE 已可用；macOS Apple Silicon 已能通过同一套公共代码和独立 ARM64/Mach-O 后端构建并运行控制台程序与常用 AppKit 窗体，AppKit Studio 宿主仍在开发。
+易语 Studio 是一个中文桌面开发环境，以现代 IDE 技术重制易语言的开发体验，把界面设计、中文代码编辑、项目管理和应用编译整合在同一个工作区。
+
+Studio 界面已统一迁移到 **Avalonia**：同一份 UI 代码可在 Windows、macOS 运行，并为 Linux 预留。当前已经接通项目树、AvaloniaEdit 代码编辑与补全、经典视图/纯代码、窗体设计器与预览、事件生成、新建工程/程序、项目属性、数据表、设置、开发文档、MCP、工具窗停靠和原生编译/运行控制台，并接入基础解释器断点调试。完整调用栈界面和发布打磨仍在继续。旧 Windows WPF 宿主只作功能对照，不再是发布目标。语言核心与原生后端不依赖 Avalonia。
 
 项目正在持续开发中，语言能力、文件格式和 IDE 交互都会继续调整。
 
 ## 界面
 
-工作区采用现代浅色 IDE 布局：
+完整目标布局如下（截图来自迁移期 WPF 参考宿主）；Avalonia 已具备自定义顶栏、窗口按钮、布局入口、项目树、代码编辑器、经典视图、窗体设计器、完整工具窗停靠和编译/运行控制台：
 
 - 菜单、当前文档标题和窗口按钮共用无系统标题栏的顶部操作栏，窗口仍支持拖动、缩放、双击最大化和贴边布局。
 - 顶栏“布局”入口和“查看 → 工具窗口”采用 IDEA 式管理：项目、程序/属性、控制台可移动、最小化或隐藏，最小化后保留恢复栏。
@@ -50,25 +52,25 @@
 
 ## 当前能力
 
-- Windows IDE 使用 WPF 原生窗口，无 Electron、无 WebView；Windows 编译产物使用自研 Win64/Win32 后端。
-- macOS Apple Silicon 使用自研 ARM64/Mach-O 后端，通过 libSystem 调用系统接口并内嵌 ad-hoc 签名；AppKit 标签、输入框（含多行）、按钮、复选框、单选框、下拉框、列表框、分组框、图片框和主题色已可用，Studio 宿主开发中。
-- 编辑器与命令行编译器分离：`YyStudio.exe` 负责 IDE，`yy.exe` / `yy` 负责构建、检查和运行。
+- Studio 使用 Avalonia 单一 UI 代码库，无 Electron、无 WebView；同一份界面代码服务 Windows、macOS，并为 Linux 预留。迁移期 WPF 宿主仅作为功能参考。
+- macOS Apple Silicon 使用自研 ARM64/Mach-O 后端，通过 libSystem 调用系统接口并内嵌 ad-hoc 签名；AppKit 标签、输入框（含多行）、按钮、复选框、单选框、下拉框、列表框、分组框、图片框和主题色已可用。
+- 编辑器与命令行编译器分离：跨平台 `YyStudio` 负责 IDE，`yy.exe` / `yy` 负责构建、检查和运行。
 - 中文标识符、函数、递归、默认参数、类型标注、数组、对象和异常处理。
 - 结构体字段声明、对象字面量构造、接口契约和结构体实现声明。
 - AST 解析器、IDE 解释执行器、Win64 与 ARM64 机器码生成器、平台后端注册表和跨文件诊断。
 - `.yyproj` 项目管理、模块引入、资源表、常量表和数据表。
 - 新建项目必须填写项目名和包名，源码固定在 `Sources/`，资源固定在 `Resources/`。
 - 源码子目录可按 `引入 "项目包名.子目录"` 作为目录包导入。
-- 可视化窗体设计、组件箱、属性夹、事件绑定、设计预览和 F5 原生运行。
+- Avalonia 提供可视化窗体设计、组件箱、属性夹、事件绑定、设计预览和 F5 原生运行；三文件协议保持不变。
 - 三文件界面模型：`.yyx` 界面、`.Designer.yyc` 自动关系、`.yyc` 用户代码。
 - 系统 SDK 以 `sdk/Sources` 下与包名对应的 `.yyc` 源码为公开契约；语言核心包默认引用。
 - 自动关系文件使用 `文件`、`界面`、`事件` 三个易语结构体和 `@id/...` 标识，不使用 XML 保存事件。
 - 多窗口采用 VS/MFC 式拥有者、模态、参数和结果模型；A 不再直接修改 B 的控件。
 - JDK 式系统 SDK 包边界、`导入包` 上下文补全和 Swing 式跨 UI 技术契约。
 - 默认“经典视图”和“纯代码”模式共用同一份用户代码。
-- 项目可编译为不依赖 .NET、CLR、WPF 或 CRT 的 Win64 单文件 EXE，或可执行的 arm64 Mach-O 控制台/AppKit 窗体。
+- 项目可编译为不依赖 .NET、CLR、Avalonia/WPF 或 CRT 的 Win64 单文件 EXE，或可执行的 arm64 Mach-O 控制台/AppKit 窗体。
 - `yy build` 直接使用自研原生后端，顶层语句作为隐式主程序。
-- 单代码库多目标：`auto`、`windows-x64`、`macos-arm64`、`macos-x64`，按参数或宿主系统选择后端；未注册目标会明确报错。
+- 单代码库多目标：`auto`、`windows-x64`、`macos-arm64`、`macos-x64`，按参数或宿主系统选择后端；未注册目标会明确报错。Linux 原生后端尚未实现，Avalonia Studio 可在 Linux 启动，但编译目标会明确报错。
 - 平台后端通过 `INativeBackend` 注册，共享类型推断、栈槽和值布局，新增系统不需要复制语言语义。
 - 条件、`当`循环、`计次循环`、`遍历`、`跳出`和`继续`。
 - JSON、文本、集合、文件、时间等内置命令。
@@ -78,7 +80,7 @@
 
 ## 运行
 
-Windows 宿主需要 .NET 10 SDK 与 Windows 10/11。macOS 使用 .NET 10；当前可以构建并运行控制台程序和常用 AppKit 窗体，Studio 的 AppKit 宿主仍在开发。
+Studio 需要 .NET 10 SDK。Avalonia Studio 可在 Windows、macOS 运行，并可在 Linux 启动；Linux 原生编译后端仍在规划中。迁移期 WPF 参考宿主只能在 Windows 运行，不再接收新功能。
 
 macOS Apple Silicon 构建和运行控制台示例：
 
@@ -90,24 +92,38 @@ dotnet run --project tools/Yy.Cli -- build examples/Sources/原生入门.yyc -o 
 
 `auto` 在 Apple Silicon 上解析为 `macos-arm64`。Windows 产物仍可在 macOS 上通过 `--target windows-x64` 交叉编译。窗体工程可以使用常用 AppKit 控件、多行输入框、事件和主题色；最大长度和窗口图标当前未实现。
 
-macOS 目前没有 Studio 宿主：`dotnet build` 在 macOS 上会编译 WPF 工程以便 CI 检查，但 `YyStudio` 只能在 Windows 运行。后续 AppKit Studio 宿主和 `.app` 打包按 [macOS 原生支持路线](docs/macos.md) 推进。
+Avalonia Studio 在 macOS 直接运行：
+
+```bash
+dotnet run --project src/Yy.Studio.Avalonia -- examples/原生窗体
+```
+
+也可以用 `--smoke` 在无界面模式验证工程加载与原生编译：
+
+```bash
+dotnet run --project src/Yy.Studio.Avalonia -- --smoke examples/原生窗体
+```
+
+Linux 上可以启动同一份 Avalonia 界面，但 `windows-*` / `macos-*` 原生后端不会冒充 Linux 产物；选择 Linux 构建目标前需要先完成 `linux-*` 后端、注册表和真实可执行文件测试。`.app` 打包和 Linux 原生目标按 [macOS 原生支持路线](docs/macos.md) 与 [路线图](docs/roadmap.md) 推进。
 
 Windows 上的完整验证与发布使用 `.\build.ps1`；macOS/Linux 使用 `./build.sh`，见 [构建发布版](#构建发布版)。
 
+Windows 迁移期 WPF 参考宿主：
+
 ```powershell
-dotnet run --project .\src\Yy.Studio\Yy.Studio.csproj
+dotnet run --project .\legacy\Yy.Studio.Wpf\Yy.Studio.csproj
 ```
 
-打开 `examples` 文件夹即可加载示例工程。
+Avalonia 外壳当前支持：
 
-默认快捷键如下，均可在 `YyStudio.json` 或设置窗口中修改：
+- `F5`：编译并运行当前工程。
+- `Ctrl/Cmd+O`：打开工程。
+- `Ctrl/Cmd+S`：保存当前文档。
+- `Ctrl/Cmd+Shift+S`：保存全部。
+- `Ctrl/Cmd+B`：编译工程。
+- `Ctrl/Cmd+W`：关闭当前标签。
 
-- `F5`：编译并运行当前工程；没有工程时运行当前源码。
-- `Ctrl+F5`：运行项目。
-- `Shift+F5`：停止运行。
-- `Ctrl+B`：编译项目。
-- `Ctrl+S`：保存。
-- `Ctrl+W`：关闭当前标签。
+快捷键、设置窗口、`YyStudio.json`、最近项目和编辑/设计器字体配置已经接入；自定义顶栏和完整工具窗停靠仍在迁移。
 - `Ctrl+Space`：代码补全。
 - `F1`：当前位置的函数、命令、参数或变量帮助。
 - `Ctrl+Alt+L`：格式化当前纯代码文件。
@@ -165,7 +181,7 @@ yy run .\examples\窗口交互
 
 ## 命令行工具
 
-`yy` 是不加载 WPF 和 IDE 的命令行编译器。开发时可以直接运行：
+`yy` 是不加载 Studio 界面的命令行编译器。开发时可以直接运行：
 
 ```powershell
 dotnet run --project .\tools\Yy.Cli -- check .\examples\原生窗体
@@ -183,16 +199,16 @@ yy check <工程.yyproj|目录>
 yy run <工程.yyproj|目录>
 ```
 
-构建目标包括 `auto`、`windows-x64`、`macos-arm64`、`macos-x64`。未指定 `--target` 时按当前系统选择；工程清单也可记录默认 `目标平台`。Windows 原生后端生成 Win32/PE32+；macOS arm64 后端生成可执行 Mach-O 控制台和常用 AppKit 窗体程序，`macos-x64` 和 Studio 宿主仍在开发中。后端通过注册表选择，未注册目标会直接报错。完整设计见 [跨平台原生架构](docs/cross-platform.md) 与 [原生后端架构](docs/backend-architecture.md)。
+构建目标包括 `auto`、`windows-x64`、`macos-arm64`、`macos-x64`。未指定 `--target` 时按当前系统选择；工程清单也可记录默认 `目标平台`。Windows 原生后端生成 Win32/PE32+；macOS arm64 后端生成可执行 Mach-O 控制台和常用 AppKit 窗体程序，`macos-x64` 原生后端仍在开发中；Avalonia Studio 已可在 macOS 运行。后端通过注册表选择，未注册目标会直接报错。完整设计见 [跨平台原生架构](docs/cross-platform.md) 与 [原生后端架构](docs/backend-architecture.md)。
 
-`YyStudio.exe` 仅负责可视化编辑和 IDE 内操作；脚本、CI 和批处理可直接调用 `yy.exe`。命令行编译目前需要开发机安装 .NET 10 SDK。
+`YyStudio`（Windows 为 `YyStudio.exe`）仅负责可视化编辑和 IDE 内操作；脚本、CI 和批处理可直接调用 `yy.exe`。命令行编译目前需要开发机安装 .NET 10 SDK。
 
 `yy build` 直接调用自研后端，不经过 C#、C++、Rust 或 LLVM。顶层语句就是隐式主程序，不需要声明 `main`。两个后端共享类型推断、栈槽模型和值布局：
 
 - Windows：文本/整数输出、动态文本、基础数组与对象、文件读写、目录列举、子进程、变量、算术、控制流、基础子程序，以及 Win32 原生窗口、VS 式模态拥有者与窗口结果、动态控件文本、PNG/JPEG 图片框和按钮事件。
 - macOS arm64：同样的控制台语言核心、文本/数组/对象、文件读写、目录列举、子进程和退出码；窗体工程支持常用 AppKit 控件、模态窗口和事件，产物为内嵌签名的 Mach-O。
 
-JSON、异常、编译期图片资源嵌入、AppKit 最大长度和 Studio 宿主仍在补齐；未实现能力会直接给出编译诊断，不会回退到 C#/WPF。详见 [原生后端](docs/native-backend.md) 与 [后端架构](docs/backend-architecture.md)。
+JSON、异常、编译期图片资源嵌入和 AppKit 最大长度仍在补齐；Avalonia Studio 的调试器界面和发布打包仍在完善。未实现能力会直接给出编译诊断，不会回退到 C#/WPF。详见 [原生后端](docs/native-backend.md) 与 [后端架构](docs/backend-architecture.md)。
 
 ## 系统 SDK 与包导入
 
@@ -234,6 +250,8 @@ Studio 的可编辑配置保存在 `%APPDATA%\YyStudio\YyStudio.json`。首次�
 ```powershell
 YyStudio.exe --config D:\Config\YyStudio.json --mcp-port 38400
 ```
+
+Avalonia Studio 已接入 `YyStudio.json`、设置窗口和 MCP 服务端；MCP 监听参数变更后需要重启 Studio。
 
 详细格式、校验规则和配置优先级见 [Studio 配置](docs/configuration.md)。
 
@@ -279,9 +297,10 @@ macOS / Linux：
 发布结果：
 
 ```text
-artifacts/publish/YyStudio/YyStudio.exe      # Windows IDE
+artifacts/publish/YyStudio/YyStudio.exe      # Windows Avalonia Studio
 artifacts/publish/yy/yy.exe                  # Windows CLI
 artifacts/publish/yy-osx-arm64/yy            # macOS CLI（随宿主变化）
+artifacts/publish/YyStudio-osx-arm64/YyStudio # macOS Avalonia Studio（随宿主变化）
 artifacts/samples/原生入门.exe
 artifacts/samples/原生窗体.exe
 artifacts/samples/原生入门.macos-arm64
@@ -335,7 +354,9 @@ src/Yy.Compiler/          项目模型、窗体协议、资源索引和源码汇
 src/Yy.Native/Semantics/  平台无关类型推断、栈槽、值布局和内置命令目录
 src/Yy.Native/Backends/   后端接口与注册表；Windows x64/PE 和 macOS arm64/Mach-O（控制台与常用 AppKit 窗体）已实现
 src/Yy.Sdk/               系统包、UI 契约和 SDK 版本
-src/Yy.Studio/            Windows WPF IDE；macOS AppKit 宿主开发中
+src/Yy.Studio.Avalonia/   跨平台 Avalonia Studio（Windows/macOS，Linux 预留）
+src/Yy.Studio.Core/       平台无关的工程会话、配置、文档和 MCP 传输
+legacy/Yy.Studio.Wpf/    迁移期 Windows WPF 参考宿主；功能对齐后删除
 tools/Yy.Cli/             yy / yy.exe 命令行入口
 tests/                    语言、SDK、原生后端与桌面回归测试
 examples/                 示例工程
@@ -361,7 +382,7 @@ docs/                     格式、架构、编辑器和路线图文档
 
 ## 设计原则
 
-1. **平台原生**：Windows 使用 Win32/PE 与 WPF 宿主，macOS 使用 AppKit/Mach-O；公共语言和工程代码只维护一份。
+1. **单一 Studio 与平台原生**：Studio 使用 Avalonia 一份 UI 代码服务 Windows/macOS/Linux；用户程序仍分别由 Win32/PE 与 AppKit/Mach-O 原生后端生成，公共语言和工程代码只维护一份。
 2. **中文优先**：标识符、关键字、诊断和工程文件都适合中文开发。
 3. **界面与逻辑分离**：XML、自动关系代码和用户代码各自承担单一职责。
 4. **可视化与纯代码并存**：同一工程可以使用窗体设计器，也可以直接编辑完整源码。

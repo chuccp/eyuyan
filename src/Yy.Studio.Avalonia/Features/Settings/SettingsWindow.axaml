@@ -1,0 +1,309 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Yy.Studio.Avalonia.Features.Settings.SettingsWindow"
+        Title="设置"
+        Width="940"
+        Height="640"
+        MinWidth="780"
+        MinHeight="520"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Background="#F4F7FB">
+  <Window.Styles>
+    <Style Selector="TextBlock.SectionTitle">
+      <Setter Property="FontSize" Value="23" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="#20252B" />
+      <Setter Property="Margin" Value="0,0,0,16" />
+    </Style>
+
+    <Style Selector="TextBlock.SettingLabel">
+      <Setter Property="Width" Value="150" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Foreground" Value="#343A40" />
+    </Style>
+
+    <Style Selector="TextBlock.SettingHint">
+      <Setter Property="Foreground" Value="#667085" />
+      <Setter Property="FontSize" Value="11.5" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="Margin" Value="0,4,0,12" />
+    </Style>
+
+    <Style Selector="TextBox.SettingBox">
+      <Setter Property="Width" Value="180" />
+      <Setter Property="Height" Value="30" />
+      <Setter Property="Padding" Value="7,3" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="CornerRadius" Value="5" />
+    </Style>
+
+    <Style Selector="ListBox#SettingsCategories > ListBoxItem">
+      <Setter Property="Padding" Value="12,9" />
+      <Setter Property="Margin" Value="8,1" />
+      <Setter Property="Foreground" Value="#454C55" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border x:Name="ItemBorder"
+                  Background="Transparent"
+                  CornerRadius="6"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                              HorizontalAlignment="Stretch" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="ListBox#SettingsCategories > ListBoxItem:pointerover /template/ Border#ItemBorder">
+      <Setter Property="Background" Value="#E8EEF7" />
+    </Style>
+    <Style Selector="ListBox#SettingsCategories > ListBoxItem:selected /template/ Border#ItemBorder">
+      <Setter Property="Background" Value="#DCE8FB" />
+    </Style>
+    <Style Selector="ListBox#SettingsCategories > ListBoxItem:selected">
+      <Setter Property="Foreground" Value="#3574F0" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style Selector="Button.DialogButton">
+      <Setter Property="MinWidth" Value="78" />
+      <Setter Property="Height" Value="30" />
+      <Setter Property="Padding" Value="12,3" />
+      <Setter Property="Margin" Value="8,0,0,0" />
+      <Setter Property="Background" Value="#F5F7FA" />
+      <Setter Property="BorderBrush" Value="#C9D1DB" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="5" />
+      <Setter Property="Foreground" Value="#33404F" />
+    </Style>
+    <Style Selector="Button.PrimaryButton">
+      <Setter Property="MinWidth" Value="78" />
+      <Setter Property="Height" Value="30" />
+      <Setter Property="Padding" Value="12,3" />
+      <Setter Property="Margin" Value="8,0,0,0" />
+      <Setter Property="Background" Value="#3574F0" />
+      <Setter Property="BorderBrush" Value="#3574F0" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="5" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+  </Window.Styles>
+
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="54" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="52" />
+    </Grid.RowDefinitions>
+
+    <Border Grid.Row="0"
+            Background="#FFFFFF"
+            BorderBrush="#DCE2E8"
+            BorderThickness="0,0,0,1">
+      <TextBlock Text="设置"
+                 FontSize="18"
+                 FontWeight="SemiBold"
+                 Margin="22,0"
+                 VerticalAlignment="Center" />
+    </Border>
+
+    <Grid Grid.Row="1">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="220" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+
+      <Border Grid.Column="0"
+              Background="#FFFFFF"
+              BorderBrush="#DCE2E8"
+              BorderThickness="0,0,1,0">
+        <DockPanel Margin="0,12">
+          <TextBlock DockPanel.Dock="Top"
+                     Text="易语 Studio"
+                     Foreground="#667085"
+                     FontSize="11.5"
+                     FontWeight="SemiBold"
+                     Margin="20,4,0,10" />
+          <ListBox x:Name="SettingsCategories"
+                   Background="Transparent"
+                   BorderThickness="0"
+                   SelectionChanged="OnCategoryChanged">
+            <ListBoxItem Content="编辑器" Tag="Editor" />
+            <ListBoxItem Content="外观与窗体" Tag="Designer" />
+            <ListBoxItem Content="MCP 服务" Tag="Mcp" />
+            <ListBoxItem Content="快捷键" Tag="Shortcuts" />
+            <ListBoxItem Content="配置文件" Tag="Files" />
+          </ListBox>
+        </DockPanel>
+      </Border>
+
+      <Grid Grid.Column="1" Margin="34,24,34,16">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="SectionTitleText"
+                   Classes="SectionTitle"
+                   Text="编辑器" />
+
+        <ScrollViewer Grid.Row="1"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+          <Grid>
+            <StackPanel x:Name="EditorPanel">
+              <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                <TextBlock Classes="SettingLabel" Text="编辑器字号" />
+                <TextBox x:Name="FontSizeBox" Classes="SettingBox" />
+              </StackPanel>
+              <TextBlock Classes="SettingHint"
+                         Text="允许范围 8–28。修改后立即应用到纯代码和经典视图编辑器。" />
+              <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
+                <TextBlock Classes="SettingLabel" Text="制表宽度" />
+                <TextBox x:Name="TabWidthBox" Classes="SettingBox" />
+              </StackPanel>
+              <TextBlock Classes="SettingHint"
+                         Text="允许范围 1–16。编辑器使用空格代替制表符。" />
+            </StackPanel>
+
+            <StackPanel x:Name="DesignerPanel" IsVisible="False">
+              <CheckBox x:Name="SnapGridCheck"
+                        Content="窗体设计器启用吸附网格"
+                        Margin="0,4,0,8" />
+              <TextBlock Classes="SettingHint"
+                         Text="开启后，移动和缩放控件时默认吸附到 8 像素网格。" />
+            </StackPanel>
+
+            <StackPanel x:Name="McpPanel" IsVisible="False">
+              <CheckBox x:Name="McpEnabledCheck"
+                        Content="启动 Studio 时启用 MCP 服务"
+                        Margin="0,4,0,12" />
+              <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                <TextBlock Classes="SettingLabel" Text="HTTP 端口" />
+                <TextBox x:Name="McpPortBox" Classes="SettingBox" />
+              </StackPanel>
+              <TextBlock Classes="SettingHint"
+                         Text="允许范围 1024–65535。默认端点：http://127.0.0.1:端口/mcp。" />
+              <CheckBox x:Name="McpAutoPortCheck"
+                        Content="端口被占用时自动寻找后续端口"
+                        Margin="0,4,0,6" />
+              <StackPanel Orientation="Horizontal" Margin="0,6,0,4">
+                <TextBlock Classes="SettingLabel" Text="端口尝试次数" />
+                <TextBox x:Name="McpAttemptsBox" Classes="SettingBox" />
+              </StackPanel>
+            </StackPanel>
+
+            <StackPanel x:Name="ShortcutsPanel" IsVisible="False">
+              <TextBlock Classes="SettingHint"
+                         Text="每行以逗号分隔多个快捷键；留空可停用该动作。支持 Ctrl、Shift、Alt 和 F1–F12。" />
+              <Border Background="#FFFFFF"
+                      BorderBrush="#DCE2E8"
+                      BorderThickness="1"
+                      CornerRadius="6">
+                <DockPanel>
+                  <Grid DockPanel.Dock="Top"
+                        Background="#F5F7FA"
+                        Height="34">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="190" />
+                      <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="动作"
+                               Margin="12,0"
+                               VerticalAlignment="Center"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               Foreground="#454C55" />
+                    <TextBlock Grid.Column="1"
+                               Text="快捷键"
+                               Margin="12,0"
+                               VerticalAlignment="Center"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               Foreground="#454C55" />
+                  </Grid>
+                  <ScrollViewer Height="390"
+                                VerticalScrollBarVisibility="Auto"
+                                HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl x:Name="ShortcutList">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Grid Margin="12,2">
+                            <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="178" />
+                              <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{Binding Name}"
+                                       VerticalAlignment="Center"
+                                       FontSize="12"
+                                       Foreground="#343A40" />
+                            <TextBox Grid.Column="1"
+                                     Text="{Binding Gestures, Mode=TwoWay}"
+                                     Height="28"
+                                     Margin="0,3"
+                                     Padding="7,2"
+                                     CornerRadius="5" />
+                          </Grid>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </ScrollViewer>
+                </DockPanel>
+              </Border>
+            </StackPanel>
+
+            <StackPanel x:Name="FilesPanel" IsVisible="False">
+              <CheckBox x:Name="ShowNewProgramDialogCheck"
+                        Content="启动时显示新建程序对话框"
+                        Margin="0,4,0,12" />
+              <TextBlock Text="Studio 配置文件"
+                         FontWeight="SemiBold"
+                         Margin="0,4,0,8" />
+              <TextBox x:Name="ConfigPathBox"
+                       IsReadOnly="True"
+                       Height="32"
+                       Padding="7,4"
+                       Background="#F5F7FA" />
+              <TextBlock Classes="SettingHint"
+                         Text="用户配置优先于安装目录中的便携配置。修改 MCP 端口或快捷键后需要重启 Studio 才能刷新服务与输入绑定。" />
+              <Button Content="打开配置文件"
+                      Classes="DialogButton"
+                      HorizontalAlignment="Left"
+                      Margin="0,10,0,0"
+                      Click="OnOpenConfigClick" />
+            </StackPanel>
+          </Grid>
+        </ScrollViewer>
+      </Grid>
+    </Grid>
+
+    <Border Grid.Row="2"
+            Background="#FFFFFF"
+            BorderBrush="#DCE2E8"
+            BorderThickness="0,1,0,0">
+      <Grid Margin="18,0">
+        <TextBlock x:Name="ValidationText"
+                   Foreground="#C42B1C"
+                   VerticalAlignment="Center"
+                   TextTrimming="CharacterEllipsis" />
+        <StackPanel Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center">
+          <Button Content="应用"
+                  Classes="DialogButton"
+                  Click="OnApplyClick" />
+          <Button Content="取消"
+                  Classes="DialogButton"
+                  IsCancel="True"
+                  Click="OnCancelClick" />
+          <Button Content="确定"
+                  Classes="PrimaryButton"
+                  IsDefault="True"
+                  Click="OnOkClick" />
+        </StackPanel>
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

@@ -1,11 +1,11 @@
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$studio = Join-Path $root "src\Yy.Studio\Yy.Studio.csproj"
+$studio = Join-Path $root "src\Yy.Studio.Avalonia\Yy.Studio.Avalonia.csproj"
 $output = Join-Path $root "artifacts\publish\YyStudio-lite"
 $compilerCli = Join-Path $root "tools\Yy.Cli\Yy.Cli.csproj"
 $compilerOutput = Join-Path $root "artifacts\publish\yy-lite"
 
-Write-Host "生成精简版（目标机器需要 .NET 10 Desktop Runtime）..."
+Write-Host "生成精简版（目标机器需要 .NET 10 运行时）..."
 dotnet publish $studio `
     -c Release `
     -r win-x64 `

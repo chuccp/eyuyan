@@ -4,11 +4,13 @@
 创建工程、导入资源、设计界面、修改属性、创建事件、写入代码、运行预览、触发控件事件并截图。
 每个工具都调用 IDE 真实的界面操作代码路径，与点击菜单、组件箱和属性夹等价。
 
+Avalonia Studio 已接通 JSON-RPC、HTTP/stdio 和全部 19 个工具，包括设计器控件/属性/事件、经典视图代码编辑、预览交互和 IDE/预览截图。`save_program` 对窗体按三件套保存；未实现能力会返回明确错误，不会静默成功。
+
 ## 连接方式
 
 - **HTTP JSON-RPC**：端口由 `YyStudio.json` 的 `MCP` 配置决定，默认 `127.0.0.1:37213`；可启用自动顺延。
   实际地址显示在 Studio 底部状态栏，可点击复制，同时写入 `%TEMP%\yystudio-mcp.port`。项目根 `.mcp.json` 已注册默认端点。
-- **stdio**:`YyStudio.exe --mcp-stdio` 以子进程方式拉起 IDE(GUI 一同显示),JSON-RPC 逐行收发。
+- **stdio**:`YyStudio --mcp-stdio` 以子进程方式拉起 IDE(GUI 一同显示),JSON-RPC 逐行收发。
 
 修改首选端口或自动查找策略后需要重启 Studio。也可以使用
 `--mcp-port 38400` 覆盖本次启动的端口。完整配置见 [Studio 配置](configuration.md)。
