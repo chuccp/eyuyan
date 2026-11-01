@@ -3,15 +3,6 @@ using Yy.Compiler.Forms;
 
 namespace Yy.Native;
 
-internal enum NativeValueKind
-{
-    Integer,
-    Text,
-    Boolean,
-    Array,
-    Object
-}
-
 internal sealed record NativeGeneration(
     NativeCodeBuffer Code,
     NativeDataBuffer Data,
@@ -41,6 +32,7 @@ internal sealed partial class NativeEmitter
     };
     private readonly Dictionary<string, FunctionDeclaration> _functions;
     private readonly HashSet<string> _declaredObjectTypes;
+    private readonly NativeTypeAnalyzer _semantics;
     private readonly Dictionary<string, string> _functionLabels =
         new(StringComparer.Ordinal);
     private int _labelSequence;
@@ -65,6 +57,11 @@ internal sealed partial class NativeEmitter
             .Select(structure => structure.Name)
             .Concat(program.Interfaces.Select(contract => contract.Name))
             .ToHashSet(StringComparer.Ordinal);
+        _semantics = new NativeTypeAnalyzer(
+            _functions,
+            _declaredObjectTypes,
+            sourceName,
+            TryInferPlatform);
         foreach (var function in program.Functions)
         {
             _functionLabels[function.Name] = "__fn_" + function.Name;
@@ -812,6 +809,20 @@ internal sealed partial class NativeEmitter
         _code.EndFrame();
     }
 
+    private NativeValueKind? TryInferPlatform(
+        Expression expression,
+        NativeContext context) =>
+        expression switch
+        {
+            MemberExpression { Member: "参数" or "结果" } member
+                when GetWindowStateLabel(member, context) is not null =>
+                NativeValueKind.Text,
+            MemberExpression { Member: "文本" or "标题" } member
+                when TryGetUiHandle(member.Target, context, out _) =>
+                NativeValueKind.Text,
+            _ => null
+        };
+
     private void Fail(YyNode node, string message) =>
         throw new NativeCompileException(message, node.Line, node.Column, _sourceName);
 
@@ -819,51 +830,4 @@ internal sealed partial class NativeEmitter
 
     private static int Align(int value, int alignment) =>
         (value + alignment - 1) & ~(alignment - 1);
-}
-
-internal sealed class NativeContext(FunctionDeclaration? function)
-{
-    private readonly Dictionary<string, int> _slots = new(StringComparer.Ordinal);
-
-    public FunctionDeclaration? Function { get; } = function;
-    public Dictionary<string, NativeValueKind> Types { get; } =
-        new(StringComparer.Ordinal);
-    public Dictionary<string, NativeValueKind> ArrayElementTypes { get; } =
-        new(StringComparer.Ordinal);
-    public Dictionary<string, NativeObjectShape> ObjectShapes { get; } =
-        new(StringComparer.Ordinal);
-    public Stack<NativeLoop> Loops { get; } = new();
-    public string? EndLabel { get; set; }
-    public NativeValueKind LastKind { get; set; }
-    public IReadOnlyDictionary<string, int> Slots => _slots;
-
-    public void AddSlot(string name)
-    {
-        if (!_slots.ContainsKey(name))
-        {
-            _slots[name] = (_slots.Count + 1) * -8;
-        }
-    }
-
-    public int Slot(string name, YyNode node) =>
-        _slots.TryGetValue(name, out var slot)
-            ? slot
-            : throw new NativeCompileException(
-                $"变量“{name}”没有原生栈位置",
-                node.Line,
-                node.Column,
-                null);
-}
-
-internal sealed record NativeLoop(string Continue, string Break);
-
-public sealed class NativeCompileException(
-    string message,
-    int line,
-    int column,
-    string? sourceName) : Exception(message)
-{
-    public int Line { get; } = Math.Max(1, line);
-    public int Column { get; } = Math.Max(1, column);
-    public string? SourceName { get; } = sourceName;
 }

@@ -91,19 +91,22 @@ Resources/
 
 - 语言前端、工程模型、SDK、IR 和公共 IDE 模型只维护一份源码，不为 Windows/macOS 复制业务实现。
 - 构建目标使用 `auto`、`windows-x64`、`macos-arm64`、`macos-x64`；`auto` 按宿主操作系统和进程架构解析。
-- `windows-x64` 生成 PE32+ 并调用 Win32、GDI+/DirectWrite；`macos-arm64`、`macos-x64` 生成 Mach-O 并调用 AppKit/CoreText。
+- `windows-x64` 生成 PE32+ 并调用 Win32、GDI+/DirectWrite；`macos-arm64` 生成 ARM64 Mach-O，通过 libSystem/libobjc/Foundation/AppKit 连接系统接口，控制台和常用窗体控件已实现。`macos-x64` 和 AppKit Studio 宿主仍在开发。
+- 平台后端通过 `Yy.Native/Backends` 的 `INativeBackend` 注册；类型推断、栈槽、值布局和内置命令目录由 `Yy.Native/Semantics` 共享。不得在 `NativeCompiler`、CLI 或 IDE 中散落平台 `if`。
 - 禁止把 Win32 API 映射成 Cocoa API 的模拟兼容层；平台能力由各自原生后端实现。
 - Studio 的平台窗口代码放在 `Platforms/Windows/`、`Platforms/MacOS/`，共享模型和命令放在公共目录；不得把平台分支散落成大量 `#if`。
-- macOS 后端或宿主尚未实现时必须在构建阶段明确报错，不能静默生成 Windows PE 或回退到其他运行时。
+- macOS 后端或宿主尚未实现时必须在构建阶段明确报错，不能静默生成 Windows PE、生成其他架构或回退到其他运行时。
+- 新增系统或架构时，必须同时登记目标、注册后端、补充 CLI 帮助、文档和真实可执行文件测试。
 
 ## 自研原生后端
 
-- `src/Yy.Native` 必须直接生成 Win64 机器码和 PE32+，不得通过 LLVM、C++、Rust 或 C# 作为应用代码的中间语言。
-- 编译产品不得链接 C Runtime、CLR 或 WPF；系统调用通过 PE 导入表直接连接 Windows DLL。
+- `src/Yy.Native` 必须直接生成目标机器码和原生可执行文件：Windows 为 Win64/PE32+，macOS 为 ARM64/Mach-O；不得通过 LLVM、C++、Rust 或 C# 作为应用代码的中间语言。
+- 编译产品不得链接 C Runtime、CLR 或 WPF；Windows 通过 PE 导入表连接系统 DLL，macOS 通过 dyld 绑定 libSystem 符号。macOS 产物必须内嵌 ad-hoc 签名，不能依赖外部链接器或签名工具。
 - 不得恢复 C# 窗体宿主、CLR 启动器或“原生不支持时回退托管后端”的兼容分支。
 - 顶层语句构成隐式主程序，不要求用户声明 `main`。
-- 原生后端扩展顺序为控制台语言核心、原生值运行时、数组/对象、资源、Win32 窗口与控件。
-- 原生能力必须由真实 EXE 回归测试验证，包括 PE 结构、导入表、输出、控制流、子程序、体积和退出码。
+- 原生后端扩展顺序为控制台语言核心、原生值运行时、数组/对象、资源、平台窗口与控件；每个平台按自身后端逐步推进，不复制其他平台实现。
+- 共享语义必须进入 `Yy.Native/Semantics`；平台后端只负责代码生成、ABI、导入和镜像格式。
+- 原生能力必须由真实可执行文件回归测试验证，包括镜像结构、导入/绑定、输出、控制流、子程序、体积和退出码。
 - 引导编译器可以暂时由 C# 实现；后端、ABI 和输出格式必须保持独立，以支持后续易语自举。
 
 ## Studio 配置
@@ -204,8 +207,12 @@ Resources/
 ```powershell
 dotnet build .\Eyuyan.slnx
 dotnet run --project .\tests\Yy.Language.Tests\Yy.Language.Tests.csproj
+dotnet run --project .\tests\Yy.Sdk.Tests\Yy.Sdk.Tests.csproj
+dotnet run --project .\tests\Yy.Native.Backends.Tests\Yy.Native.Backends.Tests.csproj
 dotnet run --project .\tests\Yy.Native.Tests\Yy.Native.Tests.csproj
 dotnet run --project .\tests\Yy.Studio.Tests\Yy.Studio.Tests.csproj
 ```
 
-- 涉及编译、预览或事件执行时，还应运行 `YY_COMPILE_SMOKE=1` 的桌面编译烟雾测试。
+- 非 Windows 主机自动启用 `EnableWindowsTargeting`，可编译 WPF 项目但不能运行；`Yy.Native.Backends.Tests` 会在 Apple Silicon macOS 上真实运行生成的 Mach-O。
+- macOS/Linux 使用 `./build.sh` 完成解决方案构建、跨平台测试、示例编译和 CLI 发布。
+- 涉及编译、预览或事件执行时，还应在 Windows 上运行 `YY_COMPILE_SMOKE=1` 的桌面编译烟雾测试。

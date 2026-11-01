@@ -177,6 +177,7 @@ internal static class CliApplication
               yy build examples/原生窗体 -o Dist/原生窗体.exe
               yy build examples/原生窗体 --target windows-x64 -o Dist/原生窗体.exe
               yy build examples/原生窗体 --target macos-arm64 -o Dist/原生窗体
+              yy build examples/Sources/原生入门.yyc --target macos-arm64 -o Dist/原生入门
               yy build examples/Sources/原生入门.yyc -o Dist/原生入门.exe
               yy check examples/原生窗体
               yy run examples/原生窗体
@@ -184,8 +185,8 @@ internal static class CliApplication
             目标：
               auto        当前系统
               windows-x64 Win32 / PE32+
-              macos-arm64 AppKit / Mach-O (Apple Silicon)
-              macos-x64   AppKit / Mach-O (Intel)
+              macos-arm64 AppKit / Mach-O (Apple Silicon，控制台与窗体)
+              macos-x64   AppKit / Mach-O (Intel，开发中)
             """);
     }
 

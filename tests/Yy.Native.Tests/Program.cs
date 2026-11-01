@@ -82,20 +82,32 @@ static void TestBuildTargets()
     var directory = CreateDirectory();
     try
     {
+        var result = NativeCompiler.CompileSource(
+            ".程序集 目标测试\n输出(\"x\")",
+            "目标测试.yyc",
+            Path.Combine(directory, "目标测试"),
+            YyBuildTargets.MacOSArm64);
+        var image = File.ReadAllBytes(result.OutputPath);
+        True(
+            image.Length > 32 &&
+            BitConverter.ToUInt32(image, 0) == 0xFEEDFACF &&
+            BitConverter.ToInt32(image, 4) == 0x0100000C,
+            "macos-arm64 必须直接生成 arm64 Mach-O。");
+
         try
         {
             NativeCompiler.CompileSource(
                 ".程序集 目标测试\n输出(\"x\")",
                 "目标测试.yyc",
-                Path.Combine(directory, "目标测试"),
-                YyBuildTargets.MacOSArm64);
-            throw new Exception("Windows 构建不应静默生成不存在的 macOS 后端。");
+                Path.Combine(directory, "目标测试-x64"),
+                YyBuildTargets.MacOSX64);
+            throw new Exception("macos-x64 尚未实现时不应静默生成其他架构。");
         }
         catch (PlatformNotSupportedException exception)
         {
             True(
-                exception.Message.Contains("macOS", StringComparison.Ordinal),
-                "macOS 后端未实现时必须给出明确诊断。");
+                exception.Message.Contains("macos-x64", StringComparison.Ordinal),
+                "未实现的目标必须给出明确诊断。");
         }
     }
     finally

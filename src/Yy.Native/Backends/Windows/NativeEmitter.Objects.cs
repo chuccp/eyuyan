@@ -2,31 +2,6 @@ using Yy.Language.Syntax;
 
 namespace Yy.Native;
 
-internal sealed record NativeObjectField(
-    string Name,
-    NativeValueKind Kind,
-    NativeValueKind ArrayElementKind);
-
-internal sealed record NativeObjectShape(IReadOnlyList<NativeObjectField> Fields)
-{
-    public NativeObjectField? Find(string name) =>
-        Fields.FirstOrDefault(field =>
-            string.Equals(field.Name, name, StringComparison.Ordinal));
-
-    public int IndexOf(string name)
-    {
-        for (var index = 0; index < Fields.Count; index++)
-        {
-            if (string.Equals(Fields[index].Name, name, StringComparison.Ordinal))
-            {
-                return index;
-            }
-        }
-
-        return -1;
-    }
-}
-
 internal sealed partial class NativeEmitter
 {
     private void EmitObjectLiteral(ObjectExpression expression, NativeContext context)
@@ -102,38 +77,11 @@ internal sealed partial class NativeEmitter
 
     private NativeObjectField? TryGetObjectField(
         MemberExpression member,
-        NativeContext context)
-    {
-        return TryGetObjectShape(member.Target, context)?.Find(member.Member);
-    }
+        NativeContext context) =>
+        _semantics.TryGetObjectField(member, context);
 
     private NativeObjectShape? TryGetObjectShape(
         Expression expression,
-        NativeContext context)
-    {
-        if (expression is IdentifierExpression identifier &&
-            context.ObjectShapes.TryGetValue(identifier.Name, out var shape))
-        {
-            return shape;
-        }
-
-        if (expression is ObjectExpression objectExpression)
-        {
-            var fields = new List<NativeObjectField>();
-            foreach (var (name, value) in objectExpression.Properties)
-            {
-                var kind = Infer(value, context);
-                fields.Add(new NativeObjectField(
-                    name,
-                    kind,
-                    kind == NativeValueKind.Array
-                        ? InferArrayElement(value, context)
-                        : NativeValueKind.Integer));
-            }
-
-            return new NativeObjectShape(fields);
-        }
-
-        return null;
-    }
+        NativeContext context) =>
+        _semantics.TryGetObjectShape(expression, context);
 }

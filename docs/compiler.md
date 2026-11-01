@@ -67,14 +67,14 @@ yy version
 
 语言前端、工程模型和 SDK 只维护一份源码。目标由命令参数、工程默认值和宿主环境共同确定：
 
-| 目标 | 输出 | 系统界面 |
-|---|---|---|
-| `windows-x64` | PE32+ | Win32、GDI+/DirectWrite |
-| `macos-arm64` | Mach-O | AppKit、CoreGraphics/CoreText |
-| `macos-x64` | Mach-O | AppKit、CoreGraphics/CoreText |
-| `auto` | 当前宿主目标 | 当前原生宿主 |
+| 目标 | 输出 | 系统界面 | 状态 |
+|---|---|---|---|
+| `windows-x64` | PE32+ | Win32、GDI+/DirectWrite | 已实现 |
+| `macos-arm64` | Mach-O arm64 | 常用 AppKit 窗体控件已实现 | 控制台与窗体可用 |
+| `macos-x64` | Mach-O x86-64 | AppKit、CoreGraphics/CoreText | 待实现 |
+| `auto` | 当前宿主目标 | 当前原生宿主 | 已接入 |
 
-CLI 使用 `--target` 覆盖工程默认目标。目标后端未实现时必须直接报错，不能把 Windows PE 当作 macOS 程序输出。
+CLI 使用 `--target` 覆盖工程默认目标。目标后端未实现时必须直接报错，不能把 Windows PE 当作 macOS 程序输出。后端选择由 `NativeBackendRegistry` 完成，新增平台不需要修改 CLI 或 IDE。
 
 ## 资源
 
@@ -84,10 +84,16 @@ CLI 使用 `--target` 覆盖工程默认目标。目标后端未实现时必须�
 
 ## 编译产物
 
-- 当前已实现输出为单个 Windows x64 PE32+ `.exe`。
-- 示例控制台程序通常为 2–3 KB，Win32 窗体示例通常约 3.5 KB。
-- 产物直接导入 `kernel32.dll` 和 `user32.dll`。
-- 当前 Windows 产物不包含 C#、WPF、CLR Header 或 .NET 运行时依赖。
+- Windows 输出为单个 x64 PE32+ `.exe`，直接导入 `kernel32.dll`、`user32.dll` 等系统 DLL，不包含 CLR Header 或 .NET 运行时依赖。
+- macOS 输出为单个 arm64 Mach-O，通过 dyld 绑定 `libSystem`；窗体程序另加载 `libobjc`、Foundation 和 AppKit。产物内嵌 ad-hoc 签名，可直接在当前 Mac 上运行。
+- 示例控制台程序通常为 2–3 KB（Windows PE）或约 33 KB（含 Mach-O 段、绑定表和签名）。
+- macOS 产物不包含 CLR，也不需要外部链接器或签名工具。
+- 窗体工程已支持常用 AppKit 控件、多行输入框、事件和主题色；最大长度和窗口图标当前未实现。
+
+## 平台脚本
+
+- Windows：`build.ps1` 运行全部测试、编译 Windows 示例、交叉编译 macOS 控制台和窗体示例并发布 `win-x64`。
+- macOS/Linux：`build.sh` 构建解决方案、运行跨平台测试、编译 Windows/macOS 控制台与窗体示例并发布宿主的 `yy`。
 - 不需要工程目录中的 `.yyc`、`.yyx` 或 SDK 才能启动。
 
 ## 当前边界

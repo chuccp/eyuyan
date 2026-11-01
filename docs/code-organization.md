@@ -2,6 +2,8 @@
 
 易语 Studio 已从单文件窗口类拆分为按职责组织的 partial class。当前 Windows 宿主使用 WPF partial class；平台无关模型必须与窗口类型解耦，供后续 AppKit 宿主共享。纯业务逻辑应进入独立服务或模型类。
 
+原生编译器同样按层拆分：`src/Yy.Native/Semantics` 保存平台无关类型分析和值模型，`src/Yy.Native/Backends/<平台>` 保存代码生成与可执行文件写出。新增平台只增加后端目录并注册到 `NativeBackendRegistry`，不得修改共享语义或复制语言规则。
+
 ## 窗口模块
 
 | 文件 | 职责 |
@@ -53,18 +55,31 @@
 | `src/Yy.Compiler/Resources/YyResourceIndex.cs` | `ids.xml` 生成、标识解析和资源路径定位 |
 | `src/Yy.Sdk/YySdk.cs` | SDK 版本、包成熟度与依赖目录、原生句柄和无装箱界面契约 |
 | `src/Yy.Language/ProjectPackageResolver.cs` | 把 `项目包名.目录` 解析为 `Sources/` 下的目录包 |
-| `src/Yy.Native/NativeEmitter.cs` | 易语 AST 到当前 Windows 原生后端的代码生成 |
-| `src/Yy.Native/NativeEmitter.Collections.cs` | 原生数组、索引、遍历和追加 |
-| `src/Yy.Native/NativeEmitter.FileRuntime.cs` | UTF-8/Win32 文件、目录和路径转换 |
-| `src/Yy.Native/NativeEmitter.ProcessRuntime.cs` | Win32 子进程、等待和退出码 |
-| `src/Yy.Native/NativeEmitter.ConversionRuntime.cs` | 整数与文本运行期转换 |
-| `src/Yy.Native/NativeEmitter.Loops.cs` | 原生当循环和计次循环 |
-| `src/Yy.Native/NativeEmitter.TextRuntime.cs` | 堆分配文本、拼接、复制和比较运行时 |
-| `src/Yy.Native/NativeEmitter.Types.cs` | 原生表达式、函数和声明类型推断 |
-| `src/Yy.Native/NativeEmitter.Win32Text.cs` | Win32 控件文本编解码、读取和写入 |
-| `src/Yy.Native/NativeEmitter.Win32Image.cs` | GDI+ 图片加载和 Win32 图片框显示 |
-| `src/Yy.Native/NativeAssembly.cs` | 机器码、数据段和重定位缓冲 |
-| `src/Yy.Native/NativePeWriter.cs` | PE32+、节表、导入表和原生 EXE 写出；macOS 将使用独立 Mach-O 写出器 |
+| `src/Yy.Native/Backends/NativeBackend.cs` | `INativeBackend`、编译请求和后端注册表 |
+| `src/Yy.Native/Backends/Windows/WindowsNativeBackend.cs` | Windows x64/PE 后端注册 |
+| `src/Yy.Native/Backends/Windows/NativeEmitter.cs` | 易语 AST 到 Win64 的代码生成 |
+| `src/Yy.Native/Backends/Windows/NativeEmitter.Collections.cs` | 原生数组、索引、遍历和追加 |
+| `src/Yy.Native/Backends/Windows/NativeEmitter.FileRuntime.cs` | Win32 文件、目录和路径转换 |
+| `src/Yy.Native/Backends/Windows/NativeEmitter.ProcessRuntime.cs` | Win32 子进程、等待和退出码 |
+| `src/Yy.Native/Backends/Windows/NativeEmitter.ConversionRuntime.cs` | 整数与文本运行期转换 |
+| `src/Yy.Native/Backends/Windows/NativeEmitter.Loops.cs` | 原生当循环和计次循环 |
+| `src/Yy.Native/Backends/Windows/NativeEmitter.TextRuntime.cs` | 堆分配文本、拼接、复制和比较运行时 |
+| `src/Yy.Native/Backends/Windows/NativeEmitter.Types.cs` | Windows 后端类型推断委托 |
+| `src/Yy.Native/Backends/Windows/NativeEmitter.Win32Text.cs` | Win32 控件文本编解码、读取和写入 |
+| `src/Yy.Native/Backends/Windows/NativeEmitter.Win32Image.cs` | GDI+ 图片加载和 Win32 图片框显示 |
+| `src/Yy.Native/Backends/Windows/NativeAssembly.cs` | Win64 机器码缓冲和重定位 |
+| `src/Yy.Native/Backends/Windows/NativePeWriter.cs` | PE32+、节表、导入表和原生 EXE 写出 |
+| `src/Yy.Native/Backends/MacOS/MacNativeBackend.cs` | macOS arm64/Mach-O 后端注册 |
+| `src/Yy.Native/Backends/MacOS/Arm64CodeBuffer.cs` | AArch64 指令、标签和重定位 |
+| `src/Yy.Native/Backends/MacOS/MacNativeEmitter*.cs` | ARM64 表达式、控制流、运行时、文件和进程代码生成 |
+| `src/Yy.Native/Backends/MacOS/MacNativeEmitter.AppKit*.cs` | AppKit 窗体、控件、事件、模态会话和图片代码生成 |
+| `src/Yy.Native/Backends/MacOS/MacImport.cs` | Mach-O 库路径和导入符号模型 |
+| `src/Yy.Native/Backends/MacOS/MachOImageWriter.cs` | Mach-O 段、dyld 绑定和内嵌 ad-hoc 签名 |
+| `src/Yy.Native/Semantics/NativeTypeAnalyzer.cs` | 平台无关类型推断 |
+| `src/Yy.Native/Semantics/NativeContext.cs` | 局部变量槽、循环标签和类型状态 |
+| `src/Yy.Native/Semantics/NativeRuntimeLayout.cs` | 文本、数组、对象值布局 |
+| `src/Yy.Native/Semantics/NativeDataBuffer.cs` | 常量文本、零填充缓冲和标签重定位 |
+| `src/Yy.Native/Semantics/NativeBuiltinCatalog.cs` | 语言核心内置命令目录 |
 
 ## 编译器与命令行
 
@@ -74,6 +89,8 @@
 | `src/Yy.Compiler/ProjectCompiler.cs` | 校验项目并汇总入口、窗体和模块源码 |
 | `tools/Yy.Cli` | `yy` / `yy.exe` 命令行入口和目标选择 |
 | `tools/Yy.Cli/Program.cs` | `build`、`check`、`run`、`version` 子命令 |
+| `tests/Yy.Native.Backends.Tests` | 后端注册表、Mach-O 结构、内嵌签名、交叉编译和 macOS 运行时 |
+| `docs/backend-architecture.md` | 后端契约、共享语义和新增平台流程 |
 
 `YyStudio` 和 `Yy.Cli` 都通过 `Yy.Native` 编译应用；`Yy.Cli` 不得引用 `Yy.Studio`、WPF 或 AppKit。Studio 的平台窗口代码只实现 IDE 与设计预览，不会进入用户程序产物。
 

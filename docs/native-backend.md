@@ -1,6 +1,6 @@
 # 自研原生后端
 
-`Yy.Native` 是不依赖 LLVM、Rust、C++ 或 .NET 运行时的原生编译后端。当前已实现 Windows Win64 机器码和 PE32+ 输出；macOS 目标使用同一代码树中的 Mach-O/AppKit 后端实现。
+`Yy.Native` 是不依赖 LLVM、Rust、C++ 或 .NET 运行时的原生编译后端。Windows 已实现 Win64 机器码和 PE32+ 输出；macOS Apple Silicon 已实现 ARM64 Mach-O 控制台与常用 AppKit 窗体控件，AppKit Studio 宿主仍在开发。两种后端共享 `Yy.Native/Semantics` 中的类型规则、栈槽模型和值布局。
 
 ## 编译流程
 
@@ -74,9 +74,56 @@ WriteFile
 ExitProcess
 ```
 
+## macOS Mach-O 后端
+
+`--target macos-arm64` 使用独立的 AArch64 生成器和 Mach-O 写出器：
+
+- `Backends/MacOS/Arm64CodeBuffer.cs`：AArch64 指令、标签、分支和 ADRP 重定位。
+- `Backends/MacOS/MacNativeEmitter*.cs`：表达式、控制流、数组/对象、文本、文件、进程和 AppKit 窗体运行时。
+- `Backends/MacOS/MachOImageWriter.cs`：`__TEXT/__DATA/__LINKEDIT`、`LC_MAIN`、`LC_DYLD_INFO_ONLY` 绑定和内嵌 ad-hoc 签名。
+- `Backends/MacOS/MacNativeBackend.cs`：通过 `INativeBackend` 注册 `macos-arm64`。
+
+系统调用通过 dyld 绑定 `libSystem` 符号实现，不直接依赖私有 syscall ABI。窗体程序另通过 dyld 加载 `libobjc`、Foundation 和 AppKit，直接使用系统 Objective-C 运行时和 AppKit 类，不包含 CLR，也不经过外部链接器。`File.SetUnixFileMode` 只用于设置可执行权限。
+
+`open` 等可变参数系统函数按 AAPCS64 规则把可变参数放在栈上，不占用 `x2`；这是 macOS 后端必须遵守的 ABI 细节。
+
+当前 macOS 后端支持：
+
+- 隐式主程序、子程序、递归和最多 8 个参数。
+- 整数、文本、逻辑、数组、对象和 `+=`/`-=`/`*=`/`/=`/`%=`。
+- `如果`、`当`、`计次循环`、`遍历`、`跳出`、`继续`。
+- 文本拼接、比较、`数字`、`文本`、`长度`、`追加`。
+- `文件存在`、`读文件`、`写文件`、`删除文件`、`取目录文件`。
+- `运行程序`、退出码和标准输出。
+- 窗体工程：`NSApplication`、`NSWindow`、标签、输入框（含多行）、按钮、复选框、单选框、下拉框、列表框、分组框和图片框。
+- 窗体载入/打开/关闭、按钮单击、输入改变、选中改变和选择改变事件。
+- `打开窗口`/`显示窗口`/`关闭窗口`、模态 `runModalForWindow:`、窗体 `参数`/`结果`、系统关闭按取消处理。
+- 内嵌 ad-hoc 签名，生成后可直接在当前 Mac 上运行。
+
+尚未实现：最大长度、窗口图标、AppKit Studio 宿主、`.app` 打包、JSON、异常保护和 `macos-x64`。
+
+## AppKit 窗体
+
+macOS 窗体由同一个 `MacNativeEmitter` 生成，使用 Objective-C 运行时而不是 Win32→Cocoa 映射：
+
+- `objc_getClass`/`sel_registerName`/`objc_msgSend` 连接 AppKit 类和方法。
+- `NSApplication` 启动和事件循环；`NSWindow` 创建全部项目窗体并设置标题、尺寸、样式和代理通知。
+- `NSTextField`、`NSButton`、`NSPopUpButton`、`NSImageView`、`NSFont`、`NSImage` 对应标签、输入框、按钮、下拉框和图片框。
+- 列表框使用 `NSScrollView` + `NSTableView`，初始项目按中英文逗号拆分；项目数组通过关联对象挂在表格上，`.文本` 读取当前选中项，选择改变由表格选择通知分派。
+- 分组框使用 `NSBox`，`.文本` 对应分组标题；控件仍采用工程的绝对坐标布局。
+- 多行输入框使用 `NSScrollView` + `NSTextView`，文本改变由 `NSTextDidChangeNotification` 分派。
+- `NSColor` 应用窗体背景、控件前景/背景、按钮 bevel 色和分组框填充色；颜色在构建期解析为 RGB 分量。
+- 控件事件通过 target-action 分派；输入改变、列表选择改变和窗口关闭通过 `NSNotificationCenter` 观察者分派。
+- 模态窗口使用 `runModalForWindow:` 和 `stopModalWithCode:`，不创建第二个 UI 线程。
+- 图片路径在构建期解析 `@资源/...`，运行时使用 `initWithContentsOfFile:` 加载。
+
+未支持的控件在构建阶段报告明确诊断，不会生成空控件或静默忽略事件。
+
 ## 当前边界
 
 完整集合算法、动态键字典、JSON、异常、模块初始化、输入框改变事件和编译期图片资源嵌入尚未进入原生后端。这些程序会停止编译并报告未实现能力，不会回退到 C#/WPF 后端。后续扩展顺序为完整 Win32 控件事件、JSON、异常和编译期资源打包。
+
+后端注册表、共享语义和新增平台流程见 [原生后端架构](backend-architecture.md)。
 
 ## 原生窗体
 
@@ -105,9 +152,10 @@ yy build .\examples\原生窗体 -o .\artifacts\原生窗体.exe
 原生编译入口先解析 `windows-x64`、`macos-arm64`、`macos-x64` 或 `auto`。各目标使用独立后端，不通过模拟 API 互相兼容：
 
 - Windows：Win64 指令、PE32+、Win32 窗口和 GDI+。
-- macOS：ARM64/x86-64 指令、Mach-O、AppKit、CoreGraphics/CoreText。
+- macOS：ARM64 指令、Mach-O、libSystem、libobjc/Foundation/AppKit；常用窗体控件已接入。
+- `macos-x64`：尚未注册后端，构建时明确报错。
 
-当前仓库已接通目标解析和选择边界，Windows 后端保持可用。macOS 后端仍在同一代码树内继续实现；在完成前选择 macOS 目标会得到明确的“需要 AppKit/Mach-O 后端”诊断。
+`NativeBackendRegistry` 只选择已注册的目标。新增平台时不得把其他平台的产物伪装成目标文件，也不得回退到托管运行时。
 
 ## 自举方向
 
