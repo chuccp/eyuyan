@@ -310,6 +310,7 @@ public partial class MainWindow : Window
             }
 
             Add(form.LoadEvent, form.Name + " · " + EventHandlerNaming.FormLoad);
+            Add(form.OpenEvent, form.Name + " · " + EventHandlerNaming.FormOpen);
             Add(form.CloseEvent, form.Name + " · " + EventHandlerNaming.FormClose);
             foreach (var control in form.Controls)
             {

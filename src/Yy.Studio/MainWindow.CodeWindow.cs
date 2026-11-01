@@ -236,6 +236,7 @@ public partial class MainWindow : Window
             var formHandlers = new[]
                 {
                     form.LoadEvent,
+                    form.OpenEvent,
                     form.CloseEvent
                 }
                 .Where(name => !string.IsNullOrWhiteSpace(name))

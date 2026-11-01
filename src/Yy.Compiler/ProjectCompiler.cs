@@ -69,6 +69,7 @@ public sealed class ProjectCompiler
             foreach (var (eventName, kind) in new[]
                      {
                          (form.Model.LoadEvent, "载入"),
+                         (form.Model.OpenEvent, "打开"),
                          (form.Model.CloseEvent, "关闭")
                      })
             {

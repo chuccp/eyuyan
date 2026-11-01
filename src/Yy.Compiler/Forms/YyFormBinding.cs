@@ -72,6 +72,16 @@ public static class YyFormBindingSerializer
                 YyResourceIndex.FormId(form.Name)));
         }
 
+        if (!string.IsNullOrWhiteSpace(form.OpenEvent))
+        {
+            binding.Events.Add(new YyFormBindingEvent(
+                form.Name,
+                "窗体",
+                "打开",
+                form.OpenEvent,
+                YyResourceIndex.FormId(form.Name)));
+        }
+
         if (!string.IsNullOrWhiteSpace(form.CloseEvent))
         {
             binding.Events.Add(new YyFormBindingEvent(
@@ -205,7 +215,7 @@ public static class YyFormBindingSerializer
                 throw Error(1, $"事件处理程序“{handler}”不是有效函数标识符。");
             }
 
-            if (field.Name is "载入" or "关闭")
+            if (field.Name is "载入" or "打开" or "关闭")
             {
                 binding.Events.Add(new YyFormBindingEvent(
                     formName,
@@ -318,6 +328,7 @@ public static class YyFormBindingSerializer
         }
 
         form.LoadEvent = null;
+        form.OpenEvent = null;
         form.CloseEvent = null;
         foreach (var control in form.Controls)
         {
@@ -438,6 +449,10 @@ public static class YyFormBindingSerializer
                 EnsureUnassigned(form.LoadEvent, item);
                 form.LoadEvent = item.HandlerName;
                 break;
+            case "打开":
+                EnsureUnassigned(form.OpenEvent, item);
+                form.OpenEvent = item.HandlerName;
+                break;
             case "关闭":
                 EnsureUnassigned(form.CloseEvent, item);
                 form.CloseEvent = item.HandlerName;
@@ -481,6 +496,7 @@ public static class YyFormBindingSerializer
     private static void ClearEvents(YyFormModel form)
     {
         form.LoadEvent = null;
+        form.OpenEvent = null;
         form.CloseEvent = null;
         foreach (var control in form.Controls)
         {

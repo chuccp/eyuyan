@@ -5,6 +5,7 @@ public sealed class YyFormModel
     public string Name { get; set; } = "主窗口";
     public string CodeFile { get; set; } = string.Empty;
     public string? LoadEvent { get; set; }
+    public string? OpenEvent { get; set; }
     public string? CloseEvent { get; set; }
     public string Title { get; set; } = "易语窗体";
     public double Width { get; set; } = 800;
@@ -37,6 +38,7 @@ public sealed class YyFormModel
             Name = Name,
             CodeFile = CodeFile,
             LoadEvent = LoadEvent,
+            OpenEvent = OpenEvent,
             CloseEvent = CloseEvent,
             Title = Title,
             Width = Width,

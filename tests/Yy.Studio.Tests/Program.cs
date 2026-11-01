@@ -18,6 +18,7 @@ Run("界面 XML 与生成关系分离", () =>
     {
         Name = "测试窗口",
         LoadEvent = "测试窗口_载入",
+        OpenEvent = "测试窗口_打开",
         CloseEvent = "测试窗口_关闭",
         Title = "客户登记",
         Width = 640,
@@ -60,6 +61,7 @@ Run("界面 XML 与生成关系分离", () =>
     var restoredBinding = YyFormBindingSerializer.Deserialize(bindingText);
     YyFormBindingSerializer.ApplyTo(restored, restoredBinding);
     Equal("测试窗口_载入", restored.LoadEvent);
+    Equal("测试窗口_打开", restored.OpenEvent);
     Equal("测试窗口_关闭", restored.CloseEvent);
     Equal("文本框_文本改变", restored.Controls[1].TextChangedEvent);
 
@@ -69,7 +71,7 @@ Run("界面 XML 与生成关系分离", () =>
     True(
         userCode.Functions.Any(function => function.Name == "文本框_文本改变"),
         "用户代码应只获得事件入口。");
-    Equal(3, userCode.Functions.Count);
+    Equal(4, userCode.Functions.Count);
 });
 
 Run("示例窗体读取", () =>

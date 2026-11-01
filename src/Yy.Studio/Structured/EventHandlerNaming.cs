@@ -12,6 +12,7 @@ public static class EventHandlerNaming
     public const string SelectionChanged = "列表项被选择";
     public const string CheckedChanged = "选中状态被改变";
     public const string FormLoad = "创建完毕";
+    public const string FormOpen = "窗口打开";
     public const string FormClose = "将被销毁";
 
     public static string ForControl(string controlName, string eventName) =>

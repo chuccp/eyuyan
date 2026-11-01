@@ -173,6 +173,8 @@ static void VerifyUiContract()
     True(
         typeof(IYyUiHost).GetInterfaces().Contains(typeof(IYyContext)),
         "界面宿主必须实现上下文契约。");
+    True(typeof(IYyWindowManager).IsInterface, "窗口管理器必须是独立契约。");
+    True(new YyWindowResult(true, "结果", YyWindowCloseReason.Confirmed).Accepted, "窗口结果必须保留确认状态。");
 }
 
 static void VerifyPackageSources()

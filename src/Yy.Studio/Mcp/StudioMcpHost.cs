@@ -217,6 +217,7 @@ public partial class MainWindow
                     : null,
                 xml = _designerDocument?.Text,
                 loadEvent = designForm.LoadEvent,
+                openEvent = designForm.OpenEvent,
                 closeEvent = designForm.CloseEvent,
                 controls = designForm.Controls.Select(control => new
                 {
@@ -512,14 +513,23 @@ public partial class MainWindow
         McpEnsureDesigner();
         if (controlName is "_窗口" or "窗口")
         {
-            var isLoad = eventName switch
+            var formKind = eventName switch
             {
-                "创建完毕" => true,
-                "将被销毁" => false,
-                _ => throw new InvalidOperationException("窗体事件只支持:创建完毕/将被销毁。")
+                "创建完毕" => "Load",
+                "窗口打开" => "Open",
+                "将被销毁" => "Close",
+                _ => throw new InvalidOperationException("窗体事件只支持:创建完毕/窗口打开/将被销毁。")
             };
-            CreateOrOpenFormEventHandler(isLoad);
-            return new { handler = isLoad ? _designForm!.LoadEvent : _designForm!.CloseEvent };
+            CreateOrOpenFormEventHandler(formKind);
+            return new
+            {
+                handler = formKind switch
+                {
+                    "Load" => _designForm!.LoadEvent,
+                    "Open" => _designForm!.OpenEvent,
+                    _ => _designForm!.CloseEvent
+                }
+            };
         }
 
         var control = McpFindControl(controlName);

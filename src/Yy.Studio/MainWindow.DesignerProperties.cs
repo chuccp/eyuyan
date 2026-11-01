@@ -199,6 +199,11 @@ public partial class MainWindow : Window
         });
         EventSelectorCombo.Items.Add(new ComboBoxItem
         {
+            Content = (string.IsNullOrWhiteSpace(_designForm?.OpenEvent) ? string.Empty : "✓ ") + EventHandlerNaming.FormOpen,
+            Tag = "Open"
+        });
+        EventSelectorCombo.Items.Add(new ComboBoxItem
+        {
             Content = (string.IsNullOrWhiteSpace(_designForm?.CloseEvent) ? string.Empty : "✓ ") + EventHandlerNaming.FormClose,
             Tag = "Close"
         });
@@ -244,7 +249,7 @@ public partial class MainWindow : Window
         }
         else if (tag is string formKind)
         {
-            CreateOrOpenFormEventHandler(formKind == "Load");
+            CreateOrOpenFormEventHandler(formKind);
         }
 
         _updatingDesignerProperties = true;
@@ -605,7 +610,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void CreateOrOpenFormEventHandler(bool isLoad)
+    private void CreateOrOpenFormEventHandler(string formKind)
     {
         if (_designForm is null)
         {
@@ -638,23 +643,40 @@ public partial class MainWindow : Window
             var model = string.IsNullOrWhiteSpace(existingText)
                 ? new YyCodeDocument { Name = _designForm.Name + "代码" }
                 : YyCodeSerializer.Deserialize(existingText);
-            handlerName = isLoad ? _designForm.LoadEvent : _designForm.CloseEvent;
+            handlerName = formKind switch
+            {
+                "Load" => _designForm.LoadEvent,
+                "Open" => _designForm.OpenEvent,
+                "Close" => _designForm.CloseEvent,
+                _ => null
+            };
             if (string.IsNullOrWhiteSpace(handlerName))
             {
+                var eventName = formKind switch
+                {
+                    "Load" => EventHandlerNaming.FormLoad,
+                    "Open" => EventHandlerNaming.FormOpen,
+                    "Close" => EventHandlerNaming.FormClose,
+                    _ => throw new InvalidOperationException("未知窗体事件。")
+                };
                 var baseName = EventHandlerNaming.ForForm(
                     _designForm.Name,
-                    isLoad ? EventHandlerNaming.FormLoad : EventHandlerNaming.FormClose);
+                    eventName);
                 var existingNames = model.Functions
                     .Select(function => function.Name)
                     .ToHashSet(StringComparer.Ordinal);
                 handlerName = EventHandlerNaming.Unique(baseName, existingNames.Contains);
-                if (isLoad)
+                switch (formKind)
                 {
-                    _designForm.LoadEvent = handlerName;
-                }
-                else
-                {
-                    _designForm.CloseEvent = handlerName;
+                    case "Load":
+                        _designForm.LoadEvent = handlerName;
+                        break;
+                    case "Open":
+                        _designForm.OpenEvent = handlerName;
+                        break;
+                    case "Close":
+                        _designForm.CloseEvent = handlerName;
+                        break;
                 }
             }
 
@@ -664,12 +686,12 @@ public partial class MainWindow : Window
                 var function = new YyCodeFunction
                 {
                     Name = handlerName,
-                    Remark = $"{_designForm.Name} · {(isLoad ? "载入" : "关闭")}"
+                    Remark = $"{_designForm.Name} · {FormEventDescription(formKind)}"
                 };
                 function.Statements.Add(new YyCodeStatement
                 {
                     Kind = YyCodeStatementKinds.Call,
-                    Expression = $"' 在这里编写窗体{(isLoad ? "载入" : "关闭")}逻辑。"
+                    Expression = $"' 在这里编写窗体{FormEventDescription(formKind)}逻辑。"
                 });
                 model.Functions.Add(function);
             }
@@ -713,6 +735,14 @@ public partial class MainWindow : Window
                 MessageBoxImage.Warning);
         }
     }
+
+    private static string FormEventDescription(string formKind) => formKind switch
+    {
+        "Load" => "载入",
+        "Open" => "打开",
+        "Close" => "关闭",
+        _ => "窗体事件"
+    };
 
     private static bool TryDesignerNumber(string text, double minimum, double maximum, out double value)
     {

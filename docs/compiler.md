@@ -59,7 +59,7 @@ yy version
 - `GetMessageW`、`TranslateMessageW` 和 `DispatchMessageW` 消息循环。
 - `WM_COMMAND` 按钮事件分发。
 - `SetWindowTextW` 原生文本更新。
-- 项目内多窗体的隐藏创建、`显示窗口`、`关闭窗口` 和跨窗体控件读写。
+- 项目内多窗体的隐藏创建、VS 式拥有者/模态循环、`参数`/`结果` 和确认/取消语义。
 
 `.yyx` 只保存界面；`.Designer.yyc` 用 `文件`、`界面`、`事件` 三个结构体保存 `@id/...` 映射和事件关系；用户逻辑始终位于 `.yyc`。IDE 中 `F5` 编译并运行当前工程，底部控制台显示编译、PID、输出和退出码；`Ctrl+Enter` 才使用 Studio 内的独立设计预览。两者都不会改变编译后端。
 

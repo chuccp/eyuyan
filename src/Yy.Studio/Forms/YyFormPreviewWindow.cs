@@ -83,6 +83,7 @@ public sealed class YyFormPreviewWindow : Window
         {
             ApplyDataBindings();
             await RunFormEventAsync(form.LoadEvent, "窗体载入");
+            await RunFormEventAsync(form.OpenEvent, "窗体打开");
         };
         Closing += OnWindowClosing;
 
@@ -307,6 +308,8 @@ public sealed class YyFormPreviewWindow : Window
         builder.AppendLine("    标题: 文本");
         builder.AppendLine("    宽: 数字");
         builder.AppendLine("    高: 数字");
+        builder.AppendLine("    参数: 文本");
+        builder.AppendLine("    结果: 文本");
         foreach (var control in _form.Controls)
         {
             builder.AppendLine($"    {control.Name}: 对象");
@@ -349,7 +352,9 @@ public sealed class YyFormPreviewWindow : Window
             ["名称"] = _form.Name,
             ["标题"] = Title,
             ["宽"] = _form.Width,
-            ["高"] = _form.Height
+            ["高"] = _form.Height,
+            ["参数"] = string.Empty,
+            ["结果"] = string.Empty
         };
         _formTitleBaseline = Title;
         foreach (var control in _form.Controls)

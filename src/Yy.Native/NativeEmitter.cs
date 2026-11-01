@@ -108,6 +108,7 @@ internal sealed partial class NativeEmitter
             EmitReadControlText();
             EmitWriteControlText();
             EmitWriteControlPicture();
+            EmitRunModal();
         }
         return new NativeGeneration(
             _code,
@@ -361,7 +362,8 @@ internal sealed partial class NativeEmitter
 
         if (assignment.Target is MemberExpression member)
         {
-            if (TryEmitObjectPropertyAssignment(member, assignment.Value, context) ||
+            if (TryEmitWindowStatePropertyAssignment(member, assignment.Value, context) ||
+                TryEmitObjectPropertyAssignment(member, assignment.Value, context) ||
                 TryEmitControlPropertyAssignment(member, assignment.Value, context))
             {
                 return;
@@ -432,6 +434,8 @@ internal sealed partial class NativeEmitter
                 EmitCall(call, context);
                 break;
             case MemberExpression member when TryEmitObjectPropertyRead(member, context):
+                break;
+            case MemberExpression member when TryEmitWindowStatePropertyRead(member, context):
                 break;
             case MemberExpression member when TryEmitControlPropertyRead(member, context):
                 break;
@@ -592,7 +596,7 @@ internal sealed partial class NativeEmitter
             return;
         }
 
-        if (TryEmitWindowVisibility(call, context))
+        if (TryEmitWindowCommand(call, context))
         {
             return;
         }

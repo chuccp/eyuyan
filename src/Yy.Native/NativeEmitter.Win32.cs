@@ -30,7 +30,7 @@ internal sealed partial class NativeEmitter
                      "RegisterClassExW", "CreateWindowExW",
                      "ShowWindow", "UpdateWindow", "SetForegroundWindow", "GetMessageW", "TranslateMessage",
                      "DispatchMessageW", "DefWindowProcW", "PostQuitMessage", "SetWindowTextW",
-                     "GetWindowTextW", "SendMessageW"
+                     "GetWindowTextW", "SendMessageW", "EnableWindow", "IsWindowVisible"
                  })
         {
             AddImport("user32.dll", name);
@@ -72,6 +72,7 @@ internal sealed partial class NativeEmitter
         _data.Align(8);
         _data.MarkLabel(_windowInstanceLabel);
         _data.AddUInt64(0);
+        var emptyTextLabel = _data.AddUtf8String(string.Empty);
 
         var nextControlId = 1001;
         for (var formIndex = 0; formIndex < _forms.Count; formIndex++)
@@ -80,6 +81,9 @@ internal sealed partial class NativeEmitter
             var classLabel = _data.AddUtf16String("YyNativeWindow_" + form.Name);
             var titleLabel = _data.AddUtf16String(form.Title);
             var handle = AddHandleSlot("ui_window_" + form.Name);
+            var parameter = AddPointerSlot("ui_window_parameter_" + formIndex, emptyTextLabel);
+            var result = AddPointerSlot("ui_window_result_" + formIndex, emptyTextLabel);
+            var accepted = AddHandleSlot("ui_window_accepted_" + formIndex);
             var formId = Yy.Compiler.YyResourceIndex.FormId(form.Name);
             _uiHandles[formId] = handle;
             _uiAliases[form.Name] = handle;
@@ -97,7 +101,11 @@ internal sealed partial class NativeEmitter
                 "window_class_" + formIndex,
                 (int)form.Width,
                 (int)form.Height,
+                parameter,
+                result,
+                accepted,
                 form.LoadEvent,
+                form.OpenEvent,
                 form.CloseEvent));
 
             for (var controlIndex = 0; controlIndex < form.Controls.Count; controlIndex++)
@@ -202,6 +210,12 @@ internal sealed partial class NativeEmitter
         }
 
         var startupForm = _uiForms[0];
+        if (startupForm.OpenEvent is not null &&
+            _functionLabels.TryGetValue(startupForm.OpenEvent, out var openLabel))
+        {
+            _code.CallCode(openLabel);
+        }
+
         _code.LoadRcxRip("data:" + startupForm.HandleLabel);
         _code.MovImmediate(NativeRegister.Rdx, 5);
         _code.CallImport("import:ShowWindow");
@@ -288,6 +302,14 @@ internal sealed partial class NativeEmitter
             _code.LoadRaxRip("data:" + form.HandleLabel);
             _code.CmpRaxRcx();
             _code.JumpIfNotZero(next);
+            _code.MovImmediate(NativeRegister.Rax, 0);
+            _code.StoreRaxRip("data:" + form.AcceptedLabel);
+            if (form.CloseEvent is not null &&
+                _functionLabels.TryGetValue(form.CloseEvent, out var closeEventLabel))
+            {
+                _code.CallCode(closeEventLabel);
+            }
+
             _code.LoadRcxFromRbp(-8);
             _code.MovImmediate(NativeRegister.Rdx, 0);
             _code.CallImport("import:ShowWindow");
@@ -492,54 +514,6 @@ internal sealed partial class NativeEmitter
         return false;
     }
 
-    private bool TryEmitWindowVisibility(
-        CallExpression call,
-        NativeContext context)
-    {
-        if (call.Callee is not IdentifierExpression identifier ||
-            identifier.Name is not ("显示窗口" or "关闭窗口"))
-        {
-            return false;
-        }
-
-        if (call.Arguments is not [LiteralExpression { Value: string requestedFormId }])
-        {
-            Fail(call, $"{identifier.Name} 需要一个静态窗体 @id/... 标识");
-            return true;
-        }
-
-        var form = _uiForms.FirstOrDefault(item =>
-            string.Equals(item.FormId, requestedFormId, StringComparison.Ordinal));
-        if (form is null)
-        {
-            Fail(call, $"没有找到窗体标识“{requestedFormId}”");
-            return true;
-        }
-
-        var visible = identifier.Name == "显示窗口";
-        if (!visible &&
-            form.CloseEvent is not null &&
-            _functionLabels.TryGetValue(form.CloseEvent, out var closeHandler))
-        {
-            _code.CallCode(closeHandler);
-        }
-
-        _code.LoadRcxRip("data:" + form.HandleLabel);
-        _code.MovImmediate(NativeRegister.Rdx, visible ? 5 : 0);
-        _code.CallImport("import:ShowWindow");
-        if (visible)
-        {
-            _code.LoadRcxRip("data:" + form.HandleLabel);
-            _code.CallImport("import:UpdateWindow");
-            _code.LoadRcxRip("data:" + form.HandleLabel);
-            _code.CallImport("import:SetForegroundWindow");
-        }
-
-        _code.MovImmediate(NativeRegister.Rax, 1);
-        context.LastKind = NativeValueKind.Boolean;
-        return true;
-    }
-
     private void AddImport(string dll, string function)
     {
         if (!_imports.TryGetValue(dll, out var functions))
@@ -557,6 +531,15 @@ internal sealed partial class NativeEmitter
         _data.Align(8);
         _data.MarkLabel(label);
         _data.AddUInt64(0);
+        return label;
+    }
+
+    private string AddPointerSlot(string name, string target)
+    {
+        var label = "pointer_" + name;
+        _data.Align(8);
+        _data.MarkLabel(label);
+        _data.AddFixup(FixupTargetKind.DataLabel, target);
         return label;
     }
 
@@ -613,6 +596,10 @@ internal sealed partial class NativeEmitter
         string ClassStructLabel,
         int Width,
         int Height,
+        string ParameterLabel,
+        string ResultLabel,
+        string AcceptedLabel,
         string? LoadEvent,
+        string? OpenEvent,
         string? CloseEvent);
 }

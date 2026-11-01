@@ -17,7 +17,7 @@ internal static class Builtins
         "UTF8编码", "UTF8解码", "取文本左边", "取文本右边", "取文本中间",
         "取环境变量", "取运行目录", "取启动时间", "延时",
         "文件存在", "取目录文件", "删除文件", "读文件", "写文件", "断点", "取控件",
-        "显示窗口", "关闭窗口", "运行程序"
+        "打开窗口", "显示窗口", "关闭窗口", "运行程序"
     ];
 
     public static void Install(
@@ -70,18 +70,30 @@ internal static class Builtins
             return controlResolver?.Invoke(id)
                 ?? throw new YyRuntimeError($"没有找到标识为“{id}”的界面控件", 1, 1);
         });
-        Add("显示窗口", 1, 1, args =>
+        Add("打开窗口", 2, 2, args =>
+        {
+            _ = RequireString(args[0], "打开窗口");
+            _ = RequireString(args[1], "打开窗口");
+            throw new YyRuntimeError(
+                "当前运行环境没有窗口管理器",
+                1,
+                1,
+                "项目运行请使用 F5 原生窗口。");
+        });
+        Add("显示窗口", 2, 2, args =>
         {
             _ = RequireString(args[0], "显示窗口");
+            _ = RequireString(args[1], "显示窗口");
             throw new YyRuntimeError(
                 "当前运行环境没有可显示的目标窗口",
                 1,
                 1,
                 "项目运行请使用 F5 原生窗口。");
         });
-        Add("关闭窗口", 1, 1, args =>
+        Add("关闭窗口", 2, 2, args =>
         {
             _ = RequireString(args[0], "关闭窗口");
+            _ = Interpreter.IsTruthy(args[1]);
             throw new YyRuntimeError(
                 "当前运行环境没有可关闭的目标窗口",
                 1,

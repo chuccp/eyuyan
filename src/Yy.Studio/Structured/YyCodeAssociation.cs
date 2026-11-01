@@ -59,6 +59,15 @@ public sealed class YyCodeAssociation
                 functions));
         }
 
+        if (!string.IsNullOrWhiteSpace(form.OpenEvent))
+        {
+            formEvents.Add(CreateEvent(
+                form.Name,
+                "窗体",
+                (form.OpenEvent, "打开"),
+                functions));
+        }
+
         if (!string.IsNullOrWhiteSpace(form.CloseEvent))
         {
             formEvents.Add(CreateEvent(

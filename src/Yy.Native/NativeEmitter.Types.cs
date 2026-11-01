@@ -17,6 +17,9 @@ internal sealed partial class NativeEmitter
                 field.Kind,
             IdentifierExpression identifier when context.Types.TryGetValue(identifier.Name, out var kind) =>
                 kind,
+            MemberExpression { Member: "参数" or "结果" } member
+                when GetWindowStateLabel(member, context) is not null =>
+                NativeValueKind.Text,
             MemberExpression { Member: "文本" or "标题" } member
                 when TryGetUiHandle(member.Target, context, out _) =>
                 NativeValueKind.Text,
@@ -38,7 +41,7 @@ internal sealed partial class NativeEmitter
                 NativeValueKind.Array,
             CallExpression
             {
-                Callee: IdentifierExpression { Name: "显示窗口" or "关闭窗口" }
+                Callee: IdentifierExpression { Name: "打开窗口" or "显示窗口" or "关闭窗口" }
             } => NativeValueKind.Boolean,
             CallExpression { Callee: IdentifierExpression { Name: "数字" } } =>
                 NativeValueKind.Integer,

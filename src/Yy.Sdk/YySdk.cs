@@ -109,8 +109,8 @@ public static class YySdk
             YyPackageKind.Platform,
             YyPackageStatus.Preview,
             "平台窗口、控件和基于资源 ID 的界面上下文。",
-            ["窗口", "控件", "按钮", "文本", "输入框", "图片框", "取控件"],
-            ["取控件", "显示窗口", "关闭窗口"],
+            ["窗口", "窗口管理器", "窗口结果", "控件", "按钮", "文本", "输入框", "图片框", "取控件"],
+            ["取控件", "打开窗口", "显示窗口", "关闭窗口"],
             [CorePackage]),
         new(
             FilePackage,
@@ -384,4 +384,30 @@ public interface IYyUiHost : IYyContext
     void Show();
     int RunMessageLoop();
     void Close();
+}
+
+public enum YyWindowMode
+{
+    Modeless,
+    Modal
+}
+
+public enum YyWindowCloseReason
+{
+    User,
+    Confirmed,
+    Cancelled
+}
+
+public readonly record struct YyWindowResult(
+    bool Accepted,
+    string Data,
+    YyWindowCloseReason Reason);
+
+/// <summary>应用级窗口管理器；窗口实例、拥有者、模态和结果集中管理。</summary>
+public interface IYyWindowManager
+{
+    bool Open(string windowId, string ownerId, YyWindowMode mode);
+    bool Close(string windowId, bool accepted);
+    YyWindowResult GetResult(string windowId);
 }

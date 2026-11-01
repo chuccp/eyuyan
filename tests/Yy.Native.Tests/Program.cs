@@ -17,7 +17,7 @@ Run("原生子进程与退出码", TestProcess);
 Run("原生子程序与隐式主程序", TestFunctions);
 Run("隐式入口与无 CLR 依赖", TestImplicitEntry);
 Run("原生 Win32 窗口与按钮事件", TestWin32Window);
-Run("原生 Win32 双窗口回写", TestWin32WindowInteraction);
+Run("原生 Win32 模态窗口结果", TestWin32WindowInteraction);
 
 if (failures > 0)
 {
@@ -482,10 +482,11 @@ static void TestWin32WindowInteraction()
             "Button",
             "修改文字");
         True(modifyButton != IntPtr.Zero, "没有找到 A 窗口的修改按钮。");
-        NativeUiProbe.ClickButton(modifyButton);
+        NativeUiProbe.PostClickButton(modifyButton);
         True(
             WaitUntil(() => NativeUiProbe.IsWindowVisible(editorWindow), 2000),
             "点击修改后 B 窗口没有显示。");
+        True(!NativeUiProbe.IsWindowEnabled(mainWindow), "模态打开 B 后 A 窗口应当被禁用。");
 
         var editor = AutomationElement.FromHandle(editorWindow);
         var input = editor.FindFirst(
@@ -494,8 +495,9 @@ static void TestWin32WindowInteraction()
                 AutomationElement.ControlTypeProperty,
                 ControlType.Edit));
         True(input is not null, "没有找到 B 窗口的输入框。");
-        ((ValuePattern)input!.GetCurrentPattern(ValuePattern.Pattern))
-            .SetValue("来自 B 窗口的新文字");
+        var inputPattern = (ValuePattern)input!.GetCurrentPattern(ValuePattern.Pattern);
+        Equal("这是 A 窗口的原始文字。", inputPattern.Current.Value);
+        inputPattern.SetValue("来自 B 窗口的新文字");
 
         var confirmButton = NativeUiProbe.FindWindowEx(
             editorWindow,
@@ -503,10 +505,13 @@ static void TestWin32WindowInteraction()
             "Button",
             "确认");
         True(confirmButton != IntPtr.Zero, "没有找到 B 窗口的确认按钮。");
-        NativeUiProbe.ClickButton(confirmButton);
+        NativeUiProbe.PostClickButton(confirmButton);
         True(
             WaitUntil(() => !NativeUiProbe.IsWindowVisible(editorWindow), 2000),
             "点击确认后 B 窗口没有关闭。");
+        True(
+            WaitUntil(() => NativeUiProbe.IsWindowEnabled(mainWindow), 2000),
+            "确认关闭 B 后 A 窗口没有恢复启用。");
 
         var caption = NativeUiProbe.FindWindowEx(
             mainWindow,
@@ -520,6 +525,35 @@ static void TestWin32WindowInteraction()
             "Static",
             null);
         True(content != IntPtr.Zero, "没有找到 A 窗口的内容标签。");
+        Equal("来自 B 窗口的新文字", NativeUiProbe.GetWindowText(content));
+
+        NativeUiProbe.PostClickButton(modifyButton);
+        True(
+            WaitUntil(() => NativeUiProbe.IsWindowVisible(editorWindow), 2000),
+            "第二次打开 B 窗口失败。");
+        editor = AutomationElement.FromHandle(editorWindow);
+        input = editor.FindFirst(
+            TreeScope.Descendants,
+            new PropertyCondition(
+                AutomationElement.ControlTypeProperty,
+                ControlType.Edit));
+        True(input is not null, "第二次没有找到 B 窗口的输入框。");
+        inputPattern = (ValuePattern)input!.GetCurrentPattern(ValuePattern.Pattern);
+        Equal("来自 B 窗口的新文字", inputPattern.Current.Value);
+        inputPattern.SetValue("这段取消修改不应写回");
+        var cancelButton = NativeUiProbe.FindWindowEx(
+            editorWindow,
+            IntPtr.Zero,
+            "Button",
+            "取消");
+        True(cancelButton != IntPtr.Zero, "没有找到 B 窗口的取消按钮。");
+        NativeUiProbe.PostClickButton(cancelButton);
+        True(
+            WaitUntil(() => !NativeUiProbe.IsWindowVisible(editorWindow), 2000),
+            "点击取消后 B 窗口没有关闭。");
+        True(
+            WaitUntil(() => NativeUiProbe.IsWindowEnabled(mainWindow), 2000),
+            "取消关闭 B 后 A 窗口没有恢复启用。");
         Equal("来自 B 窗口的新文字", NativeUiProbe.GetWindowText(content));
     }
     finally
@@ -633,6 +667,10 @@ internal static partial class NativeUiProbe
     [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
     private static extern bool IsWindowVisibleNative(IntPtr window);
 
+    [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "IsWindowEnabled")]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+    private static extern bool IsWindowEnabledNative(IntPtr window);
+
     [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "FindWindowExW", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
     private static extern IntPtr FindWindowExNative(
         IntPtr parent,
@@ -645,6 +683,14 @@ internal static partial class NativeUiProbe
 
     [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "SendMessageW", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
     private static extern IntPtr SendMessageNative(
+        IntPtr window,
+        uint message,
+        IntPtr wParam,
+        IntPtr lParam);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "PostMessageW")]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+    private static extern bool PostMessageNative(
         IntPtr window,
         uint message,
         IntPtr wParam,
@@ -667,11 +713,17 @@ internal static partial class NativeUiProbe
     internal static void ClickButton(IntPtr button) =>
         _ = SendMessageNative(button, 0x00F5, IntPtr.Zero, IntPtr.Zero);
 
+    internal static void PostClickButton(IntPtr button) =>
+        _ = PostMessageNative(button, 0x00F5, IntPtr.Zero, IntPtr.Zero);
+
     internal static IntPtr GetImage(IntPtr control) =>
         SendMessageNative(control, 0x0173, IntPtr.Zero, IntPtr.Zero);
 
     internal static bool IsWindowVisible(IntPtr window) =>
         IsWindowVisibleNative(window);
+
+    internal static bool IsWindowEnabled(IntPtr window) =>
+        IsWindowEnabledNative(window);
 
     internal static IntPtr FindProcessWindow(int processId, string title)
     {
