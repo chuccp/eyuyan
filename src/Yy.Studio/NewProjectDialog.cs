@@ -2,6 +2,8 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Effects;
+using System.Windows.Shell;
 using Microsoft.Win32;
 using Yy.Compiler;
 using Yy.Compiler.Forms;
@@ -36,8 +38,20 @@ public sealed class NewProjectDialog : Window
         MinWidth = 580;
         MinHeight = 460;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        ResizeMode = ResizeMode.CanResizeWithGrip;
-        Background = (Brush)Application.Current.FindResource("WindowBrush");
+        WindowStyle = WindowStyle.None;
+        AllowsTransparency = true;
+        ResizeMode = ResizeMode.NoResize;
+        Background = Brushes.Transparent;
+        WindowChrome.SetWindowChrome(
+            this,
+            new WindowChrome
+            {
+                CaptionHeight = 0,
+                ResizeBorderThickness = new Thickness(6),
+                GlassFrameThickness = new Thickness(0),
+                CornerRadius = new CornerRadius(12),
+                UseAeroCaptionButtons = false
+            });
 
         var root = new Grid { Margin = new Thickness(24, 20, 24, 18) };
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -73,10 +87,9 @@ public sealed class NewProjectDialog : Window
         {
             Margin = new Thickness(0, 8, 0, 0),
             Padding = new Thickness(12, 10, 12, 10),
-            Background = (Brush)Application.Current.FindResource("PanelBrush"),
-            BorderBrush = (Brush)Application.Current.FindResource("BorderBrush"),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(4),
+            Background = (Brush)Application.Current.FindResource("FaceBrush"),
+            BorderThickness = new Thickness(0),
+            CornerRadius = new CornerRadius(12),
             Child = new StackPanel
             {
                 Children =
@@ -99,8 +112,15 @@ public sealed class NewProjectDialog : Window
         Grid.SetRow(structure, 5);
         Grid.SetColumn(structure, 1);
         form.Children.Add(structure);
-        Grid.SetRow(form, 1);
-        root.Children.Add(form);
+        var formCard = new Border
+        {
+            Padding = new Thickness(20, 18, 20, 18),
+            CornerRadius = new CornerRadius(12),
+            Background = (Brush)Application.Current.FindResource("PanelRaisedBrush"),
+            Child = form
+        };
+        Grid.SetRow(formCard, 1);
+        root.Children.Add(formCard);
 
         var footer = new Grid { Margin = new Thickness(0, 18, 0, 0) };
         footer.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -125,20 +145,23 @@ public sealed class NewProjectDialog : Window
         var cancel = new Button
         {
             Content = "取消",
-            Width = 86,
+            MinWidth = 86,
+            Height = 30,
+            Padding = new Thickness(16, 4, 16, 4),
             IsCancel = true,
             Margin = new Thickness(0, 0, 8, 0)
         };
         var create = new Button
         {
             Content = "创建",
-            Width = 86,
+            MinWidth = 86,
+            Height = 30,
+            Padding = new Thickness(16, 4, 16, 4),
+            Foreground = Brushes.White,
+            Background = (Brush)Application.Current.FindResource("AccentBrush"),
+            BorderBrush = (Brush)Application.Current.FindResource("AccentBrush"),
             IsDefault = true
         };
-        if (TryFindResource("RunButton") is Style createStyle)
-        {
-            create.Style = createStyle;
-        }
 
         create.Click += OnCreate;
         buttons.Children.Add(cancel);
@@ -150,7 +173,39 @@ public sealed class NewProjectDialog : Window
         Grid.SetRow(footer, 2);
         root.Children.Add(footer);
 
-        Content = root;
+        var layout = new Grid();
+        layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(38) });
+        layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        layout.Children.Add(CreateCaption());
+        Grid.SetRow(root, 1);
+        layout.Children.Add(root);
+        var contentSurface = new Border
+        {
+            Margin = new Thickness(1),
+            CornerRadius = new CornerRadius(11),
+            Background = (Brush)Application.Current.FindResource("WindowBrush"),
+            Child = layout
+        };
+        RoundedClipBehavior.SetRadius(contentSurface, 11);
+
+        var frame = new Border
+        {
+            Margin = new Thickness(12),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(174, 180, 188)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(12),
+            Background = (Brush)Application.Current.FindResource("WindowBrush"),
+            Effect = new DropShadowEffect
+            {
+                Color = Color.FromRgb(42, 47, 54),
+                BlurRadius = 18,
+                ShadowDepth = 3,
+                Direction = 270,
+                Opacity = 0.20
+            },
+            Child = contentSurface
+        };
+        Content = frame;
         _nameBox.Text = "我的应用";
         _packageBox.Text = "myapp";
         _locationBox.Text = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
@@ -163,6 +218,54 @@ public sealed class NewProjectDialog : Window
             _nameBox.Focus();
             _nameBox.SelectAll();
         };
+    }
+
+    private UIElement CreateCaption()
+    {
+        var header = new Grid
+        {
+            Background = (Brush)Application.Current.FindResource("PanelBrush")
+        };
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        header.Children.Add(new Border
+        {
+            Width = 30,
+            Height = 30,
+            Margin = new Thickness(14, 0, 10, 0),
+            CornerRadius = new CornerRadius(6),
+            Background = (Brush)Application.Current.FindResource("AccentBrush"),
+            Child = new TextBlock
+            {
+                Text = "易",
+                Foreground = Brushes.White,
+                FontSize = 16,
+                FontWeight = FontWeights.SemiBold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            }
+        });
+        var title = new TextBlock
+        {
+            Text = "新建项目",
+            FontSize = 13,
+            FontWeight = FontWeights.SemiBold,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        Grid.SetColumn(title, 1);
+        header.Children.Add(title);
+        var close = IdeDialogChrome.CreateCloseButton(Close);
+        Grid.SetColumn(close, 2);
+        header.Children.Add(close);
+        header.MouseLeftButtonDown += (_, e) =>
+        {
+            if (e.LeftButton == System.Windows.Input.MouseButtonState.Pressed)
+            {
+                DragMove();
+            }
+        };
+        return header;
     }
 
     private UIElement CreateLocationRow()

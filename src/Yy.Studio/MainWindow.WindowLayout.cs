@@ -10,6 +10,7 @@ namespace Yy.Studio;
 public partial class MainWindow
 {
     private const double ToolWindowRailSize = 28;
+    private const double ToolPanelInset = 6;
 
     private enum ToolWindowKind
     {
@@ -74,36 +75,50 @@ public partial class MainWindow
         {
             var configuration = ToolWindowConfiguration(kind);
             var view = ToolWindowView(kind);
-            view.Margin =
-                configuration.Dock == StudioToolWindowConfiguration.RightDock &&
+            view.Margin = ToolWindowMargin(
+                configuration.Dock,
                 toolboxVisible &&
-                configuration.State == StudioToolWindowConfiguration.VisibleState
-                    ? new Thickness(0, 0, 132, 0)
-                    : new Thickness(0);
+                configuration.State == StudioToolWindowConfiguration.VisibleState);
         }
 
         UpdateDockColumns(toolboxVisible);
         UpdateMinimizedRails(toolboxVisible);
     }
 
+    private static Thickness ToolWindowMargin(string dock, bool toolboxVisible)
+    {
+        var right = toolboxVisible &&
+            string.Equals(
+                dock,
+                StudioToolWindowConfiguration.RightDock,
+                StringComparison.Ordinal)
+                ? 132 + ToolPanelInset
+                : ToolPanelInset;
+        return new Thickness(
+            ToolPanelInset,
+            ToolPanelInset,
+            right,
+            ToolPanelInset);
+    }
+
     private static void PlaceToolWindow(FrameworkElement view, string dock)
     {
+        Grid.SetColumnSpan(view, 1);
+        Grid.SetRowSpan(view, 1);
         switch (dock)
         {
             case StudioToolWindowConfiguration.RightDock:
                 Grid.SetColumn(view, 4);
                 Grid.SetRow(view, 0);
-                Grid.SetRowSpan(view, 3);
                 break;
             case StudioToolWindowConfiguration.BottomDock:
-                Grid.SetColumn(view, 2);
+                Grid.SetColumn(view, 0);
+                Grid.SetColumnSpan(view, 5);
                 Grid.SetRow(view, 2);
-                Grid.SetRowSpan(view, 1);
                 break;
             default:
                 Grid.SetColumn(view, 0);
                 Grid.SetRow(view, 0);
-                Grid.SetRowSpan(view, 3);
                 break;
         }
     }
@@ -396,6 +411,24 @@ public partial class MainWindow
         {
             SetToolWindowState(kind, StudioToolWindowConfiguration.VisibleState);
         }
+    }
+
+    private void OnProjectActionRailClick(object sender, RoutedEventArgs e)
+    {
+        var visible = Configuration.WindowLayout.Project.State !=
+            StudioToolWindowConfiguration.VisibleState;
+        SetProjectToolWindowVisible(visible);
+        PersistWindowLayout(markCustom: true);
+        SetStatus(visible ? "已显示项目工具窗口" : "已隐藏项目工具窗口", ReadyBrush);
+    }
+
+    private void OnWorkToolsActionRailClick(object sender, RoutedEventArgs e)
+    {
+        var visible = Configuration.WindowLayout.WorkTools.State !=
+            StudioToolWindowConfiguration.VisibleState;
+        SetRightToolsVisible(visible);
+        PersistWindowLayout(markCustom: true);
+        SetStatus(visible ? "已显示程序/属性工具窗口" : "已隐藏程序/属性工具窗口", ReadyBrush);
     }
 
     private void OnApplyLayoutPreset(object sender, RoutedEventArgs e)

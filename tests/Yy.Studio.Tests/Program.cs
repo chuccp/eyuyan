@@ -211,6 +211,7 @@ Run("帮助开发文档覆盖语言与 SDK", DocumentationRegression.VerifyCatal
 Run("界面源码与设计器事件兼容", FormSourceEditingRegression.Verify);
 Run("开发文档窗口可创建", DocumentationRegression.VerifyWindow);
 Run("IDEA 式窗口布局配置", WindowLayoutRegression.Verify);
+Run("IDEA 式欢迎页与对话框", DialogVisualRegression.Verify);
 
 Run("Studio 配置文件解析", () =>
 {

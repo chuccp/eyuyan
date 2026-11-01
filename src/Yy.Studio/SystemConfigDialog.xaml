@@ -8,7 +8,7 @@
         MinHeight="520"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
-        Background="White"
+        Background="{DynamicResource WindowBrush}"
         FontFamily="Microsoft YaHei UI"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True">
@@ -101,8 +101,8 @@
 
         <Border Grid.Row="0"
                 BorderBrush="{StaticResource SettingsBorderBrush}"
-                BorderThickness="0,0,0,1"
-                Background="#FFFFFF">
+                BorderThickness="0"
+                Background="{DynamicResource PanelBrush}">
             <TextBlock Text="设置"
                        FontSize="18"
                        FontWeight="SemiBold"
@@ -117,9 +117,9 @@
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0"
-                    Background="#F7F8FA"
+                    Background="{DynamicResource WindowBrush}"
                     BorderBrush="{StaticResource SettingsBorderBrush}"
-                    BorderThickness="0,0,1,0">
+                    BorderThickness="0">
                 <DockPanel Margin="0,12,0,12">
                     <TextBlock DockPanel.Dock="Top"
                                Text="易语 Studio"
@@ -231,7 +231,7 @@
                                      IsReadOnly="True"
                                      Height="32"
                                      Padding="7,4"
-                                     Background="#F7F8FA" />
+                                     Background="{DynamicResource FaceBrush}" />
                             <TextBlock Style="{StaticResource SettingHint}"
                                        Text="用户配置优先于安装目录中的便携配置。修改 MCP 端口或快捷键后需要重启 Studio 才能刷新服务与输入绑定。" />
                             <Button Content="打开配置文件"
@@ -246,9 +246,9 @@
         </Grid>
 
         <Border Grid.Row="2"
-                Background="#F7F8FA"
+                Background="{DynamicResource PanelBrush}"
                 BorderBrush="{StaticResource SettingsBorderBrush}"
-                BorderThickness="0,1,0,0">
+                BorderThickness="0">
             <Grid Margin="18,0">
                 <TextBlock x:Name="ValidationText"
                            Foreground="#C42B1C"

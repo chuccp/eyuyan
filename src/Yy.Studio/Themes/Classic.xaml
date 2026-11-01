@@ -31,12 +31,12 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Chrome" Property="Background" Value="#EAF2FA" />
-                            <Setter TargetName="Chrome" Property="BorderBrush" Value="#C8E0F5" />
+                            <Setter TargetName="Chrome" Property="Background" Value="#ECEEF1" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="#D5D9DE" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="Chrome" Property="Background" Value="#D6E9FA" />
-                            <Setter TargetName="Chrome" Property="BorderBrush" Value="#8BB8DF" />
+                            <Setter TargetName="Chrome" Property="Background" Value="#E1E4E8" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="#BFC5CC" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Foreground" Value="#808080" />
@@ -79,11 +79,11 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Outer" Property="Background" Value="#EAF2FA" />
-                            <Setter TargetName="Outer" Property="BorderBrush" Value="#8BB8DF" />
+                            <Setter TargetName="Outer" Property="Background" Value="#ECEEF1" />
+                            <Setter TargetName="Outer" Property="BorderBrush" Value="#D5D9DE" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="Outer" Property="Background" Value="#D6E9FA" />
+                            <Setter TargetName="Outer" Property="Background" Value="#E1E4E8" />
                             <Setter TargetName="Outer" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
@@ -292,6 +292,7 @@
                         </Grid.RowDefinitions>
                         <Border x:Name="Bd"
                                 Background="Transparent"
+                                CornerRadius="5"
                                 Padding="1,1">
                             <StackPanel Orientation="Horizontal">
                                 <ToggleButton x:Name="Exp"
@@ -334,8 +335,8 @@
                             <Setter TargetName="Exp" Property="Visibility" Value="Hidden" />
                         </Trigger>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentBrush}" />
-                            <Setter Property="Foreground" Value="{DynamicResource HighlightTextBrush}" />
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource FaceBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Foreground" Value="{DynamicResource SunkenShadowBrush}" />
@@ -364,6 +365,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="Transparent"
                             BorderThickness="0,0,0,2"
+                            CornerRadius="6,6,0,0"
                             Padding="{TemplateBinding Padding}"
                             Margin="1,2,1,0">
                         <ContentPresenter ContentSource="Header"
@@ -377,7 +379,7 @@
                             <Setter Property="FontWeight" Value="SemiBold" />
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="TabFace" Property="Background" Value="#EAF2FA" />
+                            <Setter TargetName="TabFace" Property="Background" Value="#ECEEF1" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

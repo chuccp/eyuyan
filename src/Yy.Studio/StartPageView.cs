@@ -2,22 +2,15 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Effects;
 
 namespace Yy.Studio;
 
-/// <summary>
-/// 起始页(对齐官方第一步):蓝色横幅 + 「最近的项目」面板(新建|打开…|最近|清空 + 最近列表) + 快速入门。
-/// 启动先到起始页,由用户选择新建/打开;关闭全部文档后回到起始页。
-/// </summary>
+/// <summary>IDEA 式欢迎页：最近项目与快速开始。</summary>
 public sealed class StartPageView : UserControl
 {
     private readonly ListBox _recentList = new();
-    private readonly TextBlock _recentEmpty = new()
-    {
-        Text = "（暂无最近项目。使用“新建”或“打开…”开始。）",
-        Foreground = new SolidColorBrush(Color.FromRgb(120, 130, 145)),
-        Margin = new Thickness(2, 8, 2, 2)
-    };
+    private readonly TextBlock _recentEmpty;
 
     public event Action? NewRequested;
     public event Action? OpenRequested;
@@ -26,94 +19,124 @@ public sealed class StartPageView : UserControl
 
     public StartPageView()
     {
-        Background = new SolidColorBrush(Color.FromRgb(244, 247, 251));
-        var root = new DockPanel { LastChildFill = true };
-
-        // 蓝色横幅(官方样式)
-        var banner = new Border
+        Background = Brushes.Transparent;
+        _recentEmpty = new TextBlock
         {
-            Height = 72,
-            Padding = new Thickness(18, 10, 18, 10)
+            Text = "暂无最近项目",
+            Foreground = ResourceBrush("MutedBrush", Color.FromRgb(111, 115, 122)),
+            Margin = new Thickness(4, 18, 4, 4)
         };
-        banner.Background = new LinearGradientBrush(
-            Color.FromRgb(11, 62, 138), Color.FromRgb(52, 116, 200), 0);
-        var bannerPanel = new StackPanel { Orientation = Orientation.Horizontal };
-        bannerPanel.Children.Add(new Border
+
+        var root = new Grid { Margin = new Thickness(28, 24, 28, 24) };
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        root.Children.Add(CreateHeader());
+
+        var cards = new Grid { Margin = new Thickness(0, 22, 0, 0) };
+        cards.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.1, GridUnitType.Star) });
+        cards.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18) });
+        cards.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var recentCard = CreateCard(BuildRecentCard());
+        var quickCard = CreateCard(BuildQuickStartCard());
+        Grid.SetColumn(recentCard, 0);
+        Grid.SetColumn(quickCard, 2);
+        cards.Children.Add(recentCard);
+        cards.Children.Add(quickCard);
+        Grid.SetRow(cards, 1);
+        root.Children.Add(cards);
+        Content = root;
+    }
+
+    private UIElement CreateHeader()
+    {
+        var header = new Grid();
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var mark = new Border
         {
-            Width = 46,
-            Height = 46,
-            CornerRadius = new CornerRadius(8),
-            Background = new SolidColorBrush(Color.FromRgb(217, 48, 37)),
+            Width = 52,
+            Height = 52,
+            CornerRadius = new CornerRadius(12),
+            Background = ResourceBrush("AccentBrush", Color.FromRgb(53, 116, 240)),
+            Margin = new Thickness(0, 0, 16, 0),
             Child = new TextBlock
             {
                 Text = "易",
                 Foreground = Brushes.White,
-                FontSize = 26,
+                FontSize = 28,
                 FontWeight = FontWeights.Bold,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
-            },
-            Margin = new Thickness(0, 0, 14, 0)
-        });
+            }
+        };
+        header.Children.Add(mark);
+
         var titles = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         titles.Children.Add(new TextBlock
         {
-            Text = "易语 Studio",
-            Foreground = Brushes.White,
-            FontSize = 24,
-            FontWeight = FontWeights.Bold
+            Text = "欢迎使用 易语 Studio",
+            FontSize = 27,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = ResourceBrush("TextBrush", Color.FromRgb(31, 35, 40))
         });
         titles.Children.Add(new TextBlock
         {
-            Text = "全中文全可视结构化编程语言",
-            Foreground = new SolidColorBrush(Color.FromRgb(196, 216, 242)),
+            Text = "创建、打开或继续最近的易语项目",
+            Margin = new Thickness(1, 5, 0, 0),
             FontSize = 12.5,
-            Margin = new Thickness(2, 2, 0, 0)
+            Foreground = ResourceBrush("MutedBrush", Color.FromRgb(111, 115, 122))
         });
-        bannerPanel.Children.Add(titles);
-        banner.Child = bannerPanel;
-        DockPanel.SetDock(banner, Dock.Top);
-        root.Children.Add(banner);
+        Grid.SetColumn(titles, 1);
+        header.Children.Add(titles);
+        return header;
+    }
 
-        var body = new Grid { Margin = new Thickness(14) };
-        body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(260) });
-        body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
-        body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+    private UIElement BuildRecentCard()
+    {
+        var panel = new Grid();
+        panel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        panel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        panel.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
-        // 左:最近的项目
-        var recentPanel = new Border
-        {
-            BorderBrush = new SolidColorBrush(Color.FromRgb(128, 128, 128)),
-            BorderThickness = new Thickness(1),
-            Background = Brushes.White
-        };
-        var recentGrid = new Grid { Margin = new Thickness(10) };
-        recentGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        recentGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        recentGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        recentGrid.Children.Add(new TextBlock
+        var heading = new Grid();
+        heading.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        heading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        heading.Children.Add(new TextBlock
         {
             Text = "最近的项目",
+            FontSize = 16,
             FontWeight = FontWeights.SemiBold,
-            FontSize = 12.5
+            Foreground = ResourceBrush("TextBrush", Color.FromRgb(31, 35, 40))
         });
 
-        var links = new StackPanel
+        var actions = new StackPanel
         {
             Orientation = Orientation.Horizontal,
-            Margin = new Thickness(0, 8, 0, 8)
+            HorizontalAlignment = HorizontalAlignment.Right
         };
-        links.Children.Add(MakeLink("新建", () => NewRequested?.Invoke()));
-        links.Children.Add(MakeLink("打开…", () => OpenRequested?.Invoke()));
-        links.Children.Add(MakeLink("最近", () => _recentList.Focus()));
-        links.Children.Add(MakeLink("清空", () => ClearRequested?.Invoke()));
-        Grid.SetRow(links, 1);
-        recentGrid.Children.Add(links);
+        actions.Children.Add(MakeActionButton("新建", () => NewRequested?.Invoke()));
+        actions.Children.Add(MakeActionButton("打开…", () => OpenRequested?.Invoke()));
+        actions.Children.Add(MakeActionButton("清空", () => ClearRequested?.Invoke()));
+        Grid.SetColumn(actions, 1);
+        heading.Children.Add(actions);
+        panel.Children.Add(heading);
+
+        var separator = new Border
+        {
+            Height = 1,
+            Margin = new Thickness(0, 12, 0, 6),
+            Background = ResourceBrush("BorderBrush", Color.FromRgb(216, 219, 223))
+        };
+        Grid.SetRow(separator, 1);
+        panel.Children.Add(separator);
 
         var recentHost = new Grid();
         recentHost.Children.Add(_recentEmpty);
-        _recentList.Background = Brushes.White;
+        _recentList.Background = Brushes.Transparent;
         _recentList.BorderThickness = new Thickness(0);
+        _recentList.Padding = new Thickness(0, 2, 0, 0);
         _recentList.MouseDoubleClick += (_, _) =>
         {
             if (_recentList.SelectedItem is string path)
@@ -123,54 +146,91 @@ public sealed class StartPageView : UserControl
         };
         recentHost.Children.Add(_recentList);
         Grid.SetRow(recentHost, 2);
-        recentGrid.Children.Add(recentHost);
-        recentPanel.Child = recentGrid;
-        Grid.SetColumn(recentPanel, 0);
-        body.Children.Add(recentPanel);
-
-        // 右:快速入门(替代官方资讯区的本地内容)
-        var help = new Border
-        {
-            BorderBrush = new SolidColorBrush(Color.FromRgb(128, 128, 128)),
-            BorderThickness = new Thickness(1),
-            Background = Brushes.White
-        };
-        var helpText = new TextBlock
-        {
-            Margin = new Thickness(14, 10, 14, 10),
-            TextWrapping = TextWrapping.Wrap,
-            FontSize = 12,
-            LineHeight = 21,
-            Text =
-                "快速入门\n\n" +
-                "· “新建”创建一份新的易语源码(含入门示例);“打开…”载入 .yyc/.yyx/.yyproj 文件。\n" +
-                "· 表格编辑器中:空格/双击编辑行,回车确认,Esc 取消,+ / − 折叠。\n" +
-                "· F5 运行,F8 单步,F9 切换断点,F7 编译。\n" +
-                "· 窗体设计:从右侧组件箱拖入控件,双击控件生成事件代码。\n" +
-                "· 底部“提示/输出/调用表/监视表/变量表/搜寻/剪辑历史”随时查看运行信息。"
-        };
-        help.Child = helpText;
-        Grid.SetColumn(help, 2);
-        body.Children.Add(help);
-
-        root.Children.Add(body);
-        Content = root;
+        panel.Children.Add(recentHost);
+        return panel;
     }
 
-    private static TextBlock MakeLink(string text, Action onClick)
+    private static UIElement BuildQuickStartCard()
     {
-        var link = new TextBlock
+        var content = new StackPanel();
+        content.Children.Add(new TextBlock
         {
-            Text = text,
-            Foreground = new SolidColorBrush(Color.FromRgb(0, 90, 180)),
-            TextDecorations = TextDecorations.Underline,
-            FontSize = 12.5,
-            Margin = new Thickness(0, 0, 16, 0),
+            Text = "快速开始",
+            FontSize = 16,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = ResourceBrush("TextBrush", Color.FromRgb(31, 35, 40)),
+            Margin = new Thickness(0, 0, 0, 14)
+        });
+        content.Children.Add(CreateTip("文件", "新建或打开 .yyc、.yyx 与 .yyproj。"));
+        content.Children.Add(CreateTip("编辑", "经典视图与纯代码模式共享同一份源码。"));
+        content.Children.Add(CreateTip("运行", "F5 运行，F7 编译，F8 单步，F9 切换断点。"));
+        content.Children.Add(CreateTip("窗体", "从组件箱拖入控件，双击生成事件入口。"));
+        content.Children.Add(CreateTip("帮助", "F1 查看当前命令、参数和 SDK 文档。"));
+        return new ScrollViewer
+        {
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            Content = content
+        };
+    }
+
+    private static Border CreateTip(string title, string description)
+    {
+        var text = new StackPanel { Margin = new Thickness(0, 0, 0, 14) };
+        text.Children.Add(new TextBlock
+        {
+            Text = title,
+            FontSize = 12,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = ResourceBrush("TextBrush", Color.FromRgb(31, 35, 40))
+        });
+        text.Children.Add(new TextBlock
+        {
+            Text = description,
+            Margin = new Thickness(0, 3, 0, 0),
+            FontSize = 11.5,
+            TextWrapping = TextWrapping.Wrap,
+            Foreground = ResourceBrush("MutedBrush", Color.FromRgb(111, 115, 122))
+        });
+        return new Border { Child = text };
+    }
+
+    private static Border CreateCard(UIElement child) =>
+        new()
+        {
+            Padding = new Thickness(20, 18, 20, 18),
+            CornerRadius = new CornerRadius(12),
+            Background = ResourceBrush("PanelRaisedBrush", Colors.White),
+            Effect = new DropShadowEffect
+            {
+                Color = Color.FromRgb(70, 78, 88),
+                BlurRadius = 14,
+                ShadowDepth = 2,
+                Direction = 270,
+                Opacity = 0.10
+            },
+            Child = child
+        };
+
+    private static Button MakeActionButton(string text, Action onClick)
+    {
+        var button = new Button
+        {
+            Content = text,
+            Margin = new Thickness(4, 0, 0, 0),
+            Padding = new Thickness(8, 3, 8, 3),
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Foreground = ResourceBrush("AccentBrush", Color.FromRgb(53, 116, 240)),
+            FontSize = 11.5,
             Cursor = System.Windows.Input.Cursors.Hand
         };
-        link.MouseLeftButtonDown += (_, _) => onClick();
-        return link;
+        button.Click += (_, _) => onClick();
+        return button;
     }
+
+    private static Brush ResourceBrush(string key, Color fallback) =>
+        Application.Current.TryFindResource(key) as Brush ?? new SolidColorBrush(fallback);
 
     /// <summary>刷新最近列表。</summary>
     public void SetRecent(IEnumerable<string> paths)

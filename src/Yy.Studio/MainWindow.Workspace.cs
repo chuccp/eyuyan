@@ -400,7 +400,9 @@ public partial class MainWindow : Window
         ParameterHintBar.Visibility = Visibility.Collapsed;
         DataTableViewHost.Visibility = Visibility.Visible;
         InspectorPanel.Visibility = Visibility.Collapsed;
-        RightToolsPanel.Margin = new Thickness(0);
+        RightToolsPanel.Margin = ToolWindowMargin(
+            StudioToolWindowConfiguration.RightDock,
+            toolboxVisible: false);
         UpdateRightToolsColumn();
 
         _dataTableView.Load(_project, kind, () => _project.SaveManifest());
@@ -493,7 +495,9 @@ public partial class MainWindow : Window
         FormEditorBar.Visibility = Visibility.Collapsed;
         ParameterHintBar.Visibility = Visibility.Collapsed;
         InspectorPanel.Visibility = Visibility.Collapsed;
-        RightToolsPanel.Margin = new Thickness(0);
+        RightToolsPanel.Margin = ToolWindowMargin(
+            StudioToolWindowConfiguration.RightDock,
+            toolboxVisible: false);
         _startPageView.Visibility = Visibility.Visible;
         RestoreInspectorColumn();
         PropertyRows.Visibility = Visibility.Collapsed;
@@ -631,7 +635,9 @@ public partial class MainWindow : Window
         Editor.IsReadOnly = document.IsReadOnlyGenerated;
         SetEditorSyntax(xml: false);
         InspectorPanel.Visibility = Visibility.Collapsed;
-        RightToolsPanel.Margin = new Thickness(0);
+        RightToolsPanel.Margin = ToolWindowMargin(
+            StudioToolWindowConfiguration.RightDock,
+            toolboxVisible: false);
         CodeWindowBar.Visibility =
             document is { IsStructuredCode: true, IsGeneratedBinding: false }
                 ? Visibility.Visible
@@ -673,7 +679,9 @@ public partial class MainWindow : Window
             _startPageView.Visibility = Visibility.Collapsed;
             DesignerPanel.Visibility = Visibility.Visible;
             InspectorPanel.Visibility = Visibility.Visible;
-            RightToolsPanel.Margin = new Thickness(0, 0, 132, 0);
+            RightToolsPanel.Margin = ToolWindowMargin(
+                StudioToolWindowConfiguration.RightDock,
+                toolboxVisible: true);
             ParameterHintBar.Visibility = Visibility.Collapsed;
             SetEditorSyntax(xml: false);
             RestoreInspectorColumn();

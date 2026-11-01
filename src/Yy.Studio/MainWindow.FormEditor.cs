@@ -93,7 +93,9 @@ public partial class MainWindow
         }
 
         InspectorPanel.Visibility = Visibility.Collapsed;
-        RightToolsPanel.Margin = new Thickness(0);
+        RightToolsPanel.Margin = ToolWindowMargin(
+            StudioToolWindowConfiguration.RightDock,
+            toolboxVisible: false);
         UpdateRightToolsColumn();
         PropertyRows.ItemsSource = null;
         PropertyRows.Visibility = Visibility.Collapsed;

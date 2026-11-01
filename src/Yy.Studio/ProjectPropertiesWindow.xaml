@@ -16,9 +16,8 @@
             <RowDefinition Height="54" />
         </Grid.RowDefinitions>
 
-        <Border Background="#2D2D30"
-                BorderBrush="{StaticResource BorderBrush}"
-                BorderThickness="0,0,0,1">
+        <Border Background="{StaticResource PanelBrush}"
+                BorderThickness="0">
             <StackPanel Orientation="Horizontal" Margin="16,0" VerticalAlignment="Center">
                 <TextBlock Text="项目属性" FontSize="14" FontWeight="SemiBold" />
                 <TextBlock Text="项目清单 .yyproj"
@@ -34,14 +33,14 @@
                 <TextBox x:Name="ProjectNameBox"
                          Margin="0,5,0,14"
                          Padding="8,6"
-                         Background="#1E1E1E"
+                         Background="{StaticResource EditorBrush}"
                          BorderBrush="{StaticResource BorderBrush}" />
 
                 <TextBlock Text="包名" Foreground="{StaticResource MutedBrush}" FontSize="10" />
                 <TextBox x:Name="PackageNameBox"
                          Margin="0,5,0,14"
                          Padding="8,6"
-                         Background="#1E1E1E"
+                         Background="{StaticResource EditorBrush}"
                          BorderBrush="{StaticResource BorderBrush}" />
 
                 <TextBlock Text="项目文件" Foreground="{StaticResource MutedBrush}" FontSize="10" />
@@ -49,7 +48,7 @@
                          Margin="0,5,0,14"
                          Padding="8,6"
                          IsReadOnly="True"
-                         Background="#252526"
+                         Background="{StaticResource FaceBrush}"
                          Foreground="{StaticResource MutedBrush}"
                          BorderBrush="{StaticResource BorderBrush}" />
 
@@ -65,7 +64,7 @@
                                  Margin="0,5,0,0"
                                  Padding="8,6"
                                  IsReadOnly="True"
-                                 Background="#252526"
+                                 Background="{StaticResource FaceBrush}"
                                  Foreground="{StaticResource MutedBrush}"
                                  BorderBrush="{StaticResource BorderBrush}" />
                     </StackPanel>
@@ -75,7 +74,7 @@
                                  Margin="0,5,0,0"
                                  Padding="8,6"
                                  IsReadOnly="True"
-                                 Background="#252526"
+                                 Background="{StaticResource FaceBrush}"
                                  Foreground="{StaticResource MutedBrush}"
                                  BorderBrush="{StaticResource BorderBrush}" />
                     </StackPanel>
@@ -92,7 +91,7 @@
                         <ComboBox x:Name="EntrySourceBox"
                                   Margin="0,5,0,14"
                                   Padding="7,5"
-                                  Background="#1E1E1E"
+                                  Background="{StaticResource EditorBrush}"
                                   Foreground="{StaticResource TextBrush}"
                                   BorderBrush="{StaticResource BorderBrush}" />
                     </StackPanel>
@@ -102,7 +101,7 @@
                                   Margin="0,5,0,14"
                                   Padding="7,5"
                                   IsEditable="True"
-                                  Background="#1E1E1E"
+                                  Background="{StaticResource EditorBrush}"
                                   Foreground="{StaticResource TextBrush}"
                                   BorderBrush="{StaticResource BorderBrush}" />
                     </StackPanel>
@@ -112,13 +111,12 @@
                 <TextBox x:Name="OutputNameBox"
                          Margin="0,5,0,14"
                          Padding="8,6"
-                         Background="#1E1E1E"
+                         Background="{StaticResource EditorBrush}"
                          BorderBrush="{StaticResource BorderBrush}" />
 
-                <Border Background="#252526"
-                        BorderBrush="{StaticResource BorderBrush}"
-                        BorderThickness="1"
-                        CornerRadius="3"
+                <Border Background="{StaticResource FaceBrush}"
+                        BorderThickness="0"
+                        CornerRadius="8"
                         Padding="12,10"
                         Margin="0,6,0,0">
                     <StackPanel>
@@ -138,9 +136,8 @@
         </ScrollViewer>
 
         <Border Grid.Row="2"
-                Background="#2D2D30"
-                BorderBrush="{StaticResource BorderBrush}"
-                BorderThickness="0,1,0,0">
+                Background="{StaticResource PanelBrush}"
+                BorderThickness="0">
             <StackPanel Orientation="Horizontal"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Center"

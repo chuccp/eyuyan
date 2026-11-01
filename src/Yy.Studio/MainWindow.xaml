@@ -129,6 +129,54 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="SideRailButton" TargetType="Button">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Margin" Value="1,2" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FontFamily" Value="Segoe UI Symbol, Microsoft YaHei UI" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="ToolTipService.ShowDuration" Value="12000" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="RailChrome"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="RailChrome" Property="Background" Value="#E7E9ED" />
+                                <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="RailChrome" Property="Background" Value="#DDE1E6" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.38" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SideRailSeparator" TargetType="Border">
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Height" Value="1" />
+            <Setter Property="Margin" Value="0,5" />
+            <Setter Property="Background" Value="#D5D8DC" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
     </Window.Resources>
     <Window.CommandBindings>
         <CommandBinding Command="{x:Static local:MainWindow.NewFileCommand}" Executed="OnNewFile"
@@ -170,16 +218,16 @@
     <Border x:Name="WindowFrame"
             Background="{StaticResource WindowBrush}"
             BorderBrush="#B8C0C8"
-            BorderThickness="1"
+            BorderThickness="0"
             SnapsToDevicePixels="True">
     <DockPanel x:Name="MainLayout" LastChildFill="True">
         <!-- ================= 自定义顶栏：窗口标题、菜单和窗口按钮共用一条操作栏 ================= -->
         <Border x:Name="WindowTitleBar"
                 DockPanel.Dock="Top"
                 Height="38"
-                Background="#F6F8FA"
+                Background="#F7F7F8"
                 BorderBrush="{StaticResource BorderBrush}"
-                BorderThickness="0,0,0,1">
+                BorderThickness="0">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -426,7 +474,7 @@
                                            Canvas.Top="3"
                                            Width="8"
                                            Height="8"
-                                           Fill="#F6F8FA"
+                                           Fill="#F7F7F8"
                                            Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
                                            StrokeThickness="1" />
                             </Canvas>
@@ -455,7 +503,9 @@
                 DockPanel.Dock="Bottom"
                 Height="172"
                 MinHeight="96"
-                Background="{StaticResource PanelBrush}">
+                Margin="6"
+                Background="{StaticResource PanelBrush}"
+                studio:RoundedClipBehavior.Radius="12">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -470,7 +520,7 @@
                     <TabItem Header="提示">
                         <TextBox x:Name="EditorHelpBox"
                                  Background="{StaticResource HintBrush}"
-                                 Foreground="#000000"
+                                 Foreground="{StaticResource TextBrush}"
                                  BorderThickness="0"
                                  IsReadOnly="True"
                                  AcceptsReturn="True"
@@ -502,7 +552,7 @@
                             <TextBox x:Name="OutputBox"
                                      Grid.Row="1"
                                      Background="{StaticResource EditorBrush}"
-                                     Foreground="#000000"
+                                     Foreground="{StaticResource TextBrush}"
                                      BorderThickness="0"
                                      FontFamily="Cascadia Code, Consolas, Microsoft YaHei UI"
                                      FontSize="12"
@@ -593,7 +643,7 @@
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
                                         <TextBlock FontSize="11.5" TextTrimming="CharacterEllipsis">
-                                            <Run Text="{Binding Line, Mode=OneWay}" FontWeight="SemiBold" Foreground="#000080" />
+                                            <Run Text="{Binding Line, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" />
                                             <Run Text="  " />
                                             <Run Text="{Binding Text, Mode=OneWay}" />
                                         </TextBlock>
@@ -608,7 +658,7 @@
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <TextBlock FontSize="11.5" TextTrimming="CharacterEllipsis">
-                                        <Run Text="{Binding Line, Mode=OneWay}" FontWeight="SemiBold" Foreground="#000080" />
+                                        <Run Text="{Binding Line, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" />
                                         <Run Text="  " />
                                         <Run Text="{Binding Text, Mode=OneWay}" />
                                     </TextBlock>
@@ -635,7 +685,7 @@
         <Border x:Name="StatusBarRow"
                 DockPanel.Dock="Bottom"
                 Height="22"
-                Background="{StaticResource AccentBrush}"
+                Background="#F7F7F8"
                 BorderThickness="0">
             <Grid Margin="8,0">
                 <Grid.ColumnDefinitions>
@@ -648,7 +698,7 @@
                     <Ellipse x:Name="StatusDot" Width="7" Height="7" Fill="#4ADE80" />
                     <TextBlock x:Name="StatusText" Text="就绪"
                                Margin="7,0,0,0" FontSize="11"
-                               Foreground="White" />
+                               Foreground="{StaticResource TextBrush}" />
                 </StackPanel>
                 <Button x:Name="McpEndpointButton"
                         Grid.Column="1"
@@ -658,7 +708,7 @@
                         Padding="7,1"
                         Background="Transparent"
                         BorderThickness="0"
-                        Foreground="#DDEBFA"
+                        Foreground="{StaticResource MutedBrush}"
                         FontSize="10.5"
                         Cursor="Hand"
                         ToolTip="点击复制 MCP HTTP 地址"
@@ -675,23 +725,89 @@
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter TargetName="McpChrome"
                                             Property="Background"
-                                            Value="#227AA8" />
+                                            Value="#E7E9ED" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
                     </Button.Template>
                 </Button>
                 <TextBlock x:Name="CaretText" Grid.Column="2" Text="行 1，列 1"
-                           FontSize="11" Foreground="White"
+                           FontSize="11" Foreground="{StaticResource TextBrush}"
                            Margin="0,0,18,0" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="3" Text="UTF-8  ·  Windows 原生"
-                           FontSize="11" Foreground="#DDEBFA"
+                           FontSize="11" Foreground="{StaticResource MutedBrush}"
                            VerticalAlignment="Center" />
             </Grid>
         </Border>
 
-        <!-- ================= 主体:左工作与状态组合夹 | 设计中心 | 右窗口组件箱 ================= -->
-        <Grid x:Name="WorkspaceGrid"
+        <!-- ================= IDEA 式一体式工作台边框 + 中央工作区 ================= -->
+        <Border x:Name="IdeWorkbenchFrame"
+                Background="{StaticResource PanelBrush}"
+                BorderThickness="0"
+                SnapsToDevicePixels="True">
+        <Grid x:Name="SideActionShell">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="34" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="34" />
+            </Grid.ColumnDefinitions>
+
+            <Border x:Name="LeftActionRail"
+                    Grid.Column="0"
+                    Background="#F7F7F8"
+                    BorderThickness="0">
+                <DockPanel Margin="0,6">
+                    <StackPanel DockPanel.Dock="Top">
+                        <Button Style="{StaticResource SideRailButton}"
+                                Content="▶"
+                                Foreground="#238B55"
+                                AutomationProperties.Name="运行"
+                                ToolTip="运行 (F5)"
+                                Command="{x:Static local:MainWindow.RunCommand}" />
+                        <Button Style="{StaticResource SideRailButton}"
+                                Content="▶▶"
+                                FontSize="11"
+                                AutomationProperties.Name="运行项目"
+                                ToolTip="运行项目 (Ctrl+F5)"
+                                Command="{x:Static local:MainWindow.RunProjectCommand}" />
+                        <Button Style="{StaticResource SideRailButton}"
+                                Content="■"
+                                Foreground="#C94F4F"
+                                AutomationProperties.Name="停止"
+                                ToolTip="停止运行 (Shift+F5)"
+                                Command="{x:Static local:MainWindow.StopCommand}" />
+                        <Border Style="{StaticResource SideRailSeparator}" />
+                        <Button Style="{StaticResource SideRailButton}"
+                                Content="⚒"
+                                AutomationProperties.Name="编译"
+                                ToolTip="编译为 EXE (Ctrl+B)"
+                                Command="{x:Static local:MainWindow.CompileProjectCommand}" />
+                        <Button Style="{StaticResource SideRailButton}"
+                                Content="●"
+                                Foreground="#C94F4F"
+                                AutomationProperties.Name="切换断点"
+                                ToolTip="切换断点"
+                                Command="{x:Static local:MainWindow.DebugToggleBreakpointCommand}" />
+                        <Border Style="{StaticResource SideRailSeparator}" />
+                        <Button Style="{StaticResource SideRailButton}"
+                                Content="▤"
+                                AutomationProperties.Name="项目工具窗口"
+                                ToolTip="显示或隐藏项目工具窗口 (Alt+1)"
+                                Click="OnProjectActionRailClick" />
+                    </StackPanel>
+                    <StackPanel DockPanel.Dock="Bottom">
+                        <Button Style="{StaticResource SideRailButton}"
+                                Content="⌘"
+                                AutomationProperties.Name="设置"
+                                ToolTip="Studio 设置"
+                                Click="OnSystemConfigClick" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <!-- 主体:左侧项目 | 中央编辑区 | 右侧工具面板 -->
+            <Grid x:Name="WorkspaceGrid"
+              Grid.Column="1"
               Background="{StaticResource WorkspaceBrush}"
               ClipToBounds="True">
             <Grid.ColumnDefinitions>
@@ -729,6 +845,7 @@
                     Click="OnToolWindowRailClick" />
             <Button x:Name="BottomToolWindowRailButton"
                     Grid.Column="2"
+                    Grid.ColumnSpan="5"
                     Grid.Row="2"
                     Height="28"
                     HorizontalAlignment="Stretch"
@@ -739,8 +856,10 @@
 
             <!-- 左:项目目录 -->
             <Border Grid.Column="0" x:Name="ProjectExplorerPanel"
-                    Grid.RowSpan="3"
-                    Background="{StaticResource PanelBrush}">
+                    Grid.RowSpan="1"
+                    Margin="6"
+                    Background="{StaticResource PanelBrush}"
+                    studio:RoundedClipBehavior.Radius="12">
                 <DockPanel>
                     <Border DockPanel.Dock="Top"
                             Background="{StaticResource PanelRaisedBrush}"
@@ -759,9 +878,10 @@
 
             <!-- 右:程序数据、属性 -->
             <Border Grid.Column="4" x:Name="RightToolsPanel"
-                    Grid.RowSpan="3"
-                    Margin="0,0,132,0"
-                    Background="{StaticResource PanelBrush}">
+                    Grid.RowSpan="1"
+                    Margin="6"
+                    Background="{StaticResource PanelBrush}"
+                    studio:RoundedClipBehavior.Radius="12">
                 <TabControl x:Name="WorkTabs" TabStripPlacement="Top">
                     <TabItem Header="程序">
                         <TreeView x:Name="ProjectTree"
@@ -879,10 +999,10 @@
 
             <GridSplitter x:Name="ExplorerSplitter"
                           Grid.Column="1"
-                          Grid.RowSpan="3"
+                          Grid.RowSpan="1"
                           Width="4"
                           HorizontalAlignment="Stretch"
-                          Background="{StaticResource BorderBrush}"
+                          Background="Transparent"
                           ResizeBehavior="PreviousAndNext"
                           ResizeDirection="Columns"
                           ShowsPreview="True" />
@@ -891,7 +1011,9 @@
             <Grid x:Name="DocumentArea"
                   Grid.Column="2"
                   Grid.Row="0"
-                  Background="{StaticResource WindowBrush}">
+                  Margin="6"
+                  Background="{StaticResource WindowBrush}"
+                  studio:RoundedClipBehavior.Radius="12">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="30" />
                     <RowDefinition Height="Auto" />
@@ -1052,7 +1174,7 @@
                                     <Setter Property="Background" Value="Transparent" />
                                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                                     <Setter Property="Padding" Value="0" />
-                                    <Setter Property="Margin" Value="0" />
+                                    <Setter Property="Margin" Value="3,3,0,0" />
                                     <Setter Property="Template">
                                         <Setter.Value>
                                             <ControlTemplate TargetType="ListBoxItem">
@@ -1060,6 +1182,7 @@
                                                         Background="Transparent"
                                                         BorderBrush="Transparent"
                                                         BorderThickness="0,0,0,2"
+                                                        CornerRadius="6,6,0,0"
                                                         Padding="10,0">
                                                     <ContentPresenter VerticalAlignment="Center" />
                                                 </Border>
@@ -1068,11 +1191,11 @@
                                                         <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
                                                         <Setter TargetName="TabChrome" Property="BorderBrush"
                                                                 Value="{StaticResource AccentBrush}" />
-                                        <Setter TargetName="TabChrome" Property="Background" Value="{StaticResource FaceBrush}" />
+                                        <Setter TargetName="TabChrome" Property="Background" Value="{StaticResource PanelRaisedBrush}" />
                                                     </Trigger>
                                                     <Trigger Property="IsMouseOver" Value="True">
                                                         <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
-                                        <Setter TargetName="TabChrome" Property="Background" Value="{StaticResource PanelRaisedBrush}" />
+                                        <Setter TargetName="TabChrome" Property="Background" Value="{StaticResource FaceBrush}" />
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
@@ -1125,7 +1248,7 @@
                 <avalon:TextEditor x:Name="Editor"
                                    Grid.Row="3"
                                    Background="{StaticResource EditorBrush}"
-                                   Foreground="#000000"
+                                   Foreground="{StaticResource TextBrush}"
                                    FontFamily="Cascadia Code, Consolas, Microsoft YaHei UI"
                                    FontSize="13"
                                    ShowLineNumbers="True"
@@ -1151,7 +1274,7 @@
                     <TextBlock x:Name="ParameterHintText"
                                FontFamily="Cascadia Code, Consolas, Microsoft YaHei UI"
                                FontSize="10.5"
-                               Foreground="#000080"
+                               Foreground="{StaticResource AccentBrush}"
                                TextTrimming="CharacterEllipsis" />
                 </Border>
 
@@ -1284,41 +1407,42 @@
 
             <GridSplitter x:Name="BottomToolWindowSplitter"
                           Grid.Row="1"
-                          Grid.Column="2"
+                          Grid.Column="0"
+                          Grid.ColumnSpan="5"
                           Height="5"
                           HorizontalAlignment="Stretch"
                           VerticalAlignment="Stretch"
-                          Background="{StaticResource BorderBrush}"
+                          Background="Transparent"
                           ResizeBehavior="PreviousAndNext"
                           ResizeDirection="Rows"
                           ShowsPreview="True" />
 
             <Border Grid.Row="2"
-                    Grid.Column="2"
-                    Background="{StaticResource PanelBrush}"
-                    BorderBrush="{StaticResource BorderBrush}"
-                    BorderThickness="0,1,0,0">
+                    Grid.Column="0"
+                    Grid.ColumnSpan="5"
+                    Background="Transparent"
+                    BorderThickness="0">
                 <ContentControl x:Name="BottomToolWindowHost" />
             </Border>
 
             <GridSplitter x:Name="InspectorSplitter"
                           Grid.Column="3"
-                          Grid.RowSpan="3"
+                          Grid.RowSpan="1"
                           Width="4"
                           HorizontalAlignment="Stretch"
-                          Background="{StaticResource BorderBrush}"
+                          Background="Transparent"
                           ResizeBehavior="PreviousAndNext"
                           ResizeDirection="Columns"
                           ShowsPreview="True" />
 
             <!-- 右:窗口组件箱 -->
             <Border Grid.Column="4" x:Name="InspectorPanel"
-                    Grid.RowSpan="3"
+                    Grid.RowSpan="1"
                     Width="132"
+                    Margin="6"
                     HorizontalAlignment="Right"
                     Background="{StaticResource PanelBrush}"
-                    BorderBrush="{StaticResource BorderBrush}"
-                    BorderThickness="1,0,0,0">
+                    studio:RoundedClipBehavior.Radius="12">
                 <DockPanel>
                     <Border DockPanel.Dock="Top"
                             Background="{StaticResource FaceBrush}"
@@ -1383,7 +1507,7 @@
                                     <TextBlock x:Name="ToolGlyph"
                                                Text="{Binding Glyph}"
                                                FontSize="15"
-                                               Foreground="#000080"
+                                               Foreground="{StaticResource AccentBrush}"
                                                HorizontalAlignment="Center" />
                                     <TextBlock x:Name="ToolName"
                                                Text="{Binding DisplayName}"
@@ -1403,7 +1527,58 @@
                     </ListBox>
                 </DockPanel>
             </Border>
+            </Grid>
+
+            <Border x:Name="RightActionRail"
+                    Grid.Column="2"
+                    Background="#F7F7F8"
+                    BorderThickness="0">
+                <DockPanel Margin="0,6">
+                    <StackPanel DockPanel.Dock="Top">
+                        <Button Style="{StaticResource SideRailButton}"
+                                Content="◫"
+                                AutomationProperties.Name="程序与属性"
+                                ToolTip="显示或隐藏程序/属性工具窗口 (Alt+2)"
+                                Click="OnWorkToolsActionRailClick" />
+                        <Button Style="{StaticResource SideRailButton}"
+                                Content="⌨"
+                                AutomationProperties.Name="控制台"
+                                ToolTip="显示控制台 (Alt+4)"
+                                Click="OnShowConsoleToolWindow" />
+                        <Button Style="{StaticResource SideRailButton}"
+                                Content="▦"
+                                AutomationProperties.Name="窗口组件箱"
+                                ToolTip="显示或隐藏窗口组件箱 (Alt+5)"
+                                Click="OnToggleToolboxPanel" />
+                    </StackPanel>
+                    <StackPanel DockPanel.Dock="Bottom">
+                        <Button Style="{StaticResource SideRailButton}"
+                                Content="M"
+                                FontFamily="Cascadia Code, Consolas, Microsoft YaHei UI"
+                                FontSize="12"
+                                FontWeight="SemiBold"
+                                AutomationProperties.Name="复制 MCP 地址"
+                                ToolTip="复制实际 MCP HTTP 地址"
+                                Click="OnCopyMcpEndpointClick" />
+                        <Button Style="{StaticResource SideRailButton}"
+                                Content="?"
+                                FontFamily="Microsoft YaHei UI"
+                                FontSize="14"
+                                FontWeight="SemiBold"
+                                AutomationProperties.Name="帮助"
+                                ToolTip="打开易语开发文档 (F1)"
+                                Click="OnDocumentationClick" />
+                        <Border Style="{StaticResource SideRailSeparator}" />
+                        <Button Style="{StaticResource SideRailButton}"
+                                Content="⚙"
+                                AutomationProperties.Name="设置"
+                                ToolTip="Studio 设置"
+                                Click="OnSystemConfigClick" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
         </Grid>
+        </Border>
     </DockPanel>
     </Border>
 </Window>
