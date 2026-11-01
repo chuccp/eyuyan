@@ -87,7 +87,7 @@ YyStudio.exe --mcp-port 38400
 
 ## 快捷键
 
-快捷键使用 WPF `KeyGesture` 文本格式，例如：
+快捷键配置文件使用统一的文本格式；Windows WPF 宿主当前直接映射为 `KeyGesture`，macOS 宿主将映射为 AppKit 快捷键。例如：
 
 ```text
 F5
@@ -148,4 +148,4 @@ Ctrl+/
 MCP、快捷键和配置文件分组。点击“应用”立即保存，点击“确定”保存并关闭。
 MCP 端口修改后需要重启 Studio；快捷键和编辑器外观会在应用后立即刷新。
 
-![JetBrains 风格 Studio 设置窗口](images/studio-settings.webp)
+![JetBrains 风格 Studio 设置窗口](images/studio-settings-2026.webp)

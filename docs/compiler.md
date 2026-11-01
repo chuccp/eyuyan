@@ -6,16 +6,16 @@
 
 | 程序 | 职责 |
 |---|---|
-| `YyStudio.exe` | WPF 可视化 IDE，负责项目、窗体、经典视图/纯代码编辑、设计预览、工程运行控制台和交互 |
-| `yy.exe` | 命令行编译器，负责检查、构建和运行 Windows 原生程序 |
+| `YyStudio.exe` | 当前 Windows WPF 可视化 IDE；macOS AppKit 宿主开发中 |
+| `yy.exe` / `yy` | 命令行编译器，负责检查、按目标构建和运行本机原生程序 |
 
-`yy.exe` 不引用 Studio 或 WPF。IDE 编译按钮和命令行构建使用同一个 `NativeCompiler`，应用代码只经过自研 Win64 后端。
+命令行工具不引用 Studio 或 WPF。IDE 编译按钮和命令行构建使用同一个 `NativeCompiler`；当前 Windows 目标经过自研 Win64 后端，macOS 目标使用独立的 Mach-O/AppKit 后端。
 
 ## 命令行
 
 ```powershell
 yy check <工程.yyproj|目录>
-yy build <源码.yyc|工程.yyproj|目录> [-o 输出.exe]
+yy build <源码.yyc|工程.yyproj|目录> [--target 目标] [-o 输出]
 yy run <工程.yyproj|目录>
 yy version
 ```
@@ -39,13 +39,13 @@ yy version
   └─ Resources/
         ↓ 解析、模块合并与语义检查
       易语 AST
-        ↓ 自研代码生成
-   Win64 机器码
-        ↓ 自研 PE 写出器
-   PE32+ 原生 Windows EXE
+        ↓ 目标无关语义检查
+   原生后端选择
+     ├─ Windows：Win64 → PE32+
+     └─ macOS：ARM64/x86-64 → Mach-O
 ```
 
-后端不调用 LLVM、C#、C++ 或 Rust 编译器，也不生成这些语言的中间源码。可执行文件没有 CLR Header，不加载 WPF，也不依赖 `dotnet`。
+后端不调用 LLVM、C#、C++ 或 Rust 编译器，也不生成这些语言的中间源码。生成的用户程序不加载 IDE UI，也不依赖 `dotnet`；Windows 产物没有 CLR Header，macOS 产物目标为原生 Mach-O。
 
 `ProjectCompiler` 只负责项目验证和源码汇总，不包含第二套应用发布链。顶层语句组成隐式主程序；存在启动窗体时，原生入口创建 Win32 窗口和菜单消息循环。
 
@@ -84,16 +84,16 @@ CLI 使用 `--target` 覆盖工程默认目标。目标后端未实现时必须�
 
 ## 编译产物
 
-- 输出为单个 Windows x64 PE32+ `.exe`。
+- 当前已实现输出为单个 Windows x64 PE32+ `.exe`。
 - 示例控制台程序通常为 2–3 KB，Win32 窗体示例通常约 3.5 KB。
 - 产物直接导入 `kernel32.dll` 和 `user32.dll`。
-- 产物不包含 C#、WPF、CLR Header 或 .NET 运行时依赖。
+- 当前 Windows 产物不包含 C#、WPF、CLR Header 或 .NET 运行时依赖。
 - 不需要工程目录中的 `.yyc`、`.yyx` 或 SDK 才能启动。
 
 ## 当前边界
 
-原生后端正在持续补齐语言能力。目前覆盖整数、文本常量、运行时文本拼接和比较、基础数组与对象、UTF-8 文件读写和目录列举、子进程、变量、算术、控制流、基础子程序、Win32 窗口、动态控件文本读写、PNG/JPEG 图片框和部分控件事件；JSON、异常、编译期图片资源嵌入等尚未进入原生后端。
+Windows 原生后端正在持续补齐语言能力。目前覆盖整数、文本常量、运行时文本拼接和比较、基础数组与对象、UTF-8 文件读写和目录列举、子进程、变量、算术、控制流、基础子程序、Win32 窗口、动态控件文本读写、PNG/JPEG 图片框和部分控件事件；JSON、异常、编译期图片资源嵌入等尚未进入原生后端。
 
 遇到未实现语法时，编译器应停止并报告明确诊断。当前不存在 C#/WPF 应用兼容后端，也不会把不支持的程序静默转换到其他语言或运行时。
 
-完整后端范围和测试矩阵见 [自研 Win64 原生后端](native-backend.md)。
+完整后端范围和测试矩阵见 [原生后端](native-backend.md)，平台拆分见 [跨平台原生架构](cross-platform.md)。

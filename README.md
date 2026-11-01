@@ -1,6 +1,6 @@
 # 易语 Studio
 
-易语 Studio 是一个面向 Windows 的中文桌面开发环境，以现代 IDE 技术重制易语言的开发体验，把界面设计、中文代码编辑、项目管理和应用编译整合在同一个工作区。
+易语 Studio 是一个中文桌面开发环境，以现代 IDE 技术重制易语言的开发体验，把界面设计、中文代码编辑、项目管理和应用编译整合在同一个工作区。当前 Windows 宿主已可用，macOS 使用同一套公共代码推进 AppKit/Mach-O 原生实现。
 
 项目正在持续开发中，语言能力、文件格式和 IDE 交互都会继续调整。
 
@@ -24,33 +24,33 @@
 
 每个子程序使用一张紧凑的方法声明表，代码正文在表格下方连续编辑。支持对象/过程导航、语法着色、参数提示、补全和块缩进。
 
-![经典视图](docs/images/studio-classic-view-editor.webp)
+![经典视图](docs/images/studio-classic-view-editor-2026.webp)
 
 ### 窗体设计器
 
 窗体设计器支持组件拖放、属性编辑、画布对齐和事件入口；`F5` 编译并运行原生窗口，`Ctrl+Enter` 打开设计预览。
 
-![窗体设计器](docs/images/studio-designer-dual.webp)
+![窗体设计器](docs/images/studio-designer-dual-2026.webp)
 
 同一个 `.yyx` 文件可在“可视化界面”和“源码”之间切换。源码模式直接编辑 XML，切回可视化模式时解析界面并保留仍兼容的控件事件关系。
 
-![窗体源码编辑](docs/images/studio-form-source.webp)
+![窗体源码编辑](docs/images/studio-form-source-2026.webp)
 
 ### IDEA 式窗口布局
 
 顶栏“布局”入口和“查看 → 工具窗口”支持移动、最小化、隐藏项目、程序/属性与控制台。最小化后保留侧边或底边恢复栏；定义会自动保存到 `YyStudio.json`。
 
-![IDEA 式工具窗口布局](docs/images/studio-window-layout.webp)
+![IDEA 式工具窗口布局](docs/images/studio-window-layout-2026.webp)
 
 ### MCP 资源示例
 
 下面的界面通过 MCP 接口从空白工程创建：导入窗口图标和图片资源、布局控件、写入按钮事件并运行预览。
 
-![MCP 创建的资源图标界面](docs/images/mcp-resource-example.webp)
+![MCP 创建的资源图标界面](docs/images/mcp-resource-example-2026.webp)
 
 ## 当前能力
 
-- WPF 原生 Windows IDE，无 Electron、无 WebView；编译产物使用自研 Win64/Win32 后端。
+- Windows IDE 使用 WPF 原生窗口，无 Electron、无 WebView；Windows 编译产物使用自研 Win64/Win32 后端。
 - 编辑器与命令行编译器分离：`YyStudio.exe` 负责 IDE，`yy.exe` 负责构建、检查和运行。
 - 中文标识符、函数、递归、默认参数、类型标注、数组、对象和异常处理。
 - 结构体字段声明、对象字面量构造、接口契约和结构体实现声明。
@@ -67,6 +67,7 @@
 - 默认“经典视图”和“纯代码”模式共用同一份用户代码。
 - 项目可编译为不依赖 .NET、CLR、WPF 或 CRT 的 Win64 单文件 EXE。
 - `yy build` 直接使用自研原生后端，顶层语句作为隐式主程序。
+- 单代码库多目标：`auto`、`windows-x64`、`macos-arm64`、`macos-x64`，按参数或宿主系统选择原生实现。
 - 条件、`当`循环、`计次循环`、`遍历`、`跳出`和`继续`。
 - JSON、文本、集合、文件、时间等内置命令。
 - UTF-8 文件、行列诊断、运行控制台和可取消执行。
@@ -75,7 +76,7 @@
 
 ## 运行
 
-需要 .NET 10 SDK 与 Windows 10/11。
+Windows 宿主需要 .NET 10 SDK 与 Windows 10/11。macOS 原生宿主计划使用 .NET 10 与 AppKit；当前 macOS 目标已接入选择边界，Mach-O/AppKit 后端仍在开发。
 
 ```powershell
 dotnet run --project .\src\Yy.Studio\Yy.Studio.csproj
@@ -102,7 +103,7 @@ dotnet run --project .\src\Yy.Studio\Yy.Studio.csproj
 代码窗口右上角可切换“经典视图”和“纯代码”。
 纯代码和经典视图正文支持 IDEA 式右键菜单，包含撤销、剪贴板、查找、补全、行编辑和上下文帮助；纯代码菜单额外提供“格式化代码”。
 
-![纯代码编辑器右键菜单](docs/images/studio-editor-context-menu.webp)
+![纯代码编辑器右键菜单](docs/images/studio-editor-context-menu-2026.webp)
 
 新建项目请按 `Ctrl+Alt+N`，或在“程序 → 新建”选择窗口/控制台/模块。确认类型后必须先填写项目位置、项目名和包名；Studio 创建磁盘工程后才进入 IDE。源码与资源分别写入 `Sources/`、`Resources/`，详见 [项目结构](docs/projects.md) 和 [界面架构](docs/architecture.md)。
 
@@ -161,17 +162,16 @@ dotnet run --project .\tools\Yy.Cli -- run .\examples\MCP资源演示
 发布后使用 `yy.exe`：
 
 ```powershell
-yy build <源码.yyc|工程.yyproj|目录> [-o 输出.exe]
-yy build <源码.yyc|工程.yyproj|目录> --target <目标> [-o 输出]
+yy build <源码.yyc|工程.yyproj|目录> [--target <目标>] [-o 输出]
 yy check <工程.yyproj|目录>
 yy run <工程.yyproj|目录>
 ```
 
-构建目标包括 `auto`、`windows-x64`、`macos-arm64`、`macos-x64`。未指定 `--target` 时按当前系统选择；工程清单也可记录默认 `目标平台`。Windows 原生后端生成 Win32/PE32+，macOS 原生后端使用 AppKit/Mach-O。
+构建目标包括 `auto`、`windows-x64`、`macos-arm64`、`macos-x64`。未指定 `--target` 时按当前系统选择；工程清单也可记录默认 `目标平台`。Windows 原生后端生成 Win32/PE32+；macOS 原生后端使用 AppKit/Mach-O，目前仍在同一代码树内开发。完整设计见 [跨平台原生架构](docs/cross-platform.md)。
 
 `YyStudio.exe` 仅负责可视化编辑和 IDE 内操作；脚本、CI 和批处理可直接调用 `yy.exe`。命令行编译目前需要开发机安装 .NET 10 SDK。
 
-`yy build` 直接调用自研 Win64 指令生成器和 PE32+ 写出器，不经过 C#、C++、Rust 或 LLVM。顶层语句就是隐式主程序，不需要声明 `main`。当前原生后端覆盖文本/整数输出、动态文本、基础数组与对象、文件读写、目录列举、子进程、变量、算术、控制流、基础子程序，以及 Win32 原生窗口、VS 式模态拥有者与窗口结果、动态控件文本、PNG/JPEG 图片框和按钮事件。JSON、异常和编译期图片资源嵌入仍在补齐；未实现能力会直接给出编译诊断，不会回退到 C#/WPF。详见 [原生后端](docs/native-backend.md)。
+`yy build` 在当前 Windows 目标直接调用自研 Win64 指令生成器和 PE32+ 写出器，不经过 C#、C++、Rust 或 LLVM。顶层语句就是隐式主程序，不需要声明 `main`。Windows 后端覆盖文本/整数输出、动态文本、基础数组与对象、文件读写、目录列举、子进程、变量、算术、控制流、基础子程序，以及 Win32 原生窗口、VS 式模态拥有者与窗口结果、动态控件文本、PNG/JPEG 图片框和按钮事件。JSON、异常和编译期图片资源嵌入仍在补齐；未实现能力会直接给出编译诊断，不会回退到 C#/WPF。详见 [原生后端](docs/native-backend.md)。
 
 ## 系统 SDK 与包导入
 
@@ -208,7 +208,7 @@ Studio 的可编辑配置保存在 `%APPDATA%\YyStudio\YyStudio.json`。首次�
 
 设置窗口采用 JetBrains 风格双栏布局。也可以在启动时指定配置：
 
-![JetBrains 风格 Studio 设置窗口](docs/images/studio-settings.webp)
+![JetBrains 风格 Studio 设置窗口](docs/images/studio-settings-2026.webp)
 
 ```powershell
 YyStudio.exe --config D:\Config\YyStudio.json --mcp-port 38400
@@ -300,10 +300,10 @@ Resources/
 ```text
 src/Yy.Language/          词法、语法树、解析器、解释器和中文标准库
 src/Yy.Compiler/          项目模型、窗体协议、资源索引和源码汇总
-src/Yy.Native/            自研 Win64 指令生成与 PE32+ 写出器
+src/Yy.Native/            原生后端目标选择；Windows Win64/PE 已实现，macOS 后端开发中
 src/Yy.Sdk/               系统包、UI 契约和 SDK 版本
-src/Yy.Studio/            WPF 原生 IDE
-tools/Yy.Cli/             yy.exe 命令行入口
+src/Yy.Studio/            Windows WPF IDE；macOS AppKit 宿主开发中
+tools/Yy.Cli/             yy / yy.exe 命令行入口
 tests/                    语言与桌面回归测试
 examples/                 示例工程
 docs/                     格式、架构、编辑器和路线图文档
@@ -328,7 +328,7 @@ docs/                     格式、架构、编辑器和路线图文档
 
 ## 设计原则
 
-1. **Windows 原生优先**：IDE 使用 WPF；用户程序只生成链接系统 DLL 的 Win64/Win32 可执行文件。
+1. **平台原生**：Windows 使用 Win32/PE 与 WPF 宿主，macOS 使用 AppKit/Mach-O；公共语言和工程代码只维护一份。
 2. **中文优先**：标识符、关键字、诊断和工程文件都适合中文开发。
 3. **界面与逻辑分离**：XML、自动关系代码和用户代码各自承担单一职责。
 4. **可视化与纯代码并存**：同一工程可以使用窗体设计器，也可以直接编辑完整源码。

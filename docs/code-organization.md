@@ -1,6 +1,6 @@
 # 代码模块与体积约束
 
-易语 Studio 已从单文件窗口类拆分为按职责组织的 partial class。partial 只用于共享同一个 WPF 窗口状态，纯业务逻辑仍应进入独立服务或模型类。
+易语 Studio 已从单文件窗口类拆分为按职责组织的 partial class。当前 Windows 宿主使用 WPF partial class；平台无关模型必须与窗口类型解耦，供后续 AppKit 宿主共享。纯业务逻辑应进入独立服务或模型类。
 
 ## 窗口模块
 
@@ -49,10 +49,11 @@
 | `src/Yy.Compiler/YyProjectModels.cs` | 项目窗体、全局变量、常量、资源、DLL 和数据库模型 |
 | `src/Yy.Compiler/YyProject.Creation.cs` | 新项目和窗体三件套创建、默认模板 |
 | `src/Yy.Compiler/YyProject.Resources.cs` | 资源导入、分类复制、资源表校验和索引同步 |
+| `src/Yy.Compiler/Build/YyBuildTarget.cs` | `auto`、Windows、macOS 目标和宿主环境解析 |
 | `src/Yy.Compiler/Resources/YyResourceIndex.cs` | `ids.xml` 生成、标识解析和资源路径定位 |
 | `src/Yy.Sdk/YySdk.cs` | SDK 版本、包成熟度与依赖目录、原生句柄和无装箱界面契约 |
 | `src/Yy.Language/ProjectPackageResolver.cs` | 把 `项目包名.目录` 解析为 `Sources/` 下的目录包 |
-| `src/Yy.Native/NativeEmitter.cs` | 易语 AST 到 Win64 指令的原生代码生成 |
+| `src/Yy.Native/NativeEmitter.cs` | 易语 AST 到当前 Windows 原生后端的代码生成 |
 | `src/Yy.Native/NativeEmitter.Collections.cs` | 原生数组、索引、遍历和追加 |
 | `src/Yy.Native/NativeEmitter.FileRuntime.cs` | UTF-8/Win32 文件、目录和路径转换 |
 | `src/Yy.Native/NativeEmitter.ProcessRuntime.cs` | Win32 子进程、等待和退出码 |
@@ -63,7 +64,7 @@
 | `src/Yy.Native/NativeEmitter.Win32Text.cs` | Win32 控件文本编解码、读取和写入 |
 | `src/Yy.Native/NativeEmitter.Win32Image.cs` | GDI+ 图片加载和 Win32 图片框显示 |
 | `src/Yy.Native/NativeAssembly.cs` | 机器码、数据段和重定位缓冲 |
-| `src/Yy.Native/NativePeWriter.cs` | PE32+、节表、导入表和原生 EXE 写出 |
+| `src/Yy.Native/NativePeWriter.cs` | PE32+、节表、导入表和原生 EXE 写出；macOS 将使用独立 Mach-O 写出器 |
 
 ## 编译器与命令行
 
@@ -71,10 +72,10 @@
 |---|---|
 | `src/Yy.Compiler` | 无 WPF 依赖的工程协议、窗体模型、资源索引和 AST 汇总 |
 | `src/Yy.Compiler/ProjectCompiler.cs` | 校验项目并汇总入口、窗体和模块源码 |
-| `tools/Yy.Cli` | `yy.exe` 命令行入口 |
+| `tools/Yy.Cli` | `yy` / `yy.exe` 命令行入口和目标选择 |
 | `tools/Yy.Cli/Program.cs` | `build`、`check`、`run`、`version` 子命令 |
 
-`YyStudio` 和 `Yy.Cli` 都通过 `Yy.Native` 编译应用；`Yy.Cli` 不得引用 `Yy.Studio` 或 WPF。Studio 的 WPF 代码只实现 IDE 与设计预览，不会进入编译产物。
+`YyStudio` 和 `Yy.Cli` 都通过 `Yy.Native` 编译应用；`Yy.Cli` 不得引用 `Yy.Studio`、WPF 或 AppKit。Studio 的平台窗口代码只实现 IDE 与设计预览，不会进入用户程序产物。
 
 ## 体积门槛
 
