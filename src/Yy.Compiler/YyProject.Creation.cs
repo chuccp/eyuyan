@@ -98,6 +98,7 @@ public sealed partial class YyProject
             FormatVersion = CurrentFormatVersion,
             Name = projectName,
             PackageName = packageName,
+            TargetPlatform = YyBuildTargets.Auto,
             SourceDirectory = SourceDirectoryName,
             ResourceDirectory = ResourceDirectoryName,
             Entry = $"{SourceDirectoryName}/Program.yyc",

@@ -2,6 +2,7 @@
   "格式版本": 1,
   "名称": "MCP资源演示",
   "包名": "mcp.demo",
+  "目标平台": "auto",
   "源码目录": "Sources",
   "资源目录": "Resources",
   "入口": "Sources/Program.yyc",

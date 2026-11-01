@@ -28,7 +28,8 @@ internal static class CliApplication
         }
         catch (Exception exception) when (
             exception is InvalidDataException or IOException or UnauthorizedAccessException
-                or ArgumentException or InvalidOperationException or NativeCompileException)
+                or ArgumentException or InvalidOperationException or NativeCompileException
+                or PlatformNotSupportedException)
         {
             Console.Error.WriteLine("yy: " + exception.Message);
             return 1;
@@ -44,10 +45,14 @@ internal static class CliApplication
             string.Equals(Path.GetExtension(input), ".yyproj", StringComparison.OrdinalIgnoreCase))
         {
             var project = LoadProject(input);
+            var target = YyBuildTargets.Resolve(options.Target ?? project.TargetPlatform);
             var output = Path.GetFullPath(
-                options.Output ?? Path.Combine(project.DirectoryPath, project.OutputName));
-            EnsureExeExtension(ref output);
-            result = NativeCompiler.CompileProject(project, output);
+                options.Output ?? Path.Combine(
+                    project.DirectoryPath,
+                    Path.GetFileNameWithoutExtension(project.OutputName) +
+                    target.ExecutableExtension));
+            output = YyBuildTargets.NormalizeOutputPath(output, target);
+            result = NativeCompiler.CompileProject(project, output, target.Id);
         }
         else
         {
@@ -57,17 +62,18 @@ internal static class CliApplication
                 throw new InvalidDataException("yy build 需要一个 .yyc 源文件、.yyproj 或项目目录。");
             }
 
+            var target = YyBuildTargets.Resolve(options.Target);
             var output = Path.GetFullPath(
                 options.Output ??
                 Path.Combine(
                     Path.GetDirectoryName(input) ?? Environment.CurrentDirectory,
-                    Path.GetFileNameWithoutExtension(input) + ".exe"));
-            EnsureExeExtension(ref output);
-            result = NativeCompiler.CompileFile(input, output);
+                    Path.GetFileNameWithoutExtension(input) + target.ExecutableExtension));
+            output = YyBuildTargets.NormalizeOutputPath(output, target);
+            result = NativeCompiler.CompileFile(input, output, target.Id);
         }
 
         Console.WriteLine(
-            $"已生成原生程序：{result.OutputPath} · {result.ImageSize} 字节");
+            $"已生成原生程序：{result.OutputPath} · {result.ImageSize} 字节 · {result.Target.Id}");
         return 0;
     }
 
@@ -86,14 +92,24 @@ internal static class CliApplication
     {
         var options = NativeOptions.Parse(args);
         var project = LoadProject(options.Input);
+        var target = YyBuildTargets.Resolve(options.Target ?? project.TargetPlatform);
+        if (!YyBuildTargets.CanRunOnCurrentHost(target))
+        {
+            throw new PlatformNotSupportedException(
+                $"不能在当前系统运行目标“{target.Id}”。");
+        }
+
         var temporaryDirectory = Path.Combine(
             Path.GetTempPath(),
             "yy-run-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(temporaryDirectory);
         try
         {
-            var output = Path.Combine(temporaryDirectory, project.OutputName);
-            NativeCompiler.CompileProject(project, output);
+            var output = Path.Combine(
+                temporaryDirectory,
+                Path.GetFileNameWithoutExtension(project.OutputName) +
+                target.ExecutableExtension);
+            NativeCompiler.CompileProject(project, output, target.Id);
             Console.WriteLine($"运行：{output}");
             using var process = Process.Start(new ProcessStartInfo
             {
@@ -130,14 +146,6 @@ internal static class CliApplication
             ?? throw new InvalidDataException($"目录中没有 .yyproj：{directory}");
     }
 
-    private static void EnsureExeExtension(ref string output)
-    {
-        if (!string.Equals(Path.GetExtension(output), ".exe", StringComparison.OrdinalIgnoreCase))
-        {
-            output += ".exe";
-        }
-    }
-
     private static bool IsHelp(string value) =>
         value is "help" or "--help" or "-h";
 
@@ -160,28 +168,34 @@ internal static class CliApplication
             易语命令行编译器
 
             用法：
-              yy build <源码.yyc|工程.yyproj|目录> [-o 输出.exe]
+              yy build <源码.yyc|工程.yyproj|目录> [--target 目标] [-o 输出]
               yy check <工程.yyproj|目录>
               yy run <工程.yyproj|目录>
               yy version
 
             示例：
               yy build examples/原生窗体 -o Dist/原生窗体.exe
+              yy build examples/原生窗体 --target windows-x64 -o Dist/原生窗体.exe
+              yy build examples/原生窗体 --target macos-arm64 -o Dist/原生窗体
               yy build examples/Sources/原生入门.yyc -o Dist/原生入门.exe
               yy check examples/原生窗体
               yy run examples/原生窗体
 
-            build 使用自研 Win64/PE 后端，不生成 C#、C++、Rust 或 LLVM IR，
-            编译结果不依赖 .NET 或 C Runtime。
+            目标：
+              auto        当前系统
+              windows-x64 Win32 / PE32+
+              macos-arm64 AppKit / Mach-O (Apple Silicon)
+              macos-x64   AppKit / Mach-O (Intel)
             """);
     }
 
-    private sealed record NativeOptions(string Input, string? Output)
+    private sealed record NativeOptions(string Input, string? Output, string? Target)
     {
         public static NativeOptions Parse(string[] args)
         {
             string? input = null;
             string? output = null;
+            string? target = null;
             for (var index = 0; index < args.Length; index++)
             {
                 if (args[index] is "-o" or "--output")
@@ -192,6 +206,23 @@ internal static class CliApplication
                     }
 
                     output = args[index];
+                    continue;
+                }
+
+                if (args[index] is "--target" or "-t")
+                {
+                    if (++index >= args.Length)
+                    {
+                        throw new ArgumentException("--target 缺少目标平台。");
+                    }
+
+                    target = args[index];
+                    continue;
+                }
+
+                if (args[index].StartsWith("--target=", StringComparison.OrdinalIgnoreCase))
+                {
+                    target = args[index]["--target=".Length..];
                     continue;
                 }
 
@@ -210,7 +241,7 @@ internal static class CliApplication
 
             return string.IsNullOrWhiteSpace(input)
                 ? throw new ArgumentException("缺少源码、工程或目录。")
-                : new NativeOptions(input, output);
+                : new NativeOptions(input, output, target);
         }
     }
 

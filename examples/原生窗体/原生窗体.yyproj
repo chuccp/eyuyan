@@ -2,6 +2,7 @@
   "格式版本": 1,
   "名称": "原生窗体",
   "包名": "demo.nativeui",
+  "目标平台": "auto",
   "源码目录": "Sources",
   "资源目录": "Resources",
   "入口": "Sources/Program.yyc",

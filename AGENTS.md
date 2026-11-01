@@ -87,6 +87,15 @@ Resources/
 - 命令行编译必须能独立于 Studio 界面运行，适合脚本、CI 和批处理。
 - 发布产物至少包含 `YyStudio.exe`、`yy.exe` 和示例目标程序，文档必须明确各自职责。
 
+## 单代码库与双原生目标
+
+- 语言前端、工程模型、SDK、IR 和公共 IDE 模型只维护一份源码，不为 Windows/macOS 复制业务实现。
+- 构建目标使用 `auto`、`windows-x64`、`macos-arm64`、`macos-x64`；`auto` 按宿主操作系统和进程架构解析。
+- `windows-x64` 生成 PE32+ 并调用 Win32、GDI+/DirectWrite；`macos-arm64`、`macos-x64` 生成 Mach-O 并调用 AppKit/CoreText。
+- 禁止把 Win32 API 映射成 Cocoa API 的模拟兼容层；平台能力由各自原生后端实现。
+- Studio 的平台窗口代码放在 `Platforms/Windows/`、`Platforms/MacOS/`，共享模型和命令放在公共目录；不得把平台分支散落成大量 `#if`。
+- macOS 后端或宿主尚未实现时必须在构建阶段明确报错，不能静默生成 Windows PE 或回退到其他运行时。
+
 ## 自研原生后端
 
 - `src/Yy.Native` 必须直接生成 Win64 机器码和 PE32+，不得通过 LLVM、C++、Rust 或 C# 作为应用代码的中间语言。

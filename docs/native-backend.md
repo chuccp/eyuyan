@@ -100,6 +100,15 @@ yy build .\examples\原生窗体 -o .\artifacts\原生窗体.exe
 
 `examples/窗口交互/` 用于验证完整链路：A 以模态方式打开 B，期间 A 被禁用；B 从参数初始化输入框，确认后 A 根据结果更新文字，取消则丢弃草稿。测试通过 Win32 自动化实际点击按钮、检查启用状态并读取控件文本，不只进行源码检查。
 
+## 平台目标
+
+原生编译入口先解析 `windows-x64`、`macos-arm64`、`macos-x64` 或 `auto`。各目标使用独立后端，不通过模拟 API 互相兼容：
+
+- Windows：Win64 指令、PE32+、Win32 窗口和 GDI+。
+- macOS：ARM64/x86-64 指令、Mach-O、AppKit、CoreGraphics/CoreText。
+
+当前仓库已接通目标解析和选择边界，Windows 后端保持可用。macOS 后端仍在同一代码树内继续实现；在完成前选择 macOS 目标会得到明确的“需要 AppKit/Mach-O 后端”诊断。
+
 ## 自举方向
 
 引导阶段由 C# 实现解析器、Win64 后端和 PE 写出器。接口边界保持独立，后续可用易语重写同等模块并由现有编译器编译，逐步实现自举；原生 ABI 和输出格式不依赖引导语言。

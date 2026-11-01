@@ -51,6 +51,7 @@ DemoProject/
   "格式版本": 1,
   "名称": "DemoProject",
   "包名": "demo.app",
+  "目标平台": "auto",
   "源码目录": "Sources",
   "资源目录": "Resources",
   "入口": "Sources/Program.yyc",
@@ -74,6 +75,7 @@ DemoProject/
 | `格式版本` | 当前工程格式，值为 `1` |
 | `名称` | 项目名称 |
 | `包名` | 项目包路径，例如 `demo.app`；源码子目录导入以此为根 |
+| `目标平台` | `auto`、`windows-x64`、`macos-arm64` 或 `macos-x64`；命令行 `--target` 可覆盖 |
 | `源码目录` | 固定为 `Sources` |
 | `资源目录` | 固定为 `Resources` |
 | `入口` | 启动源码；`F5` 或 `Ctrl+F5` 运行工程 |

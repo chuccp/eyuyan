@@ -162,9 +162,12 @@ dotnet run --project .\tools\Yy.Cli -- run .\examples\MCP资源演示
 
 ```powershell
 yy build <源码.yyc|工程.yyproj|目录> [-o 输出.exe]
+yy build <源码.yyc|工程.yyproj|目录> --target <目标> [-o 输出]
 yy check <工程.yyproj|目录>
 yy run <工程.yyproj|目录>
 ```
+
+构建目标包括 `auto`、`windows-x64`、`macos-arm64`、`macos-x64`。未指定 `--target` 时按当前系统选择；工程清单也可记录默认 `目标平台`。Windows 原生后端生成 Win32/PE32+，macOS 原生后端使用 AppKit/Mach-O。
 
 `YyStudio.exe` 仅负责可视化编辑和 IDE 内操作；脚本、CI 和批处理可直接调用 `yy.exe`。命令行编译目前需要开发机安装 .NET 10 SDK。
 
@@ -288,7 +291,7 @@ Resources/
 
 `Resources/ids.xml` 类似 Android 的资源关联表：窗体控件使用 `@id/窗体/控件`，资源使用 `@资源/图片/名称` 形式登记。工程清单通过 `"资源标识": "Resources/ids.xml"` 声明索引，新建项目、保存窗体和资源表时自动同步。
 
-工程清单同时记录 `"包名": "demo.app"`、`"源码目录": "Sources"` 和 `"资源目录": "Resources"`。源码、窗体和入口不能离开 `Sources/`，资源不能离开 `Resources/`。
+工程清单同时记录 `"包名": "demo.app"`、`"目标平台": "auto"`、`"源码目录": "Sources"` 和 `"资源目录": "Resources"`。源码、窗体和入口不能离开 `Sources/`，资源不能离开 `Resources/`。
 
 `.Designer.yyc` 使用 `文件`、`界面`、`事件` 三个易语结构体，不使用 XML。资源 ID 只保存在自动关系中；用户代码使用 `_启动窗口.保存按钮.文本`、`_启动窗口.标题` 等生成上下文。
 

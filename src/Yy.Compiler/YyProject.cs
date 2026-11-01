@@ -30,6 +30,7 @@ public sealed partial class YyProject
         int formatVersion,
         string name,
         string packageName,
+        string targetPlatform,
         string entryPath,
         string outputName,
         string startupForm,
@@ -48,6 +49,7 @@ public sealed partial class YyProject
         FormatVersion = formatVersion;
         Name = name;
         PackageName = packageName;
+        TargetPlatform = targetPlatform;
         EntryPath = entryPath;
         OutputName = outputName;
         StartupForm = startupForm;
@@ -68,6 +70,7 @@ public sealed partial class YyProject
     public string DirectoryPath => Path.GetDirectoryName(ProjectPath) ?? string.Empty;
     public string Name { get; private set; }
     public string PackageName { get; private set; }
+    public string TargetPlatform { get; private set; }
     public string SourceRootPath => Path.Combine(DirectoryPath, SourceDirectoryName);
     public string ResourceRootPath => Path.Combine(DirectoryPath, ResourceDirectoryName);
     public string EntryPath { get; private set; }
@@ -290,6 +293,9 @@ public sealed partial class YyProject
         var outputName = string.IsNullOrWhiteSpace(manifest.Output)
             ? manifest.Name + ".exe"
             : Path.GetFileName(manifest.Output);
+        var targetPlatform = string.IsNullOrWhiteSpace(manifest.TargetPlatform)
+            ? YyBuildTargets.Auto
+            : YyBuildTargets.Resolve(manifest.TargetPlatform).Id;
         var resourceTable = manifest.ResourceTable ?? [];
         ValidateResourceEntries(baseDirectory, resourceTable);
         YyResourceIndex.Write(baseDirectory, forms, resourceTable);
@@ -299,6 +305,7 @@ public sealed partial class YyProject
             manifest.FormatVersion,
             manifest.Name.Trim(),
             manifest.PackageName!.Trim(),
+            targetPlatform,
             entryPath,
             outputName,
             startupForm ?? string.Empty,
@@ -392,6 +399,7 @@ public sealed partial class YyProject
             FormatVersion = CurrentFormatVersion,
             Name = Name,
             PackageName = PackageName,
+            TargetPlatform = TargetPlatform,
             SourceDirectory = SourceDirectoryName,
             ResourceDirectory = ResourceDirectoryName,
             Entry = ToRelativePath(EntryPath, DirectoryPath),
@@ -534,6 +542,9 @@ public sealed partial class YyProject
 
         [JsonPropertyName("包名")]
         public string? PackageName { get; init; }
+
+        [JsonPropertyName("目标平台")]
+        public string? TargetPlatform { get; init; }
 
         [JsonPropertyName("源码目录")]
         public string? SourceDirectory { get; init; }

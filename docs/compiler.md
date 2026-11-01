@@ -63,6 +63,19 @@ yy version
 
 `.yyx` 只保存界面；`.Designer.yyc` 用 `文件`、`界面`、`事件` 三个结构体保存 `@id/...` 映射和事件关系；用户逻辑始终位于 `.yyc`。IDE 中 `F5` 编译并运行当前工程，底部控制台显示编译、PID、输出和退出码；`Ctrl+Enter` 才使用 Studio 内的独立设计预览。两者都不会改变编译后端。
 
+## 原生构建目标
+
+语言前端、工程模型和 SDK 只维护一份源码。目标由命令参数、工程默认值和宿主环境共同确定：
+
+| 目标 | 输出 | 系统界面 |
+|---|---|---|
+| `windows-x64` | PE32+ | Win32、GDI+/DirectWrite |
+| `macos-arm64` | Mach-O | AppKit、CoreGraphics/CoreText |
+| `macos-x64` | Mach-O | AppKit、CoreGraphics/CoreText |
+| `auto` | 当前宿主目标 | 当前原生宿主 |
+
+CLI 使用 `--target` 覆盖工程默认目标。目标后端未实现时必须直接报错，不能把 Windows PE 当作 macOS 程序输出。
+
 ## 资源
 
 `Resources/ids.xml` 是窗体和控件稳定标识的索引。资源文件只能位于 `Resources/`，并通过 `@资源/...` 被工程引用。

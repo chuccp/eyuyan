@@ -7,12 +7,17 @@ namespace Yy.Native;
 public sealed record NativeBuildResult(
     string OutputPath,
     int ImageSize,
-    int EntryRva);
+    int EntryRva,
+    YyBuildTarget Target);
 
 public static class NativeCompiler
 {
-    public static NativeBuildResult CompileFile(string sourcePath, string outputPath)
+    public static NativeBuildResult CompileFile(
+        string sourcePath,
+        string outputPath,
+        string target = YyBuildTargets.Auto)
     {
+        var resolvedTarget = EnsureSupportedTarget(target);
         var fullSource = Path.GetFullPath(sourcePath);
         var program = YyRunner.ValidateFile(fullSource);
         var generated = new NativeEmitter(program, fullSource).Generate();
@@ -24,14 +29,16 @@ public static class NativeCompiler
         var fullOutput = Path.GetFullPath(outputPath);
         Directory.CreateDirectory(Path.GetDirectoryName(fullOutput)!);
         File.WriteAllBytes(fullOutput, image);
-        return new NativeBuildResult(fullOutput, image.Length, 0x1000);
+        return new NativeBuildResult(fullOutput, image.Length, 0x1000, resolvedTarget);
     }
 
     public static NativeBuildResult CompileSource(
         string source,
         string sourceName,
-        string outputPath)
+        string outputPath,
+        string target = YyBuildTargets.Auto)
     {
+        var resolvedTarget = EnsureSupportedTarget(target);
         var program = YyRunner.ValidateSource(source, sourceName);
         var generated = new NativeEmitter(program, sourceName).Generate();
         var image = NativePeWriter.Build(
@@ -42,13 +49,15 @@ public static class NativeCompiler
         var fullOutput = Path.GetFullPath(outputPath);
         Directory.CreateDirectory(Path.GetDirectoryName(fullOutput)!);
         File.WriteAllBytes(fullOutput, image);
-        return new NativeBuildResult(fullOutput, image.Length, 0x1000);
+        return new NativeBuildResult(fullOutput, image.Length, 0x1000, resolvedTarget);
     }
 
     public static NativeBuildResult CompileProject(
         YyProject project,
-        string outputPath)
+        string outputPath,
+        string? target = null)
     {
+        var resolvedTarget = EnsureSupportedTarget(target ?? project.TargetPlatform);
         var program = ProjectCompiler.LoadProgram(project);
         var form = project.Forms.FirstOrDefault(item =>
                 string.Equals(
@@ -69,7 +78,20 @@ public static class NativeCompiler
         var fullOutput = Path.GetFullPath(outputPath);
         Directory.CreateDirectory(Path.GetDirectoryName(fullOutput)!);
         File.WriteAllBytes(fullOutput, image);
-        return new NativeBuildResult(fullOutput, image.Length, 0x1000);
+        return new NativeBuildResult(fullOutput, image.Length, 0x1000, resolvedTarget);
+    }
+
+    private static YyBuildTarget EnsureSupportedTarget(string target)
+    {
+        var resolved = YyBuildTargets.Resolve(target);
+        if (!resolved.IsWindows)
+        {
+            throw new PlatformNotSupportedException(
+                $"目标“{resolved.Id}”需要 macOS AppKit/Mach-O 后端；" +
+                "当前程序集只包含 Windows Win32/PE 后端。");
+        }
+
+        return resolved;
     }
 }
 

@@ -8,6 +8,7 @@ using Yy.Native;
 
 var failures = 0;
 Run("原生 PE 与文本输出", TestHello);
+Run("原生构建目标选择", TestBuildTargets);
 Run("原生整数、循环和条件", TestCoreLanguage);
 Run("原生数组、索引、遍历与追加", TestArrays);
 Run("原生对象与属性", TestObjects);
@@ -58,6 +59,44 @@ static void TestHello()
         True(result.ImageSize < 100_000, $"原生程序体积异常：{result.ImageSize}");
         True(File.ReadAllBytes(output).Take(2).SequenceEqual("MZ"u8.ToArray()), "缺少 MZ 头。");
         Equal("你好，原生易语\r\n", RunExe(output));
+    }
+    finally
+    {
+        Directory.Delete(directory, recursive: true);
+    }
+}
+
+static void TestBuildTargets()
+{
+    var windows = YyBuildTargets.Resolve("WINDOWS-X64");
+    Equal(YyBuildTargets.WindowsX64, windows.Id);
+    True(windows.IsWindows, "windows-x64 必须选择 Windows 后端。");
+    Equal(".exe", windows.ExecutableExtension);
+
+    var macArm = YyBuildTargets.Resolve("macos-arm64");
+    True(macArm.IsMacOS, "macos-arm64 必须选择 macOS 后端。");
+    Equal(string.Empty, macArm.ExecutableExtension);
+    Equal("app", YyBuildTargets.NormalizeOutputPath("app", macArm));
+    Equal("app.exe", YyBuildTargets.NormalizeOutputPath("app", windows));
+
+    var directory = CreateDirectory();
+    try
+    {
+        try
+        {
+            NativeCompiler.CompileSource(
+                ".程序集 目标测试\n输出(\"x\")",
+                "目标测试.yyc",
+                Path.Combine(directory, "目标测试"),
+                YyBuildTargets.MacOSArm64);
+            throw new Exception("Windows 构建不应静默生成不存在的 macOS 后端。");
+        }
+        catch (PlatformNotSupportedException exception)
+        {
+            True(
+                exception.Message.Contains("macOS", StringComparison.Ordinal),
+                "macOS 后端未实现时必须给出明确诊断。");
+        }
     }
     finally
     {
