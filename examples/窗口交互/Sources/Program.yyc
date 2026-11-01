@@ -1,0 +1,4 @@
+.程序集 窗口交互
+
+' 两个窗体的入口和事件逻辑分别位于 Forms/MainForm.yyc 与 Forms/EditorForm.yyc。
+' 通过“取控件”也可以在命令行或调试器中使用 @id/... 定位界面元素。

@@ -920,6 +920,49 @@
                     </StackPanel>
                 </Border>
 
+                <Border x:Name="FormEditorBar"
+                        Grid.Row="2"
+                        Background="{StaticResource FaceBrush}"
+                        BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="0,0,0,1"
+                        Padding="6,3"
+                        Visibility="Collapsed">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="界面"
+                                   FontSize="11"
+                                   VerticalAlignment="Center"
+                                   Margin="4,0,8,0" />
+                        <TextBlock x:Name="FormEditorContext"
+                                   Grid.Column="1"
+                                   FontSize="10.5"
+                                   Foreground="{StaticResource MutedBrush}"
+                                   VerticalAlignment="Center"
+                                   Margin="4,0,10,0"
+                                   TextTrimming="CharacterEllipsis" />
+                        <StackPanel Grid.Column="2"
+                                    Orientation="Horizontal">
+                            <Button x:Name="VisualFormEditorButton"
+                                    Content="可视化界面"
+                                    Click="OnShowVisualFormEditor"
+                                    Style="{StaticResource PanelButton}"
+                                    Padding="9,2"
+                                    Margin="0,0,3,0"
+                                    ToolTip="使用组件箱和属性夹编辑界面" />
+                            <Button x:Name="FormSourceEditorButton"
+                                    Content="源码"
+                                    Click="OnShowFormSourceEditor"
+                                    Style="{StaticResource PanelButton}"
+                                    Padding="9,2"
+                                    ToolTip="直接编辑 .yyx XML 源码" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
                 <Border x:Name="CodeWindowBar"
                         Grid.Row="2"
                         Background="{StaticResource FaceBrush}"

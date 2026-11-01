@@ -40,8 +40,10 @@ public partial class MainWindow : Window
         if (stream is not null)
         {
             using var reader = XmlReader.Create(stream);
-            Editor.SyntaxHighlighting = HighlightingLoader.Load(reader, HighlightingManager.Instance);
+            _yyHighlighting = HighlightingLoader.Load(reader, HighlightingManager.Instance);
+            Editor.SyntaxHighlighting = _yyHighlighting;
         }
+        _xmlHighlighting = HighlightingManager.Instance.GetDefinition("XML");
 
         Editor.Options.EnableHyperlinks = false;
         Editor.Options.EnableEmailHyperlinks = false;
@@ -67,42 +69,17 @@ public partial class MainWindow : Window
         InitializeCodeWindowFolding();
     }
 
-    private void ShowEasyLanguageHelp(TextEditor editor, YyCodeFunction function)
-    {
-        var word = GetWordAtOffset(editor.Text, editor.CaretOffset);
-        var parameter = function.Parameters.FirstOrDefault(item =>
-            string.Equals(item.Name, word, StringComparison.Ordinal));
-        var local = function.Statements
-            .TakeWhile(statement => statement.Kind == YyCodeStatementKinds.Variable)
-            .FirstOrDefault(statement =>
-                string.Equals(statement.Name, word, StringComparison.Ordinal));
-        var form = GetAssociatedFormForCurrentDocument();
-        var control = form?.Controls.FirstOrDefault(item =>
-            string.Equals(item.Name, word, StringComparison.Ordinal));
-        var isWindowAlias = form is not null &&
-            (string.Equals(word, form.Name, StringComparison.Ordinal) ||
-             string.Equals(word, "窗口", StringComparison.Ordinal));
-        var callable = FindCallable(word);
-        EditorHelpBox.Text = parameter is not null
-            ? $"参数：{parameter.Name}\n类型：{parameter.TypeName ?? "任意"}\n\n{parameter.Remark}"
-            : local is not null
-                ? $"局部变量：{local.Name}\n类型：{local.TypeName ?? "任意"}\n\n{local.Remark}"
-                : control is not null
-                    ? $"界面组件：{control.Name}\n类型：{control.Type}\n资源标识由 Designer.yyc 自动维护。"
-                    : isWindowAlias
-                        ? $"当前窗口：{form!.Name}\n可使用“{form.Name}.标题”或“窗口.标题”访问窗口。"
-                        : callable is not null
-                            ? $"{callable.Value.Signature}\n\n{callable.Value.Description}\n\n" +
-                              "Ctrl+Space：补全；Ctrl+/：注释；Ctrl+D：复制行；Ctrl+Shift+K：删除行。"
-                            : "将光标移到命令、函数、控件、参数或变量上查看帮助。\n\n" +
-                              "Ctrl+Space：补全；Ctrl+/：注释；Ctrl+D：复制行；Ctrl+Shift+K：删除行。";
-        BottomTabs.SelectedIndex = 1;
-    }
-
     private void OnEditorTextChanged(object? sender, EventArgs e)
     {
         if (_isLoadingDocument || _currentDocument is null)
         {
+            return;
+        }
+
+        if (_currentDocument.IsForm)
+        {
+            _currentDocument.Text = Editor.Text;
+            UpdateDocumentIdentity();
             return;
         }
 
@@ -125,13 +102,20 @@ public partial class MainWindow : Window
     private void OnCaretPositionChanged(object? sender, EventArgs e)
     {
         CaretText.Text = $"行 {Editor.TextArea.Caret.Line}，列 {Editor.TextArea.Caret.Column}";
+        if (_currentDocument?.IsForm == true)
+        {
+            return;
+        }
+
         UpdateEditorHelp();
         UpdateParameterHint();
     }
 
     private void OnEditorTextEntered(object? sender, TextCompositionEventArgs e)
     {
-        if (_completionWindow is not null || string.IsNullOrEmpty(e.Text))
+        if (_completionWindow is not null ||
+            string.IsNullOrEmpty(e.Text) ||
+            _currentDocument?.IsForm == true)
         {
             return;
         }
@@ -153,7 +137,23 @@ public partial class MainWindow : Window
 
     private void OnEditorPreviewKeyDown(object? sender, KeyEventArgs e)
     {
-        if (MatchesConfiguredShortcut(e, StudioShortcutActions.FormatCode))
+        if (_currentDocument?.IsForm == true)
+        {
+            if (MatchesConfiguredShortcut(e, StudioShortcutActions.Help))
+            {
+                ShowHint("界面源码使用 XML：修改布局后切换到“可视化界面”即可继续设计。");
+                e.Handled = true;
+            }
+
+            return;
+        }
+
+        if (_currentDocument is
+                {
+                    IsStructuredCode: true,
+                    UsePlainCodeEditor: true
+                } &&
+            MatchesConfiguredShortcut(e, StudioShortcutActions.FormatCode))
         {
             FormatCurrentPlainCode();
             e.Handled = true;
@@ -201,37 +201,6 @@ public partial class MainWindow : Window
             return;
         }
     }
-
-    private void AttachCodeEditorContextMenu(
-        TextEditor editor,
-        SearchPanel searchPanel,
-        bool includeFormat)
-    {
-        editor.TextArea.PreviewMouseRightButtonDown += (_, e) =>
-        {
-            CodeEditorContextMenu.MoveCaretToPointer(editor, e);
-            editor.TextArea.ContextMenu = CreateCodeEditorContextMenu(
-                editor,
-                searchPanel,
-                includeFormat);
-        };
-    }
-
-    private ContextMenu CreateCodeEditorContextMenu(
-        TextEditor editor,
-        SearchPanel searchPanel,
-        bool includeFormat) =>
-        CodeEditorContextMenu.Create(
-            editor,
-            searchPanel,
-            includeFormat ? FormatCurrentPlainCode : null,
-            DisplayGestures(StudioShortcutActions.FormatCode),
-            sourceEditor => ShowCompletionFor(sourceEditor, null),
-            () =>
-            {
-                BottomTabs.SelectedIndex = 1;
-                UpdateEditorHelp();
-            });
 
     private void ShowCompletion() => ShowCompletionFor(Editor, null);
 

@@ -28,7 +28,17 @@ public sealed partial class Parser
 
             var fieldName = ConsumeIdentifier("字段名称");
             Consume(TokenKind.Operator, ":", $"字段“{fieldName.Text}”后需要冒号");
-            fields.Add(new StructFieldDeclaration(fieldName.Text, ParseTypeName("字段类型")));
+            var fieldType = ParseTypeName("字段类型");
+            Expression? defaultValue = null;
+            if (MatchOperator("="))
+            {
+                defaultValue = ParseExpression();
+            }
+
+            fields.Add(new StructFieldDeclaration(
+                fieldName.Text,
+                fieldType,
+                defaultValue));
             ConsumeLineEnd();
         }
 

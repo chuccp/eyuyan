@@ -23,6 +23,7 @@ internal sealed partial class NativeEmitter
     private readonly YyProgram _program;
     private readonly string _sourceName;
     private readonly YyFormModel? _form;
+    private readonly IReadOnlyList<YyFormModel> _forms;
     private readonly NativeCodeBuffer _code = new();
     private readonly NativeDataBuffer _data = new();
     private readonly Dictionary<string, HashSet<string>> _imports =
@@ -50,11 +51,13 @@ internal sealed partial class NativeEmitter
     public NativeEmitter(
         YyProgram program,
         string sourceName,
-        YyFormModel? form = null)
+        YyFormModel? form = null,
+        IReadOnlyList<YyFormModel>? forms = null)
     {
         _program = program;
         _sourceName = sourceName;
-        _form = form;
+        _forms = forms ?? (form is null ? [] : [form]);
+        _form = form ?? _forms.FirstOrDefault();
         _functions = program.Functions.ToDictionary(
             function => function.Name,
             StringComparer.Ordinal);
@@ -586,6 +589,11 @@ internal sealed partial class NativeEmitter
         if (identifier.Name == "取控件")
         {
             TryEmitControlLookup(call, context);
+            return;
+        }
+
+        if (TryEmitWindowVisibility(call, context))
+        {
             return;
         }
 

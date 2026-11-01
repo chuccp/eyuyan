@@ -3,7 +3,9 @@ using System.IO;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using Yy.Language;
 using Yy.Language.Structured;
+using Yy.Language.Syntax;
 
 namespace Yy.Compiler.Forms;
 
@@ -105,133 +107,130 @@ public static class YyFormBindingSerializer
         builder.AppendLine("导入包 \"系统.界面\"");
         builder.AppendLine();
         builder.AppendLine("' 此文件由易语 Studio 自动生成，请勿手工修改。");
-        builder.AppendLine("' @id/... 只保存在生成关系中；用户代码使用控件名或窗口名访问。");
+        builder.AppendLine("' 窗体、控件和事件使用结构体描述；@id/... 只保存在生成关系中。");
         builder.AppendLine(
-            $"界面({Quote(binding.FormName)}, {Quote(binding.UiFile)}, {Quote(binding.CodeFile)})");
+            $"结构体 {binding.FormName}文件");
+        builder.AppendLine($"    界面: 文本 = {Quote(binding.UiFile)}");
+        builder.AppendLine($"    代码: 文本 = {Quote(binding.CodeFile)}");
+        builder.AppendLine("结束结构体");
         builder.AppendLine();
+        builder.AppendLine($"结构体 {binding.FormName}界面");
         foreach (var control in binding.Controls)
         {
             builder.AppendLine(
-                $"控件({Quote(control.Id)}, {Quote(control.Name)}, {Quote(control.TypeName)})");
+                $"    {control.Name}: 任意 = " +
+                $"{{标识: {Quote(control.Id)}, 类型: {Quote(control.TypeName)}}}");
         }
 
+        builder.AppendLine("结束结构体");
         builder.AppendLine();
+        builder.AppendLine($"结构体 {binding.FormName}事件");
         foreach (var item in binding.Events)
         {
+            var fieldName = item.OwnerType == "窗体"
+                ? item.EventName
+                : item.Owner + "_" + item.EventName;
             builder.AppendLine(
-                $"绑定({Quote(GetOwnerId(binding, item))}, {Quote(item.EventName)}, {Quote(item.HandlerName)})");
+                $"    {fieldName}: 文本 = {Quote(item.HandlerName)}");
         }
 
+        builder.AppendLine("结束结构体");
         return builder.ToString();
     }
 
     public static YyFormBindingDocument Deserialize(string text)
     {
-        var binding = new YyFormBindingDocument();
-        var pendingBindings = new List<(string Id, string EventName, string HandlerName, int Line)>();
-        var controlsById = new Dictionary<string, YyFormBindingControl>(StringComparer.Ordinal);
-        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
-        var interfaceSeen = false;
-        for (var index = 0; index < lines.Length; index++)
+        YyProgram program;
+        try
         {
-            var line = lines[index].Trim();
-            if (line.Length == 0 ||
-                line.StartsWith('\'') ||
-                line.StartsWith(".版本", StringComparison.Ordinal) ||
-                line.StartsWith(".程序集", StringComparison.Ordinal) ||
-                line.StartsWith("导入包 ", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            var call = ParseCall(line, index + 1);
-            if (call.Name == "界面")
-            {
-                if (interfaceSeen || call.Arguments.Count != 3)
-                {
-                    throw Error(index + 1, "界面() 声明必须且只能出现一次，并包含窗体、界面文件和代码文件。");
-                }
-
-                binding.FormName = call.Arguments[0];
-                binding.UiFile = call.Arguments[1];
-                binding.CodeFile = call.Arguments[2];
-                interfaceSeen = true;
-                continue;
-            }
-
-            if (call.Name == "控件")
-            {
-                if (call.Arguments.Count != 3)
-                {
-                    throw Error(index + 1, "控件() 需要标识、名称和类型。");
-                }
-
-                var control = new YyFormBindingControl(
-                    call.Arguments[1],
-                    call.Arguments[2],
-                    call.Arguments[0]);
-                if (!controlsById.TryAdd(control.Id, control))
-                {
-                    throw Error(index + 1, $"控件标识“{control.Id}”重复。");
-                }
-
-                binding.Controls.Add(control);
-                continue;
-            }
-
-            if (call.Name == "绑定")
-            {
-                if (call.Arguments.Count != 3)
-                {
-                    throw Error(index + 1, "绑定() 需要控件标识、事件名和处理程序。");
-                }
-
-                pendingBindings.Add((
-                    call.Arguments[0],
-                    call.Arguments[1],
-                    call.Arguments[2],
-                    index + 1));
-                continue;
-            }
-
-            throw Error(index + 1, $"不支持的界面关系声明“{call.Name}”。");
+            program = new Parser(text).Parse();
+        }
+        catch (YyDiagnostic diagnostic)
+        {
+            throw new YyFormFormatException(
+                diagnostic.Message,
+                diagnostic.Line,
+                diagnostic.Column);
         }
 
-        if (!interfaceSeen || string.IsNullOrWhiteSpace(binding.FormName))
+        var fileStruct = program.Structs.FirstOrDefault(structure =>
+            structure.Name.EndsWith("文件", StringComparison.Ordinal));
+        var interfaceStruct = program.Structs.FirstOrDefault(structure =>
+            structure.Name.EndsWith("界面", StringComparison.Ordinal));
+        var eventStruct = program.Structs.FirstOrDefault(structure =>
+            structure.Name.EndsWith("事件", StringComparison.Ordinal));
+        if (fileStruct is null || interfaceStruct is null || eventStruct is null)
         {
-            throw Error(1, "缺少界面() 声明。");
+            throw Error(1, "缺少窗体文件、界面或事件结构体。");
         }
 
-        foreach (var item in pendingBindings)
+        var formName = fileStruct.Name[..^"文件".Length];
+        if (!string.Equals(interfaceStruct.Name, formName + "界面", StringComparison.Ordinal) ||
+            !string.Equals(eventStruct.Name, formName + "事件", StringComparison.Ordinal))
         {
-            if (!YyFormSerializer.IsIdentifier(item.HandlerName))
+            throw Error(1, "窗体文件、界面和事件结构体不属于同一个窗体。");
+        }
+
+        var binding = new YyFormBindingDocument
+        {
+            FormName = formName,
+            UiFile = RequireStructString(fileStruct, "界面"),
+            CodeFile = RequireStructString(fileStruct, "代码")
+        };
+        foreach (var field in interfaceStruct.Fields)
+        {
+            var descriptor = field.DefaultValue as ObjectExpression;
+            var id = RequireObjectString(
+                descriptor,
+                "标识",
+                $"控件结构体字段“{field.Name}”");
+            var typeName = RequireObjectString(
+                descriptor,
+                "类型",
+                $"控件结构体字段“{field.Name}”");
+            if (binding.Controls.Any(control =>
+                    string.Equals(control.Id, id, StringComparison.Ordinal)))
             {
-                throw Error(
-                    item.Line,
-                    $"事件处理程序“{item.HandlerName}”不是有效函数标识符。");
+                throw Error(1, $"控件标识“{id}”重复。");
             }
 
-            if (string.Equals(item.Id, YyResourceIndex.FormId(binding.FormName), StringComparison.Ordinal))
+            binding.Controls.Add(new YyFormBindingControl(field.Name, typeName, id));
+        }
+
+        foreach (var field in eventStruct.Fields)
+        {
+            var handler = RequireStructString(eventStruct, field.Name);
+            if (!YyFormSerializer.IsIdentifier(handler))
+            {
+                throw Error(1, $"事件处理程序“{handler}”不是有效函数标识符。");
+            }
+
+            if (field.Name is "载入" or "关闭")
             {
                 binding.Events.Add(new YyFormBindingEvent(
-                    binding.FormName,
+                    formName,
                     "窗体",
-                    item.EventName,
-                    item.HandlerName,
-                    item.Id));
+                    field.Name,
+                    handler,
+                    YyResourceIndex.FormId(formName)));
                 continue;
             }
 
-            if (!controlsById.TryGetValue(item.Id, out var control))
+            var control = binding.Controls
+                .Where(item =>
+                    field.Name.StartsWith(item.Name + "_", StringComparison.Ordinal))
+                .OrderByDescending(item => item.Name.Length)
+                .FirstOrDefault();
+            if (control is null)
             {
-                throw Error(item.Line, $"绑定的控件标识“{item.Id}”没有在控件() 中声明。");
+                throw Error(1, $"事件结构体字段“{field.Name}”找不到对应控件。");
             }
 
             binding.Events.Add(new YyFormBindingEvent(
                 control.Name,
                 control.TypeName,
-                item.EventName,
-                item.HandlerName,
+                field.Name[(control.Name.Length + 1)..],
+                handler,
                 control.Id));
         }
 
@@ -247,6 +246,37 @@ public static class YyFormBindingSerializer
         }
 
         return binding;
+    }
+
+    private static string RequireStructString(
+        StructDeclaration structure,
+        string fieldName)
+    {
+        var field = structure.Fields.FirstOrDefault(item =>
+            string.Equals(item.Name, fieldName, StringComparison.Ordinal));
+        if (field?.DefaultValue is LiteralExpression { Value: string value })
+        {
+            return value;
+        }
+
+        throw Error(
+            structure.Line,
+            $"结构体“{structure.Name}”缺少文本字段“{fieldName}”的默认值。");
+    }
+
+    private static string RequireObjectString(
+        ObjectExpression? expression,
+        string propertyName,
+        string description)
+    {
+        if (expression?.Properties.FirstOrDefault(property =>
+                string.Equals(property.Key, propertyName, StringComparison.Ordinal))
+            .Value is LiteralExpression { Value: string value })
+        {
+            return value;
+        }
+
+        throw Error(1, $"{description}缺少文本属性“{propertyName}”。");
     }
 
     public static void ApplyTo(YyFormModel form, YyFormBindingDocument binding)
@@ -333,6 +363,47 @@ public static class YyFormBindingSerializer
         }
     }
 
+    /// <summary>
+    /// 源码编辑模式允许界面结构变化。按稳定标识恢复仍兼容的事件绑定，
+    /// 返回已保留的事件数量；已删除或改名控件的关系由下一次保存重建。
+    /// </summary>
+    public static int ApplyCompatibleTo(
+        YyFormModel form,
+        YyFormBindingDocument binding)
+    {
+        ClearEvents(form);
+        var formId = YyResourceIndex.FormId(form.Name);
+        var controlsById = form.Controls.ToDictionary(
+            control => YyResourceIndex.ControlId(form.Name, control.Name),
+            StringComparer.Ordinal);
+        var applied = 0;
+        foreach (var item in binding.Events)
+        {
+            if (item.OwnerType == "窗体")
+            {
+                if (!string.Equals(item.OwnerId, formId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                ApplyFormEvent(form, item);
+                applied++;
+                continue;
+            }
+
+            if (!controlsById.TryGetValue(item.OwnerId, out var control) ||
+                !string.Equals(control.Type, item.OwnerType, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            ApplyControlEvent(control, item);
+            applied++;
+        }
+
+        return applied;
+    }
+
     private static string GetOwnerId(
         YyFormBindingDocument binding,
         YyFormBindingEvent item) =>
@@ -404,6 +475,19 @@ public static class YyFormBindingSerializer
                     $"控件“{control.Name}”不支持关系事件“{item.EventName}”。",
                     1,
                     1);
+        }
+    }
+
+    private static void ClearEvents(YyFormModel form)
+    {
+        form.LoadEvent = null;
+        form.CloseEvent = null;
+        foreach (var control in form.Controls)
+        {
+            control.ClickEvent = null;
+            control.TextChangedEvent = null;
+            control.SelectionChangedEvent = null;
+            control.CheckedChangedEvent = null;
         }
     }
 

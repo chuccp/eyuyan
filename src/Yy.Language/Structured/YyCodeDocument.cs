@@ -20,7 +20,14 @@ public sealed class YyCodeStruct
 {
     public string Name { get; set; } = "结构体";
     public List<string> Interfaces { get; } = [];
-    public List<(string Name, string TypeName)> Fields { get; } = [];
+    public List<YyCodeStructField> Fields { get; } = [];
+}
+
+public sealed class YyCodeStructField
+{
+    public string Name { get; set; } = "字段";
+    public string TypeName { get; set; } = string.Empty;
+    public string DefaultExpression { get; set; } = string.Empty;
 }
 
 public sealed class YyCodeInterface
@@ -129,7 +136,14 @@ public static class YyCodeDocumentConverter
         {
             var converted = new YyCodeStruct { Name = structure.Name };
             converted.Interfaces.AddRange(structure.Interfaces);
-            converted.Fields.AddRange(structure.Fields.Select(field => (field.Name, field.TypeName)));
+            converted.Fields.AddRange(structure.Fields.Select(field => new YyCodeStructField
+            {
+                Name = field.Name,
+                TypeName = field.TypeName,
+                DefaultExpression = field.DefaultValue is null
+                    ? string.Empty
+                    : ExpressionToSource(field.DefaultValue)
+            }));
             document.Structs.Add(converted);
         }
 
@@ -203,9 +217,15 @@ public static class YyCodeDocumentConverter
             }
 
             builder.AppendLine();
-            foreach (var (name, typeName) in structure.Fields)
+            foreach (var field in structure.Fields)
             {
-                builder.Append("    ").Append(name).Append(": ").AppendLine(typeName);
+                builder.Append("    ").Append(field.Name).Append(": ").Append(field.TypeName);
+                if (!string.IsNullOrWhiteSpace(field.DefaultExpression))
+                {
+                    builder.Append(" = ").Append(field.DefaultExpression);
+                }
+
+                builder.AppendLine();
             }
 
             builder.AppendLine("结束结构体");

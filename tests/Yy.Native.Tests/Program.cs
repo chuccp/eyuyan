@@ -17,6 +17,7 @@ Run("原生子进程与退出码", TestProcess);
 Run("原生子程序与隐式主程序", TestFunctions);
 Run("隐式入口与无 CLR 依赖", TestImplicitEntry);
 Run("原生 Win32 窗口与按钮事件", TestWin32Window);
+Run("原生 Win32 双窗口回写", TestWin32WindowInteraction);
 
 if (failures > 0)
 {
@@ -449,6 +450,120 @@ static void TestWin32Window()
     }
 }
 
+static void TestWin32WindowInteraction()
+{
+    var projectDirectory = Path.Combine(
+        Directory.GetCurrentDirectory(),
+        "examples",
+        "窗口交互");
+    var project = YyProject.LoadForDirectory(projectDirectory)
+        ?? throw new Exception("无法加载窗口交互示例。");
+    var directory = CreateDirectory();
+    Process? process = null;
+    try
+    {
+        var output = Path.Combine(directory, "window-interaction.exe");
+        NativeCompiler.CompileProject(project, output);
+        process = Process.Start(new ProcessStartInfo
+        {
+            FileName = output,
+            UseShellExecute = false
+        }) ?? throw new Exception("无法启动双窗口示例。");
+
+        var mainWindow = WaitForProcessWindow(process, "A窗口 · 文字展示");
+        var editorWindow = WaitForProcessWindow(process, "B窗口 · 修改文字");
+        True(mainWindow != IntPtr.Zero, "没有找到 A 窗口。");
+        True(editorWindow != IntPtr.Zero, "没有找到预先创建的 B 窗口。");
+        True(!NativeUiProbe.IsWindowVisible(editorWindow), "B 窗口启动时应当隐藏。");
+
+        var modifyButton = NativeUiProbe.FindWindowEx(
+            mainWindow,
+            IntPtr.Zero,
+            "Button",
+            "修改文字");
+        True(modifyButton != IntPtr.Zero, "没有找到 A 窗口的修改按钮。");
+        NativeUiProbe.ClickButton(modifyButton);
+        True(
+            WaitUntil(() => NativeUiProbe.IsWindowVisible(editorWindow), 2000),
+            "点击修改后 B 窗口没有显示。");
+
+        var editor = AutomationElement.FromHandle(editorWindow);
+        var input = editor.FindFirst(
+            TreeScope.Descendants,
+            new PropertyCondition(
+                AutomationElement.ControlTypeProperty,
+                ControlType.Edit));
+        True(input is not null, "没有找到 B 窗口的输入框。");
+        ((ValuePattern)input!.GetCurrentPattern(ValuePattern.Pattern))
+            .SetValue("来自 B 窗口的新文字");
+
+        var confirmButton = NativeUiProbe.FindWindowEx(
+            editorWindow,
+            IntPtr.Zero,
+            "Button",
+            "确认");
+        True(confirmButton != IntPtr.Zero, "没有找到 B 窗口的确认按钮。");
+        NativeUiProbe.ClickButton(confirmButton);
+        True(
+            WaitUntil(() => !NativeUiProbe.IsWindowVisible(editorWindow), 2000),
+            "点击确认后 B 窗口没有关闭。");
+
+        var caption = NativeUiProbe.FindWindowEx(
+            mainWindow,
+            IntPtr.Zero,
+            "Static",
+            "当前文字：");
+        True(caption != IntPtr.Zero, "没有找到 A 窗口的说明标签。");
+        var content = NativeUiProbe.FindWindowEx(
+            mainWindow,
+            caption,
+            "Static",
+            null);
+        True(content != IntPtr.Zero, "没有找到 A 窗口的内容标签。");
+        Equal("来自 B 窗口的新文字", NativeUiProbe.GetWindowText(content));
+    }
+    finally
+    {
+        if (process is { HasExited: false })
+        {
+            process.Kill(entireProcessTree: true);
+            process.WaitForExit(3000);
+        }
+
+        Directory.Delete(directory, recursive: true);
+    }
+}
+
+static IntPtr WaitForProcessWindow(Process process, string title)
+{
+    IntPtr result = IntPtr.Zero;
+    _ = WaitUntil(
+        () =>
+        {
+            result = NativeUiProbe.FindProcessWindow(process.Id, title);
+            return result != IntPtr.Zero;
+        },
+        5000);
+    return result;
+}
+
+static bool WaitUntil(Func<bool> condition, int timeoutMilliseconds)
+{
+    var deadline = Environment.TickCount64 + timeoutMilliseconds;
+    do
+    {
+        if (condition())
+        {
+            return true;
+        }
+
+        Thread.Sleep(50);
+    }
+    while (Environment.TickCount64 < deadline);
+
+    return condition();
+}
+
 static string WriteSource(string directory, string source)
 {
     var path = Path.Combine(directory, "程序.yyc");
@@ -503,6 +618,21 @@ static void True(bool condition, string message)
 
 internal static partial class NativeUiProbe
 {
+    private delegate bool EnumWindowsProc(IntPtr window, IntPtr parameter);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+    private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(
+        IntPtr window,
+        out uint processId);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "IsWindowVisible")]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+    private static extern bool IsWindowVisibleNative(IntPtr window);
+
     [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "FindWindowExW", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
     private static extern IntPtr FindWindowExNative(
         IntPtr parent,
@@ -540,4 +670,26 @@ internal static partial class NativeUiProbe
     internal static IntPtr GetImage(IntPtr control) =>
         SendMessageNative(control, 0x0173, IntPtr.Zero, IntPtr.Zero);
 
+    internal static bool IsWindowVisible(IntPtr window) =>
+        IsWindowVisibleNative(window);
+
+    internal static IntPtr FindProcessWindow(int processId, string title)
+    {
+        var result = IntPtr.Zero;
+        _ = EnumWindows(
+            (window, _) =>
+            {
+                GetWindowThreadProcessId(window, out uint ownerProcessId);
+                if (ownerProcessId != processId ||
+                    !string.Equals(GetWindowText(window), title, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+
+                result = window;
+                return false;
+            },
+            IntPtr.Zero);
+        return result;
+    }
 }

@@ -110,7 +110,7 @@ public static class YySdk
             YyPackageStatus.Preview,
             "平台窗口、控件和基于资源 ID 的界面上下文。",
             ["窗口", "控件", "按钮", "文本", "输入框", "图片框", "取控件"],
-            ["取控件"],
+            ["取控件", "显示窗口", "关闭窗口"],
             [CorePackage]),
         new(
             FilePackage,

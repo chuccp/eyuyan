@@ -55,11 +55,8 @@ Run("界面 XML 与生成关系分离", () =>
     True(
         bindingText.Contains("导入包 \"系统.界面\"", StringComparison.Ordinal),
         "生成关系应声明界面 SDK 包。");
-    True(
-        bindingText.Contains(
-            "绑定(\"@id/测试窗口/编辑框2\", \"文本改变\", \"文本框_文本改变\")",
-            StringComparison.Ordinal),
-        "生成关系没有通过控件 ID 绑定事件。");
+    True(bindingText.Contains("编辑框2_文本改变: 文本 = \"文本框_文本改变\"", StringComparison.Ordinal), "生成关系没有用事件结构体绑定处理程序。");
+    True(bindingText.Contains("编辑框2: 任意 = {标识: \"@id/测试窗口/编辑框2\", 类型: \"输入框\"}", StringComparison.Ordinal), "生成关系没有用界面结构体保存控件标识。");
     var restoredBinding = YyFormBindingSerializer.Deserialize(bindingText);
     YyFormBindingSerializer.ApplyTo(restored, restoredBinding);
     Equal("测试窗口_载入", restored.LoadEvent);
@@ -209,6 +206,7 @@ Run("编辑器自动配对输入", () =>
 });
 
 Run("帮助开发文档覆盖语言与 SDK", DocumentationRegression.VerifyCatalog);
+Run("界面源码与设计器事件兼容", FormSourceEditingRegression.Verify);
 Run("开发文档窗口可创建", DocumentationRegression.VerifyWindow);
 Run("IDEA 式窗口布局配置", WindowLayoutRegression.Verify);
 

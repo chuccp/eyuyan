@@ -122,6 +122,9 @@ public sealed class EditorDocument : INotifyPropertyChanged
 
     public bool IsReadOnlyGenerated => IsGeneratedBinding || IsResourceIndex;
 
+    /// <summary>当前 .yyx 使用 XML 源码视图；磁盘仍是唯一的界面源码。</summary>
+    public bool UseFormSourceEditor { get; set; }
+
     /// <summary>当前 .yyc 以纯源码视图编辑；磁盘和编辑器使用同一份源码。</summary>
     public bool UsePlainCodeEditor
     {

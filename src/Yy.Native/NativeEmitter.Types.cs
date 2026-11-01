@@ -36,6 +36,10 @@ internal sealed partial class NativeEmitter
                 NativeValueKind.Text,
             CallExpression { Callee: IdentifierExpression { Name: "取目录文件" } } =>
                 NativeValueKind.Array,
+            CallExpression
+            {
+                Callee: IdentifierExpression { Name: "显示窗口" or "关闭窗口" }
+            } => NativeValueKind.Boolean,
             CallExpression { Callee: IdentifierExpression { Name: "数字" } } =>
                 NativeValueKind.Integer,
             CallExpression { Callee: IdentifierExpression { Name: "文本" } } =>

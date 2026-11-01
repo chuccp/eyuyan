@@ -21,6 +21,7 @@ public sealed class YyFormPreviewWindow : Window
     private readonly Dictionary<string, object?> _controlVariablesById = new(StringComparer.Ordinal);
     private readonly TextBlock _eventOutput;
     private CancellationTokenSource? _eventCancellation;
+    private string _formTitleBaseline = string.Empty;
     private bool _closeEventHandled;
     private bool _allowClose;
     private bool _updatingControls;
@@ -301,6 +302,18 @@ public sealed class YyFormPreviewWindow : Window
     {
         var builder = new StringBuilder();
         builder.AppendLine("' 预览器生成的窗体上下文");
+        builder.AppendLine($"结构体 {_form.Name}界面");
+        builder.AppendLine("    名称: 文本");
+        builder.AppendLine("    标题: 文本");
+        builder.AppendLine("    宽: 数字");
+        builder.AppendLine("    高: 数字");
+        foreach (var control in _form.Controls)
+        {
+            builder.AppendLine($"    {control.Name}: 对象");
+        }
+
+        builder.AppendLine("结束结构体");
+        builder.AppendLine();
         _controlVariables.Clear();
         _controlVariablesById.Clear();
         foreach (var control in _form.Controls)
@@ -338,13 +351,20 @@ public sealed class YyFormPreviewWindow : Window
             ["宽"] = _form.Width,
             ["高"] = _form.Height
         };
+        _formTitleBaseline = Title;
+        foreach (var control in _form.Controls)
+        {
+            window[control.Name] = _controlVariables[control.Name];
+        }
+
         _controlVariables["窗口"] = window;
         _controlVariables[_form.Name] = window;
         _controlVariablesById[_form.Name] = window;
         var formId = YyResourceIndex.FormId(_form.Name);
         _controlVariablesById[formId] = window;
         builder.AppendLine($"变量 窗口: 对象 = 取控件({Quote(formId)})");
-        builder.AppendLine($"变量 {_form.Name}: 对象 = 取控件({Quote(formId)})");
+        builder.AppendLine(
+            $"变量 {_form.Name}: {_form.Name}界面 = 取控件({Quote(formId)})");
         builder.AppendLine(code);
         builder.AppendLine(eventName + "()");
         return builder.ToString();
@@ -358,6 +378,19 @@ public sealed class YyFormPreviewWindow : Window
         _updatingControls = true;
         try
         {
+            if (variables.TryGetValue(_form.Name, out var formValue) &&
+                formValue is IReadOnlyDictionary<string, object?> formValues &&
+                formValues.TryGetValue("标题", out var formTitleValue))
+            {
+                var title = formTitleValue?.ToString() ?? string.Empty;
+                if (!string.Equals(title, _formTitleBaseline, StringComparison.Ordinal))
+                {
+                    Title = title;
+                    _form.Title = title;
+                    _formTitleBaseline = title;
+                }
+            }
+
             foreach (var control in _form.Controls)
             {
                 if (!variables.TryGetValue(control.Name, out var value) ||

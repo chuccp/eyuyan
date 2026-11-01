@@ -59,7 +59,8 @@ public static class NativeCompiler
         var generated = new NativeEmitter(
             program,
             project.EntryPath,
-            form?.Model).Generate();
+            form?.Model,
+            project.Forms.Select(item => item.Model).ToArray()).Generate();
         var image = NativePeWriter.Build(
             generated.Code,
             generated.Data,

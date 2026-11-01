@@ -15,7 +15,10 @@ public sealed record YyProgram(
     public IReadOnlyList<InterfaceDeclaration> Interfaces { get; init; } = [];
 }
 
-public sealed record StructFieldDeclaration(string Name, string TypeName);
+public sealed record StructFieldDeclaration(
+    string Name,
+    string TypeName,
+    Expression? DefaultValue = null);
 
 public sealed record StructDeclaration(
     int Line,

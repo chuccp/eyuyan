@@ -21,6 +21,14 @@ public sealed class ProjectCompiler
             .Select(package => package.Name)
             .ToHashSet(StringComparer.Ordinal);
         var packageImports = entryProgram.PackageImports.ToList();
+        var structures = entryProgram.Structs.ToList();
+        var interfaces = entryProgram.Interfaces.ToList();
+        var structureNames = structures
+            .Select(structure => structure.Name)
+            .ToHashSet(StringComparer.Ordinal);
+        var interfaceNames = interfaces
+            .Select(contract => contract.Name)
+            .ToHashSet(StringComparer.Ordinal);
 
         foreach (var form in project.Forms)
         {
@@ -30,6 +38,7 @@ public sealed class ProjectCompiler
             }
 
             var codeProgram = ReadProgram(form.CodePath);
+            AddDeclarations(codeProgram, form.CodePath);
             foreach (var package in codeProgram.PackageImports)
             {
                 if (packageNames.Add(package.Name))
@@ -48,6 +57,11 @@ public sealed class ProjectCompiler
 
                 functions.Add(function);
             }
+
+            var bindingProgram = YyRunner.CompileSource(
+                File.ReadAllText(form.BindingPath, new UTF8Encoding(false, true)),
+                form.BindingPath);
+            AddDeclarations(bindingProgram, form.BindingPath);
         }
 
         foreach (var form in project.Forms)
@@ -93,9 +107,34 @@ public sealed class ProjectCompiler
             entryProgram.Main)
         {
             PackageImports = packageImports,
-            Structs = entryProgram.Structs,
-            Interfaces = entryProgram.Interfaces
+            Structs = structures,
+            Interfaces = interfaces
         };
+
+        void AddDeclarations(YyProgram program, string path)
+        {
+            foreach (var structure in program.Structs)
+            {
+                if (!structureNames.Add(structure.Name))
+                {
+                    throw new InvalidDataException(
+                        $"结构体“{structure.Name}”在 {Path.GetFileName(path)} 中重复定义。");
+                }
+
+                structures.Add(structure);
+            }
+
+            foreach (var contract in program.Interfaces)
+            {
+                if (!interfaceNames.Add(contract.Name))
+                {
+                    throw new InvalidDataException(
+                        $"接口“{contract.Name}”在 {Path.GetFileName(path)} 中重复定义。");
+                }
+
+                interfaces.Add(contract);
+            }
+        }
     }
 
     private static YyProgram ReadProgram(string path)

@@ -127,13 +127,29 @@ public partial class MainWindow : Window
 
             if (document.IsForm)
             {
-                var form = ReferenceEquals(document, _designerDocument) && _designForm is not null
-                    ? _designForm
-                    : LoadFormDocument(document.Text, document.FilePath);
+                var form = document.UseFormSourceEditor
+                    ? LoadFormFromSource(document).Form
+                    : ReferenceEquals(document, _designerDocument) && _designForm is not null
+                        ? _designForm
+                        : LoadFormDocument(document.Text, document.FilePath);
                 var previousCodeFile = form.CodeFile;
                 var userCodePath = YyFormCompanionFiles.UserCodePath(path);
                 form.CodeFile = Path.GetFileName(userCodePath);
                 document.Text = YyFormSerializer.Serialize(form);
+                if (document.UseFormSourceEditor &&
+                    ReferenceEquals(document, _currentDocument))
+                {
+                    _isLoadingDocument = true;
+                    try
+                    {
+                        Editor.Text = document.Text;
+                    }
+                    finally
+                    {
+                        _isLoadingDocument = false;
+                    }
+                }
+
                 File.WriteAllText(path, document.Text, encoding);
                 var userCodeDocument = _documents.FirstOrDefault(item =>
                         string.Equals(item.FilePath, userCodePath, StringComparison.OrdinalIgnoreCase))
@@ -211,7 +227,8 @@ public partial class MainWindow : Window
             return true;
         }
         catch (Exception exception) when (
-            exception is IOException or UnauthorizedAccessException or YyCodeFormatException or YyDiagnostic)
+            exception is IOException or UnauthorizedAccessException or
+                YyCodeFormatException or YyDiagnostic or YyFormFormatException)
         {
             MessageBox.Show(
                 $"保存失败：\n{exception.Message}",

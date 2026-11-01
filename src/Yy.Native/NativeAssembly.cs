@@ -267,6 +267,7 @@ internal sealed class NativeCodeBuffer
     public void LoadR8FromRcx() => Emit(0x4C, 0x8B, 0x01);
     public void LoadRdxFromRcx() => Emit(0x48, 0x8B, 0x11);
     public void MovRcxRax() => Emit(0x48, 0x89, 0xC1);
+    public void MovRaxR8() => Emit(0x4C, 0x89, 0xC0);
     public void MovRdxRax() => Emit(0x48, 0x89, 0xC2);
     public void MovRaxRdx() => Emit(0x48, 0x89, 0xD0);
     public void MovR8Rax() => Emit(0x49, 0x89, 0xC0);

@@ -11,13 +11,11 @@ internal sealed partial class NativeEmitter
     private const uint WsBorder = 0x00800000;
     private const int WmDestroy = 0x0002;
     private const int WmCommand = 0x0111;
+    private const int WmClose = 0x0010;
     private readonly Dictionary<string, string> _uiHandles = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _uiAliases = new(StringComparer.Ordinal);
     private readonly List<NativeUiControl> _uiControls = [];
-    private string _windowClassLabel = string.Empty;
-    private string _windowTitleLabel = string.Empty;
-    private string _windowHandleLabel = string.Empty;
-    private string _windowClassStructLabel = string.Empty;
+    private readonly List<NativeUiForm> _uiForms = [];
     private string _windowInstanceLabel = string.Empty;
 
     private void PrepareWin32Data()
@@ -30,7 +28,7 @@ internal sealed partial class NativeEmitter
         foreach (var name in new[]
                  {
                      "RegisterClassExW", "CreateWindowExW",
-                     "ShowWindow", "UpdateWindow", "GetMessageW", "TranslateMessage",
+                     "ShowWindow", "UpdateWindow", "SetForegroundWindow", "GetMessageW", "TranslateMessage",
                      "DispatchMessageW", "DefWindowProcW", "PostQuitMessage", "SetWindowTextW",
                      "GetWindowTextW", "SendMessageW"
                  })
@@ -70,51 +68,79 @@ internal sealed partial class NativeEmitter
         _data.AddUInt64(0);
         _data.AddUInt32(0);
         _data.AddUInt32(0);
-        _windowClassLabel = _data.AddUtf16String("YyNativeWindow_" + _form.Name);
-        _windowTitleLabel = _data.AddUtf16String(_form.Title);
-        _windowHandleLabel = AddHandleSlot("ui_window_" + _form.Name);
-        _uiHandles[Yy.Compiler.YyResourceIndex.FormId(_form.Name)] = _windowHandleLabel;
-        _uiAliases[_form.Name] = _windowHandleLabel;
-        _uiAliases["窗口"] = _windowHandleLabel;
-
-        for (var index = 0; index < _form.Controls.Count; index++)
-        {
-            var control = _form.Controls[index];
-            var id = Yy.Compiler.YyResourceIndex.ControlId(_form.Name, control.Name);
-            var handle = AddHandleSlot("ui_control_" + index);
-            _uiHandles[id] = handle;
-            _uiAliases.TryAdd(control.Name, handle);
-            _uiControls.Add(new NativeUiControl(
-                id,
-                control.Name,
-                ControlClass(control.Type),
-                _data.AddUtf16String(control.Text),
-                handle,
-                1001 + index,
-                ControlStyle(control),
-                control.ClickEvent,
-                (int)control.X,
-                (int)control.Y,
-                (int)control.Width,
-                (int)control.Height));
-        }
-
-        _windowClassStructLabel = "window_class";
-        _data.MarkLabel(_windowClassStructLabel);
-        _data.AddUInt32(80);
-        _data.AddUInt32(3);
-        _data.AddFixup(FixupTargetKind.CodeLabel, "__yy_wndproc");
-        _data.AddUInt32(0);
-        _data.AddUInt32(0);
         _windowInstanceLabel = "window_instance";
+        _data.Align(8);
         _data.MarkLabel(_windowInstanceLabel);
         _data.AddUInt64(0);
-        _data.AddUInt64(0);
-        _data.AddUInt64(0);
-        _data.AddUInt64(6);
-        _data.AddUInt64(0);
-        _data.AddFixup(FixupTargetKind.DataLabel, _windowClassLabel);
-        _data.AddUInt64(0);
+
+        var nextControlId = 1001;
+        for (var formIndex = 0; formIndex < _forms.Count; formIndex++)
+        {
+            var form = _forms[formIndex];
+            var classLabel = _data.AddUtf16String("YyNativeWindow_" + form.Name);
+            var titleLabel = _data.AddUtf16String(form.Title);
+            var handle = AddHandleSlot("ui_window_" + form.Name);
+            var formId = Yy.Compiler.YyResourceIndex.FormId(form.Name);
+            _uiHandles[formId] = handle;
+            _uiAliases[form.Name] = handle;
+            if (formIndex == 0)
+            {
+                _uiAliases["窗口"] = handle;
+            }
+
+            _uiForms.Add(new NativeUiForm(
+                form.Name,
+                formId,
+                classLabel,
+                titleLabel,
+                handle,
+                "window_class_" + formIndex,
+                (int)form.Width,
+                (int)form.Height,
+                form.LoadEvent,
+                form.CloseEvent));
+
+            for (var controlIndex = 0; controlIndex < form.Controls.Count; controlIndex++)
+            {
+                var control = form.Controls[controlIndex];
+                var id = Yy.Compiler.YyResourceIndex.ControlId(form.Name, control.Name);
+                var controlHandle = AddHandleSlot("ui_control_" + formIndex + "_" + controlIndex);
+                _uiHandles[id] = controlHandle;
+                _uiAliases.TryAdd(control.Name, controlHandle);
+                _uiControls.Add(new NativeUiControl(
+                    id,
+                    form.Name,
+                    control.Name,
+                    ControlClass(control.Type),
+                    _data.AddUtf16String(control.Text),
+                    controlHandle,
+                    nextControlId++,
+                    ControlStyle(control),
+                    control.ClickEvent,
+                    (int)control.X,
+                    (int)control.Y,
+                    (int)control.Width,
+                    (int)control.Height));
+            }
+        }
+
+        foreach (var form in _uiForms)
+        {
+            _data.Align(8);
+            _data.MarkLabel(form.ClassStructLabel);
+            _data.AddUInt32(80);
+            _data.AddUInt32(3);
+            _data.AddFixup(FixupTargetKind.CodeLabel, "__yy_wndproc");
+            _data.AddUInt32(0);
+            _data.AddUInt32(0);
+            _data.AddFixup(FixupTargetKind.DataLabel, _windowInstanceLabel);
+            _data.AddUInt64(0);
+            _data.AddUInt64(0);
+            _data.AddUInt64(6);
+            _data.AddUInt64(0);
+            _data.AddFixup(FixupTargetKind.DataLabel, form.ClassLabel);
+            _data.AddUInt64(0);
+        }
     }
 
     private void EmitWin32Entry()
@@ -129,46 +155,57 @@ internal sealed partial class NativeEmitter
         _code.MovImmediate(NativeRegister.Rcx, 0);
         _code.CallImport("import:GetModuleHandleW");
         _code.StoreRaxRip("data:" + _windowInstanceLabel);
-        _code.LeaRcxRip("data:" + _windowClassStructLabel);
-        _code.CallImport("import:RegisterClassExW");
+        foreach (var form in _uiForms)
+        {
+            _code.LeaRcxRip("data:" + form.ClassStructLabel);
+            _code.CallImport("import:RegisterClassExW");
+        }
 
-        EmitCreateWindow(
-            "data:" + _windowClassLabel,
-            "data:" + _windowTitleLabel,
-            0x00CF0000,
-            int.MinValue,
-            int.MinValue,
-            (int)_form.Width,
-            (int)_form.Height,
-            parentHandle: null,
-            controlId: 0,
-            "data:" + _windowHandleLabel);
-        foreach (var control in _uiControls)
+        foreach (var form in _uiForms)
         {
             EmitCreateWindow(
-                "data:" + _data.AddUtf16String(control.ClassName),
-                "data:" + control.TextLabel,
-                control.Style,
-                (int)control.X,
-                (int)control.Y,
-                (int)control.Width,
-                (int)control.Height,
-                parentHandle: "data:" + _windowHandleLabel,
-                controlId: control.Id,
-                "data:" + control.HandleLabel);
+                "data:" + form.ClassLabel,
+                "data:" + form.TitleLabel,
+                0x00CF0000,
+                int.MinValue,
+                int.MinValue,
+                form.Width,
+                form.Height,
+                parentHandle: null,
+                controlId: 0,
+                "data:" + form.HandleLabel);
+            foreach (var control in _uiControls.Where(item =>
+                         string.Equals(item.OwnerForm, form.Name, StringComparison.Ordinal)))
+            {
+                EmitCreateWindow(
+                    "data:" + _data.AddUtf16String(control.ClassName),
+                    "data:" + control.TextLabel,
+                    control.Style,
+                    control.X,
+                    control.Y,
+                    control.Width,
+                    control.Height,
+                    parentHandle: "data:" + form.HandleLabel,
+                    controlId: control.Id,
+                    "data:" + control.HandleLabel);
+            }
         }
 
         _code.CallCode("__yy_main");
-        if (_form.LoadEvent is not null &&
-            _functionLabels.TryGetValue(_form.LoadEvent, out var loadLabel))
+        foreach (var form in _uiForms)
         {
-            _code.CallCode(loadLabel);
+            if (form.LoadEvent is not null &&
+                _functionLabels.TryGetValue(form.LoadEvent, out var loadLabel))
+            {
+                _code.CallCode(loadLabel);
+            }
         }
 
-        _code.LoadRcxRip("data:" + _windowHandleLabel);
+        var startupForm = _uiForms[0];
+        _code.LoadRcxRip("data:" + startupForm.HandleLabel);
         _code.MovImmediate(NativeRegister.Rdx, 5);
         _code.CallImport("import:ShowWindow");
-        _code.LoadRcxRip("data:" + _windowHandleLabel);
+        _code.LoadRcxRip("data:" + startupForm.HandleLabel);
         _code.CallImport("import:UpdateWindow");
 
         var loop = NewLabel("message_loop");
@@ -232,8 +269,8 @@ internal sealed partial class NativeEmitter
 
     private void EmitWindowProcedure()
     {
+        var notClose = NewLabel("wndproc_not_close");
         var notDestroy = NewLabel("wndproc_not_destroy");
-        var notCommand = NewLabel("wndproc_not_command");
         var defaultHandler = NewLabel("wndproc_default");
         _code.MarkLabel("__yy_wndproc");
         _code.BeginFrame(64);
@@ -242,10 +279,37 @@ internal sealed partial class NativeEmitter
         _code.StoreR8ToRbp(-24);
         _code.StoreR9ToRbp(-32);
         _code.MovEaxEdx();
+        _code.CmpEax(WmClose);
+        _code.JumpIfNotZero(notClose);
+        foreach (var form in _uiForms.Skip(1))
+        {
+            var next = NewLabel("wndproc_close_next");
+            _code.LoadRcxFromRbp(-8);
+            _code.LoadRaxRip("data:" + form.HandleLabel);
+            _code.CmpRaxRcx();
+            _code.JumpIfNotZero(next);
+            _code.LoadRcxFromRbp(-8);
+            _code.MovImmediate(NativeRegister.Rdx, 0);
+            _code.CallImport("import:ShowWindow");
+            _code.MovImmediate(NativeRegister.Rax, 0);
+            _code.EndFrame();
+            _code.MarkLabel(next);
+        }
+
+        _code.Jmp(defaultHandler);
+
+        _code.MarkLabel(notClose);
+        _code.MovEaxEdx();
         _code.CmpEax(WmDestroy);
         _code.JumpIfNotZero(notDestroy);
-        if (_form?.CloseEvent is not null &&
-            _functionLabels.TryGetValue(_form.CloseEvent, out var closeLabel))
+        var startupForm = _uiForms[0];
+        _code.LoadRcxFromRbp(-8);
+        _code.LoadRaxRip("data:" + startupForm.HandleLabel);
+        _code.CmpRaxRcx();
+        var notStartupDestroy = NewLabel("wndproc_not_startup_destroy");
+        _code.JumpIfNotZero(notStartupDestroy);
+        if (startupForm.CloseEvent is not null &&
+            _functionLabels.TryGetValue(startupForm.CloseEvent, out var closeLabel))
         {
             _code.CallCode(closeLabel);
         }
@@ -254,9 +318,11 @@ internal sealed partial class NativeEmitter
         _code.CallImport("import:PostQuitMessage");
         _code.MovImmediate(NativeRegister.Rax, 0);
         _code.EndFrame();
+        _code.MarkLabel(notStartupDestroy);
+        _code.MovImmediate(NativeRegister.Rax, 0);
+        _code.EndFrame();
 
         _code.MarkLabel(notDestroy);
-        _code.LoadRdxFromRbp(-16);
         _code.MovEaxEdx();
         _code.CmpEax(WmCommand);
         _code.JumpIfNotZero(defaultHandler);
@@ -278,9 +344,8 @@ internal sealed partial class NativeEmitter
             _code.MarkLabel(next);
         }
 
-        _code.Jmp(notCommand);
+        _code.Jmp(defaultHandler);
         _code.MarkLabel(defaultHandler);
-        _code.MarkLabel(notCommand);
         _code.LoadRcxFromRbp(-8);
         _code.LoadRdxFromRbp(-16);
         _code.LoadR8FromRbp(-24);
@@ -363,6 +428,35 @@ internal sealed partial class NativeEmitter
         out string handle)
     {
         handle = string.Empty;
+        if (target is MemberExpression
+            {
+                Target: IdentifierExpression formAlias,
+                Member: string controlName
+            })
+        {
+            if (context.Slots.ContainsKey(formAlias.Name))
+            {
+                return false;
+            }
+
+            var form = _uiForms.FirstOrDefault(item =>
+                string.Equals(item.Name, formAlias.Name, StringComparison.Ordinal));
+            var owner = form ?? (formAlias.Name == "窗口" ? _uiForms.FirstOrDefault() : null);
+            if (owner is null)
+            {
+                return false;
+            }
+
+            var controlId = Yy.Compiler.YyResourceIndex.ControlId(owner.Name, controlName);
+            if (_uiHandles.TryGetValue(controlId, out var nestedHandle))
+            {
+                handle = nestedHandle;
+                return true;
+            }
+
+            return false;
+        }
+
         if (target is IdentifierExpression identifier)
         {
             // 用户变量和参数可以遮蔽生成控件名，保持普通词法作用域。
@@ -396,6 +490,54 @@ internal sealed partial class NativeEmitter
         }
 
         return false;
+    }
+
+    private bool TryEmitWindowVisibility(
+        CallExpression call,
+        NativeContext context)
+    {
+        if (call.Callee is not IdentifierExpression identifier ||
+            identifier.Name is not ("显示窗口" or "关闭窗口"))
+        {
+            return false;
+        }
+
+        if (call.Arguments is not [LiteralExpression { Value: string requestedFormId }])
+        {
+            Fail(call, $"{identifier.Name} 需要一个静态窗体 @id/... 标识");
+            return true;
+        }
+
+        var form = _uiForms.FirstOrDefault(item =>
+            string.Equals(item.FormId, requestedFormId, StringComparison.Ordinal));
+        if (form is null)
+        {
+            Fail(call, $"没有找到窗体标识“{requestedFormId}”");
+            return true;
+        }
+
+        var visible = identifier.Name == "显示窗口";
+        if (!visible &&
+            form.CloseEvent is not null &&
+            _functionLabels.TryGetValue(form.CloseEvent, out var closeHandler))
+        {
+            _code.CallCode(closeHandler);
+        }
+
+        _code.LoadRcxRip("data:" + form.HandleLabel);
+        _code.MovImmediate(NativeRegister.Rdx, visible ? 5 : 0);
+        _code.CallImport("import:ShowWindow");
+        if (visible)
+        {
+            _code.LoadRcxRip("data:" + form.HandleLabel);
+            _code.CallImport("import:UpdateWindow");
+            _code.LoadRcxRip("data:" + form.HandleLabel);
+            _code.CallImport("import:SetForegroundWindow");
+        }
+
+        _code.MovImmediate(NativeRegister.Rax, 1);
+        context.LastKind = NativeValueKind.Boolean;
+        return true;
     }
 
     private void AddImport(string dll, string function)
@@ -449,6 +591,7 @@ internal sealed partial class NativeEmitter
 
     private sealed record NativeUiControl(
         string ResourceId,
+        string OwnerForm,
         string Name,
         string ClassName,
         string TextLabel,
@@ -460,4 +603,16 @@ internal sealed partial class NativeEmitter
         int Y,
         int Width,
         int Height);
+
+    private sealed record NativeUiForm(
+        string Name,
+        string FormId,
+        string ClassLabel,
+        string TitleLabel,
+        string HandleLabel,
+        string ClassStructLabel,
+        int Width,
+        int Height,
+        string? LoadEvent,
+        string? CloseEvent);
 }

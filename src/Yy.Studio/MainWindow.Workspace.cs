@@ -395,6 +395,7 @@ public partial class MainWindow : Window
         Editor.Visibility = Visibility.Collapsed;
         EasyLanguageEditor.Visibility = Visibility.Collapsed;
         CodeWindowBar.Visibility = Visibility.Collapsed;
+        FormEditorBar.Visibility = Visibility.Collapsed;
         DesignerPanel.Visibility = Visibility.Collapsed;
         ParameterHintBar.Visibility = Visibility.Collapsed;
         DataTableViewHost.Visibility = Visibility.Visible;
@@ -489,6 +490,7 @@ public partial class MainWindow : Window
         Editor.Visibility = Visibility.Collapsed;
         EasyLanguageEditor.Visibility = Visibility.Collapsed;
         CodeWindowBar.Visibility = Visibility.Collapsed;
+        FormEditorBar.Visibility = Visibility.Collapsed;
         ParameterHintBar.Visibility = Visibility.Collapsed;
         InspectorPanel.Visibility = Visibility.Collapsed;
         RightToolsPanel.Margin = new Thickness(0);
@@ -558,7 +560,15 @@ public partial class MainWindow : Window
 
         if (document.IsForm)
         {
-            ShowFormDesigner(document);
+            if (document.UseFormSourceEditor)
+            {
+                ShowFormSourceEditor(document);
+            }
+            else
+            {
+                ShowFormDesigner(document);
+            }
+
             UpdateDocumentIdentity();
             return;
         }
@@ -617,7 +627,9 @@ public partial class MainWindow : Window
         _startPageView.Visibility = Visibility.Collapsed;
         Editor.Visibility = Visibility.Visible;
         EasyLanguageEditor.Visibility = Visibility.Collapsed;
+        FormEditorBar.Visibility = Visibility.Collapsed;
         Editor.IsReadOnly = document.IsReadOnlyGenerated;
+        SetEditorSyntax(xml: false);
         InspectorPanel.Visibility = Visibility.Collapsed;
         RightToolsPanel.Margin = new Thickness(0);
         CodeWindowBar.Visibility =
@@ -636,12 +648,14 @@ public partial class MainWindow : Window
         ClearSelectionVisuals();
     }
 
-    private void ShowFormDesigner(EditorDocument document)
+    private void ShowFormDesigner(
+        EditorDocument document,
+        YyFormModel? preparedForm = null)
     {
         DataTableViewHost.Visibility = Visibility.Collapsed;
         try
         {
-            _designForm = LoadFormDocument(document.Text, document.FilePath);
+            _designForm = preparedForm ?? LoadFormFromSource(document).Form;
             _designerDocument = document;
             var currentSnapshot = YyFormSerializer.Serialize(_designForm);
             if (document.LastDesignerSnapshot is null ||
@@ -655,30 +669,28 @@ public partial class MainWindow : Window
             Editor.Visibility = Visibility.Collapsed;
             EasyLanguageEditor.Visibility = Visibility.Collapsed;
             CodeWindowBar.Visibility = Visibility.Collapsed;
+            FormEditorBar.Visibility = Visibility.Visible;
             _startPageView.Visibility = Visibility.Collapsed;
             DesignerPanel.Visibility = Visibility.Visible;
             InspectorPanel.Visibility = Visibility.Visible;
             RightToolsPanel.Margin = new Thickness(0, 0, 132, 0);
             ParameterHintBar.Visibility = Visibility.Collapsed;
+            SetEditorSyntax(xml: false);
             RestoreInspectorColumn();
             PropertyRows.Visibility = Visibility.Visible;
+            document.UseFormSourceEditor = false;
+            FormEditorContext.Text =
+                $"可视化界面 · {document.DisplayName} · 组件箱和属性夹可用";
+            SetFormModeButtonState(useSource: false);
             RenderDesignerForm();
             UpdateDesignerTitleChrome();
             SetStatus($"窗体设计：{_designForm.Title}", ReadyBrush);
         }
         catch (YyFormFormatException exception)
         {
-            ShowCodeEditor(document);
-            _isLoadingDocument = true;
-            try
-            {
-                Editor.Text = document.Text;
-                NavigateTo(exception.Line, exception.Column);
-            }
-            finally
-            {
-                _isLoadingDocument = false;
-            }
+            document.UseFormSourceEditor = true;
+            ShowFormSourceEditor(document);
+            NavigateTo(exception.Line, exception.Column);
 
             AppendOutput(string.Empty);
             AppendOutput($"✕ 窗体 XML 错误 · 第 {exception.Line} 行，第 {exception.Column} 列");
