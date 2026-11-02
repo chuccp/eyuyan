@@ -7,6 +7,12 @@ obj/
 artifacts/
 screenshots/
 
+# macOS 文件系统元数据
+.DS_Store
+
+# 示例通过 yy build 生成的原生可执行文件
+/examples/原生窗体/原生窗体
+
 /tmp-shots
 /docs/reference/eyuyan-zlsc
 docs/reference/eyuyan-zlsc/
