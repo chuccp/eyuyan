@@ -28,10 +28,159 @@ public sealed partial class StructuredCodeEditor
             {
                 _document.Remark = value;
                 NotifyChanged();
-            })
+            }, comment: true)
         ]);
         table.Children.Add(row);
-        AddWithSpacing(table, 4);
+        AddWithSpacing(table, 0);
+
+        // 程序集变量表(官方:窗口程序集表下方的变量名/类型表)。
+        var assemblyVars = _document!.MainStatements
+            .Where(statement => statement.Kind == YyCodeStatementKinds.Variable)
+            .ToList();
+        if (assemblyVars.Count > 0)
+        {
+            AddSubTable(
+                [124d, 72d, 40d, 40d, 132d],
+                ["变量名", "类 型", "静 态", "数 组", "备 注"],
+                assemblyVars.Select(statement => new Control[]
+                {
+                    EditableCell(statement.Name, 124d, value =>
+                    {
+                        statement.Name = value.Trim();
+                        NotifyChanged();
+                    }, blue: true),
+                    EditableCell(statement.TypeName, 72d, value =>
+                    {
+                        statement.TypeName = value.Trim();
+                        NotifyChanged();
+                    }, blue: true),
+                    BooleanCell(statement.IsStatic, 40d, value =>
+                    {
+                        statement.IsStatic = value;
+                        NotifyChanged();
+                    }),
+                    BooleanCell(statement.IsArray, 40d, value =>
+                    {
+                        statement.IsArray = value;
+                        NotifyChanged();
+                    }),
+                    EditableCell(statement.Remark, 132d, value =>
+                    {
+                        statement.Remark = value;
+                        NotifyChanged();
+                    }, comment: true)
+                }));
+        }
+    }
+
+    private void AddConstantsTable()
+    {
+        var constants = _document!.MainStatements
+            .Where(statement => statement.Kind == YyCodeStatementKinds.Constant)
+            .ToList();
+        var widths = new[] { 140d, 80d, 180d, 132d };
+        AddSubTable(
+            widths,
+            ["常量名", "类 型", "常量值", "备 注"],
+            constants.Select(statement => new Control[]
+            {
+                EditableCell(statement.Name, widths[0], value =>
+                {
+                    statement.Name = value.Trim();
+                    NotifyChanged();
+                }, blue: true),
+                EditableCell(statement.TypeName, widths[1], value =>
+                {
+                    statement.TypeName = value.Trim();
+                    NotifyChanged();
+                }, blue: true),
+                EditableCell(statement.Expression, widths[2], value =>
+                {
+                    statement.Expression = value.Trim();
+                    NotifyChanged();
+                }),
+                EditableCell(statement.Remark, widths[3], value =>
+                {
+                    statement.Remark = value;
+                    NotifyChanged();
+                }, comment: true)
+            }));
+    }
+
+    private void AddStructsTables()
+    {
+        foreach (var structure in _document!.Structs)
+        {
+            var widths = new[] { 140d, 124d, 96d, 160d };
+            var header = CreateTable();
+            AddTableRow(
+                header,
+                ["数据类型名", structure.Name, string.Empty, string.Empty],
+                widths,
+                header: true);
+            AddWithSpacing(header, 0);
+            AddSubTable(
+                widths.Skip(1).ToArray(),
+                ["字段名", "类 型", "默认值"],
+                structure.Fields.Select(field => new Control[]
+                {
+                    EditableCell(field.Name, widths[1], value =>
+                    {
+                        field.Name = value.Trim();
+                        NotifyChanged();
+                    }, blue: true),
+                    EditableCell(field.TypeName, widths[2], value =>
+                    {
+                        field.TypeName = value.Trim();
+                        NotifyChanged();
+                    }, blue: true),
+                    EditableCell(field.DefaultExpression, widths[3], value =>
+                    {
+                        field.DefaultExpression = value.Trim();
+                        NotifyChanged();
+                    })
+                }));
+        }
+    }
+
+    private void RebuildTabStrip()
+    {
+        _tabStrip.Children.Clear();
+        if (_document is null)
+        {
+            return;
+        }
+
+        void AddTab(string header, string mode, bool enabled = true)
+        {
+            var selected = string.Equals(_viewMode, mode, StringComparison.Ordinal);
+            var button = new Button
+            {
+                Content = header,
+                FontFamily = CodeFont,
+                FontSize = 12,
+                Padding = new Thickness(10, 2),
+                Margin = new Thickness(1, 0),
+                IsEnabled = enabled,
+                Background = selected ? Brushes.White : Brushes.Transparent,
+                BorderBrush = selected ? LineBrush : Brushes.Transparent,
+                BorderThickness = new Thickness(1, 1, 1, selected ? 0 : 1),
+                FontWeight = selected ? FontWeight.SemiBold : FontWeight.Normal
+            };
+            button.Click += (_, _) =>
+            {
+                _viewMode = mode;
+                Rebuild();
+            };
+            _tabStrip.Children.Add(button);
+        }
+
+        AddTab("窗口程序集：" + _document.Name, "main");
+        AddTab(
+            "[常量数据表]",
+            "constants",
+            _document.MainStatements.Any(s => s.Kind == YyCodeStatementKinds.Constant));
+        AddTab("[自定义数据类型表]", "types", _document.Structs.Count > 0);
     }
 
     private void AddParameterTable(YyCodeFunction function)
@@ -51,7 +200,7 @@ public sealed partial class StructuredCodeEditor
                 {
                     parameter.TypeName = value.Trim();
                     NotifyChanged();
-                }),
+                }, blue: true),
                 BooleanCell(parameter.ByRef, widths[2], value =>
                 {
                     parameter.ByRef = value;
@@ -76,7 +225,7 @@ public sealed partial class StructuredCodeEditor
                 {
                     parameter.Remark = value;
                     NotifyChanged();
-                })
+                }, comment: true)
             }));
     }
 
@@ -97,7 +246,7 @@ public sealed partial class StructuredCodeEditor
                 {
                     local.TypeName = value.Trim();
                     NotifyChanged();
-                }),
+                }, blue: true),
                 BooleanCell(local.IsStatic, widths[2], value =>
                 {
                     local.IsStatic = value;
@@ -112,7 +261,7 @@ public sealed partial class StructuredCodeEditor
                 {
                     local.Remark = value;
                     NotifyChanged();
-                })
+                }, comment: true)
             }));
     }
 
@@ -189,7 +338,8 @@ public sealed partial class StructuredCodeEditor
         string text,
         double width,
         Action<string> changed,
-        bool blue = false)
+        bool blue = false,
+        bool comment = false)
     {
         var box = new TextBox
         {
@@ -198,9 +348,12 @@ public sealed partial class StructuredCodeEditor
             Height = 22,
             FontFamily = CodeFont,
             FontSize = 12,
-            Foreground = blue
-                ? new SolidColorBrush(Color.FromRgb(0, 0, 180))
-                : CodeTextBrush,
+            FontStyle = comment ? FontStyle.Italic : FontStyle.Normal,
+            Foreground = comment
+                ? new SolidColorBrush(Color.FromRgb(0, 128, 0))
+                : blue
+                    ? new SolidColorBrush(Color.FromRgb(0, 0, 180))
+                    : CodeTextBrush,
             BorderThickness = new Thickness(0),
             Background = Brushes.Transparent,
             Padding = new Thickness(4, 1, 4, 1),
@@ -243,25 +396,23 @@ public sealed partial class StructuredCodeEditor
 
     private Control BooleanCell(bool value, double width, Action<bool> changed)
     {
-        var combo = new ComboBox
+        // 官方易语言的表格布尔格:居中勾选框(✓/空白)。
+        var check = new CheckBox
         {
-            Width = Math.Max(1, width - 1),
-            FontSize = 11,
-            Height = 21,
+            IsChecked = value,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
             MinHeight = 0,
-            Padding = new Thickness(1, 0, 1, 0),
-            ItemsSource = new[] { "真", "假" },
-            SelectedIndex = value ? 0 : 1,
-            VerticalContentAlignment = VerticalAlignment.Center
+            Padding = new Thickness(0)
         };
-        combo.SelectionChanged += (_, _) =>
+        check.IsCheckedChanged += (_, _) =>
         {
-            if (!_building && (combo.SelectedIndex == 0) != value)
+            if (!_building && check.IsChecked == true != value)
             {
-                changed(combo.SelectedIndex == 0);
+                changed(check.IsChecked == true);
             }
         };
-        return CellHost(combo, width, Brushes.White);
+        return CellHost(check, width, Brushes.White);
     }
 
     private static Control CellHost(Control content, double width, IBrush background) =>

@@ -239,15 +239,21 @@ public partial class ToolWindowLayoutController
         string dock,
         bool toolboxActive)
     {
-        var inset = ToolWindowLayoutMetrics.PanelInset;
-        var right = toolboxActive &&
-            string.Equals(
-                dock,
-                StudioToolWindowConfiguration.RightDock,
-                StringComparison.Ordinal)
-                ? _toolboxWidth + inset
-                : inset;
-        return new Thickness(inset, inset, right, inset);
+        // 外缘 6,面向相邻面板的内缝 1;与 4px 分割条合计成统一的 6px 缝。
+        var outer = ToolWindowLayoutMetrics.PanelInset;
+        var inner = ToolWindowLayoutMetrics.PanelGapInset;
+        if (string.Equals(dock, StudioToolWindowConfiguration.RightDock, StringComparison.Ordinal))
+        {
+            var right = toolboxActive ? _toolboxWidth + inner : outer;
+            return new Thickness(inner, 4, right, inner);
+        }
+
+        if (string.Equals(dock, StudioToolWindowConfiguration.BottomDock, StringComparison.Ordinal))
+        {
+            return new Thickness(outer, inner, outer, outer);
+        }
+
+        return new Thickness(outer, 4, inner, inner);
     }
 
     private void PlaceToolbox(Control toolbox)
@@ -260,7 +266,11 @@ public partial class ToolWindowLayoutController
         toolbox.Height = double.NaN;
         toolbox.HorizontalAlignment = HorizontalAlignment.Right;
         toolbox.VerticalAlignment = VerticalAlignment.Stretch;
-        toolbox.Margin = new Thickness(ToolWindowLayoutMetrics.PanelInset);
+        toolbox.Margin = new Thickness(
+            ToolWindowLayoutMetrics.PanelGapInset,
+            4,
+            ToolWindowLayoutMetrics.PanelInset,
+            ToolWindowLayoutMetrics.PanelGapInset);
         toolbox.ZIndex = 9;
     }
 

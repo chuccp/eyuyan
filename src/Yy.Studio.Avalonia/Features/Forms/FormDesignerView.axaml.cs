@@ -32,6 +32,7 @@ public partial class FormDesignerView : UserControl
         InitializeComponent();
         PopulateToolbox();
         WireCanvas();
+        WireCanvasContextMenu();
         RebuildCanvas();
         SelectForm();
     }
@@ -53,21 +54,39 @@ public partial class FormDesignerView : UserControl
 
     public IReadOnlyList<YyControlModel> SelectedControls => _selection;
 
+    /// <summary>组件箱面板可见性(布局菜单“窗口组件箱”)。</summary>
+    public bool IsToolboxVisible
+    {
+        get => ToolboxPanel.IsVisible;
+        set => ToolboxPanel.IsVisible = value;
+    }
+
+    /// <summary>预览被设计窗体(右键菜单/快捷键)。</summary>
+    public event EventHandler? PreviewRequested;
+
+    /// <summary>查看用户代码(右键菜单)。</summary>
+    public event EventHandler? ViewCodeRequested;
+
+    private bool _snapToGrid = true;
+
+    public void RequestPreview() => PreviewRequested?.Invoke(this, EventArgs.Empty);
+
+    public void RequestViewCode() => ViewCodeRequested?.Invoke(this, EventArgs.Empty);
+
     public string? ProjectDirectory => _editor?.ProjectDirectory;
 
     public string? FormFilePath => _editor?.FormFilePath;
 
     public bool SnapToGrid
     {
-        get => _editor?.SnapToGrid ?? SnapCheckBox.IsChecked == true;
+        get => _editor?.SnapToGrid ?? _snapToGrid;
         set
         {
+            _snapToGrid = value;
             if (_editor is not null)
             {
                 _editor.SnapToGrid = value;
             }
-
-            SnapCheckBox.IsChecked = value;
         }
     }
 
@@ -87,7 +106,7 @@ public partial class FormDesignerView : UserControl
         string? formPath)
     {
         _editor = FormEditorModel.Load(form, projectDirectory, formPath);
-        _editor.SnapToGrid = SnapCheckBox.IsChecked == true;
+        _editor.SnapToGrid = _snapToGrid;
         ResetSelection();
         RebuildCanvas();
         SelectForm();
@@ -97,7 +116,7 @@ public partial class FormDesignerView : UserControl
     public void LoadFormFile(string formPath, string? projectDirectory = null)
     {
         _editor = FormEditorModel.LoadFile(formPath, projectDirectory);
-        _editor.SnapToGrid = SnapCheckBox.IsChecked == true;
+        _editor.SnapToGrid = _snapToGrid;
         ResetSelection();
         RebuildCanvas();
         SelectForm();

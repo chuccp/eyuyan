@@ -175,7 +175,7 @@ internal sealed class YySemanticAnalyzer
         switch (statement)
         {
             case VariableStatement variable:
-                var inferred = Infer(variable.Initializer);
+                var inferred = variable.Initializer is null ? Any : Infer(variable.Initializer);
                 CheckAssignable(variable.DeclaredType, inferred, variable, $"变量“{variable.Name}”");
                 if (!(useExistingGlobal && _predeclaredGlobals.Contains(variable.Name)))
                 {

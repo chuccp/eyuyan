@@ -1,5 +1,6 @@
 using Yy.Language;
 using Yy.Language.Structured;
+using Yy.Language.Syntax;
 var tests = new List<(string Name, Action Test)>
 {
     ("基础输出", TestOutput),
@@ -31,6 +32,7 @@ var tests = new List<(string Name, Action Test)>
     ("运行时错误行号", TestRuntimeError),
     ("源码模型往返", TestStructuredModelExtensions),
     ("拒绝源码版本头", TestRejectSourceVersionHeader),
+    ("老语法声明行与语句", TestOfficialSyntax),
     ("语句行解析与全角输入", TestParseStatementText),
     ("官方文本命令", TestOfficialTextCommands),
     ("文本处理组合", TestTextProcessing),
@@ -73,7 +75,7 @@ static void TestOutput()
 {
     var output = Run("""
         .程序集 示例
-        变量 名字 = "易语"
+        变量 名字: 文本 = "易语"
         输出("你好，" + 名字)
         输出 "第二行"
         """);
@@ -106,7 +108,7 @@ static void TestNestedComments()
 static void TestIfElseIf()
 {
     var output = Run("""
-        变量 分数 = 86
+        变量 分数: 数字 = 86
         如果 分数 >= 90 则
             输出("优秀")
         否则如果 分数 >= 60 则
@@ -121,7 +123,7 @@ static void TestIfElseIf()
 static void TestCountLoop()
 {
     var output = Run("""
-        变量 总数 = 0
+        变量 总数: 数字 = 0
         计次循环 数字 从 1 到 10
             如果 数字 == 6 则
                 跳出
@@ -136,7 +138,7 @@ static void TestCountLoop()
 static void TestForEach()
 {
     var output = Run("""
-        变量 总数 = 0
+        变量 总数: 数字 = 0
         遍历 项目 于 [2, 4, 6, 8]
             总数 += 项目
         结束遍历
@@ -148,7 +150,7 @@ static void TestForEach()
 static void TestRecursion()
 {
     var output = Run("""
-        子程序 斐波那契(序号)
+        子程序 斐波那契(序号: 数字)
             如果 序号 <= 1 则
                 返回 序号
             结束如果
@@ -162,7 +164,7 @@ static void TestRecursion()
 static void TestMembers()
 {
     var result = Run("""
-        变量 用户 = {姓名: "林川", 年龄: 20, 标签: ["中文", "现代"]}
+        变量 用户: 对象 = {姓名: "林川", 年龄: 20, 标签: ["中文", "现代"]}
         用户.年龄 += 1
         用户.标签[1] = "原生"
         输出(用户.姓名 + "，" + 用户.年龄)
@@ -176,7 +178,7 @@ static void TestTryCatch()
 {
     var output = Run("""
         尝试
-            变量 结果 = 10 / 0
+            变量 结果: 数字 = 10 / 0
         捕获 错误
             输出("已捕获：" + 错误)
         结束尝试
@@ -187,7 +189,7 @@ static void TestTryCatch()
 static void TestJson()
 {
     var output = Run("""
-        变量 数据 = JSON解析("{\"name\":\"易语\",\"version\":3}")
+        变量 数据: 任意 = JSON解析("{\"name\":\"易语\",\"version\":3}")
         输出(数据.name)
         输出(JSON生成({版本: 数据.version}))
         """);
@@ -473,16 +475,10 @@ static void TestTypedFunctions()
 
 static void TestUnknownType()
 {
-    try
-    {
-        YyRunner.Compile("变量 值: 不存在的类型 = 1");
-        throw new Exception("预期出现未知类型错误。");
-    }
-    catch (YyDiagnostic diagnostic)
-    {
-        Equal(1, diagnostic.Line);
-        True(diagnostic.Message.Contains("未知类型", StringComparison.Ordinal), diagnostic.Message);
-    }
+    // 老语法:支持库类型(如“字体”“页面接口”)按自定义类型名接受。
+    YyRunner.Compile("变量 值: 不存在的类型 = 1\n输出(值)");
+    var program = new Parser("变量 值: 不存在的类型 = 1\n输出(值)").Parse();
+    Equal("不存在的类型", program.Main.Statements.OfType<VariableStatement>().Single().DeclaredType);
 }
 
 static void TestDuplicateDefinition()
@@ -490,8 +486,8 @@ static void TestDuplicateDefinition()
     try
     {
         Run("""
-            变量 数值 = 1
-            变量 数值 = 2
+            变量 数值: 数字 = 1
+            变量 数值: 数字 = 2
             """);
         throw new Exception("预期出现重复定义诊断。");
     }
@@ -536,7 +532,7 @@ static void TestInvalidControlFlow()
     try
     {
         Run("""
-            常量 名称 = "易语"
+            常量 名称: 文本 = "易语"
             名称 = "其他"
             """);
         throw new Exception("预期出现常量改写诊断。");
@@ -676,17 +672,75 @@ static void TestStructuredModelExtensions()
 
 static void TestRejectSourceVersionHeader()
 {
-    try
-    {
-        YyRunner.Compile(".版本 1\n.程序集 示例\n");
-        throw new Exception(".yyc 不应接受版本头。");
-    }
-    catch (YyDiagnostic diagnostic)
-    {
-        True(
-            diagnostic.Message.Contains("格式版本由工程清单管理", StringComparison.Ordinal),
-            diagnostic.Message);
-    }
+    // 老语法文件头“.版本 2”应被接受并登记(格式版本仍由工程清单管理)。
+    var program = new Parser(".版本 2\n.程序集 示例\n输出(\"ok\")").Parse();
+    Equal("2", program.Metadata["版本"]);
+    YyRunner.Compile(".版本 2\n.程序集 示例\n输出(\"ok\")");
+}
+
+static void TestOfficialSyntax()
+{
+    // 老语法:声明行、点前缀语句、收口行、全角运算符、常量与省略参数;
+    // 无顶层语句时以“__启动窗口_创建完毕”为入口。
+    var (output, _) = Run("""
+.版本 2
+.程序集 启动窗口程序集
+.程序集变量 累计, 整数型
+.常量 步长, 整数型, 2
+
+.子程序 求积, 整数型
+.参数 甲, 整数型
+.参数 乙, 整数型
+.局部变量 乘积, 整数型
+
+乘积 ＝ 甲 × 乙
+返回 (乘积)
+
+.子程序 __启动窗口_创建完毕
+.局部变量 计次, 整数型
+.局部变量 数值, 整数型
+
+.如果真 (1 ≠ 2)
+    输出 ("如果真成立")
+.如果真结束
+
+.判断开始 (3 ＞ 5)
+    输出 ("判断不成立")
+.判断 (3 ＜ 5)
+    输出 ("判断成立")
+.默认
+    输出 ("默认不显示")
+.判断结束
+
+.计次循环首 (3, 计次)
+    累计 ＝ 累计 ＋ 求积 (计次, #步长)
+.计次循环尾 ()
+输出 ("累计=" ＋ 文本 (累计))
+
+.变量循环首 (数值, 1, 3)
+    输出 ("变量循环" ＋ 文本 (数值))
+.变量循环尾 ()
+
+数值 ＝ 3
+.判断循环首 (数值 ＞ 0)
+    数值 ＝ 数值 － 1
+    跳出循环 ()
+.判断循环尾 ()
+
+数值 ＝ 0
+.循环判断首 ()
+    数值 ＝ 数值 ＋ 1
+.循环判断尾 (数值 ＜ 3)
+输出 ("循环判断=" ＋ 文本 (数值))
+
+.遍历循环首 (计次, [7, 8])
+    输出 ("遍历" ＋ 文本 (计次))
+.遍历循环尾 ()
+""");
+    Equal(
+        "如果真成立\n判断成立\n累计=12\n变量循环1\n变量循环2\n变量循环3\n" +
+        "循环判断=3\n遍历7\n遍历8",
+        output);
 }
 
 static void TestParseStatementText()
@@ -769,7 +823,7 @@ static void TestListDirectory()
         File.WriteAllText(Path.Combine(directory, "a.png"), "x");
         File.WriteAllText(Path.Combine(directory, "c.txt"), "x");
         var output = Run($"""
-            变量 文件列表 = 取目录文件("{directory.Replace("\\", "\\\\")}", "*.png")
+            变量 文件列表: 数组 = 取目录文件("{directory.Replace("\\", "\\\\")}", "*.png")
             输出(长度(文件列表))
             输出(包含(连接(文件列表, ";"), "a.png"))
             输出(长度(取目录文件("{directory.Replace("\\", "\\\\")}")))
@@ -786,7 +840,7 @@ static void TestListDirectory()
 static void TestEnvironmentCommands()
 {
     var output = Run("""
-        变量 起点 = 取启动时间()
+        变量 起点: 数字 = 取启动时间()
         延时(30)
         输出(取启动时间() - 起点 >= 20)
         输出(长度(取运行目录()) > 0)
@@ -799,9 +853,9 @@ static void TestSwapVariables()
 {
     // 对应官方示例“交换变量.e”的经典场景。
     var output = Run("""
-        变量 甲 = 1
-        变量 乙 = 2
-        变量 临时 = 甲
+        变量 甲: 数字 = 1
+        变量 乙: 数字 = 2
+        变量 临时: 数字 = 甲
         甲 = 乙
         乙 = 临时
         输出(甲, 乙)

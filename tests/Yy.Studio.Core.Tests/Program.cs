@@ -2,6 +2,8 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Text.Json.Nodes;
 using Yy.Compiler;
+using Yy.Compiler.Convert;
+using Yy.Language;
 using Yy.Native;
 using Yy.Studio.Core.Mcp;
 using Yy.Studio.Core.Tests;
@@ -11,6 +13,7 @@ var failures = 0;
 
 Run("工程加载与源码树", TestLoadProject);
 Run("独立源码编译与运行", TestCompileFile);
+Run("老程序(.e)转换", TestLegacyConvert);
 Run("窗体工程原生编译", TestCompileFormProject);
 Run("MCP 协议与工具调用", TestMcpServer);
 Run("解释器调试暂停与继续", TestDebugger);
@@ -139,7 +142,7 @@ static void TestDebugger()
     };
     var output = new List<string>();
     Yy.Language.YyRunner.RunSource(
-        ".程序集 调试测试\n变量 数 = 1\n输出(数)",
+        ".程序集 调试测试\n变量 数: 数字 = 1\n输出(数)",
         "debug.yyc",
         output.Add,
         debugger: probe);
@@ -179,6 +182,48 @@ static YyBuildTarget HostTargetOrWindows()
     catch (PlatformNotSupportedException)
     {
         return YyBuildTargets.Resolve(YyBuildTargets.WindowsX64);
+    }
+}
+
+static void TestLegacyConvert()
+{
+    var fixture = Path.Combine("tests", "Yy.Studio.Core.Tests", "fixtures", "day1.e");
+    if (!File.Exists(fixture))
+    {
+        throw new Exception("缺少转换测试样本 day1.e");
+    }
+
+    var output = Path.Combine(
+        Path.GetTempPath(),
+        "yy-convert-test-" + Guid.NewGuid().ToString("N"));
+    try
+    {
+        var result = EProgramConverter.Convert(fixture, output, "day1导入", "imported.day1");
+        True(File.Exists(result.ProjectFile), "应生成工程文件");
+        True(File.Exists(result.SourceFile), "应生成入口源码");
+        True(File.Exists(result.ReportFile), "应生成导入报告");
+        True(result.RecoveredProcedures.Count > 0, "应按帧类型码还原子程序名");
+        // 转换产物必须能被解析器直接接受(老语法)。
+        var program = YyRunner.CompileFile(result.SourceFile);
+        True(program.Functions.Count > 0, "转换产物应包含子程序");
+
+        var bad = Path.Combine(output, "bad.e");
+        File.WriteAllBytes(bad, "NOT-E"u8.ToArray());
+        try
+        {
+            EProgramConverter.Convert(bad, Path.Combine(output, "bad"), "bad", "imported.bad");
+            throw new Exception("非 .e 文件应被拒绝。");
+        }
+        catch (InvalidDataException)
+        {
+        }
+    }
+    finally
+    {
+        if (Directory.Exists(output))
+        {
+            Directory.Delete(output, recursive: true);
+        }
     }
 }
 

@@ -22,6 +22,7 @@ internal static class CliApplication
                 "build" => BuildNative(args[1..]),
                 "check" => Check(args[1..]),
                 "run" => await RunProjectAsync(args[1..]),
+                "convert" => ConvertLegacy(args[1..]),
                 "version" or "--version" or "-v" => PrintVersion(),
                 _ => UnknownCommand(args[0])
             };
@@ -34,6 +35,50 @@ internal static class CliApplication
             Console.Error.WriteLine("yy: " + exception.Message);
             return 1;
         }
+    }
+
+    /// <summary>yy convert:老易语言程序(.e)转换为易语工程。</summary>
+    private static int ConvertLegacy(string[] args)
+    {
+        string? input = null;
+        string? output = null;
+        string? name = null;
+        string? package = null;
+        for (var index = 0; index < args.Length; index++)
+        {
+            switch (args[index])
+            {
+                case "--out" or "-o":
+                    output = args[++index];
+                    break;
+                case "--name":
+                    name = args[++index];
+                    break;
+                case "--package":
+                    package = args[++index];
+                    break;
+                default:
+                    input ??= args[index];
+                    break;
+            }
+        }
+
+        if (input is null)
+        {
+            throw new InvalidDataException("yy convert 需要一个 .e 老程序文件。");
+        }
+
+        output ??= Path.Combine(
+            Path.GetDirectoryName(Path.GetFullPath(input)) ?? ".",
+            Path.GetFileNameWithoutExtension(input) + "_易语");
+        var result = Yy.Compiler.Convert.EProgramConverter.Convert(input, output, name, package);
+        Console.WriteLine("已转换：" + result.ProjectFile);
+        Console.WriteLine("入口源码：" + result.SourceFile);
+        Console.WriteLine(
+            $"还原子程序 {result.RecoveredProcedures.Count} 个、语句 {result.RecoveredStatements} 行;" +
+            $"未归类 {result.UnmappedStrings} 条。");
+        Console.WriteLine("导入报告：" + result.ReportFile);
+        return 0;
     }
 
     private static int BuildNative(string[] args)
@@ -171,6 +216,7 @@ internal static class CliApplication
               yy build <源码.yyc|工程.yyproj|目录> [--target 目标] [-o 输出]
               yy check <工程.yyproj|目录>
               yy run <工程.yyproj|目录>
+              yy convert <老程序.e> [--out 目录] [--name 项目名] [--package 包名]
               yy version
 
             示例：

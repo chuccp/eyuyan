@@ -20,15 +20,22 @@ namespace Yy.Studio.Avalonia.Editor;
 /// </summary>
 public sealed partial class StructuredCodeEditor : UserControl
 {
-    private static readonly IBrush HeaderBrush = new SolidColorBrush(Color.FromRgb(232, 238, 232));
-    private static readonly IBrush LineBrush = new SolidColorBrush(Color.FromRgb(122, 132, 122));
-    private static readonly IBrush CodeBrush = new SolidColorBrush(Color.FromRgb(246, 250, 255));
+    private static readonly IBrush HeaderBrush = new SolidColorBrush(Color.FromRgb(230, 237, 228));
+    private static readonly IBrush LineBrush = new SolidColorBrush(Color.FromRgb(128, 128, 128));
+    private static readonly IBrush CodeBrush = Brushes.White;
     private static readonly IBrush CodeTextBrush = Brushes.Black;
+    // 官方易语言代码窗口使用宋体渲染表格与正文。
     private static readonly FontFamily CodeFont =
-        new("Menlo, Consolas, Microsoft YaHei UI, monospace");
+        new("SimSun, Microsoft YaHei UI");
 
     private readonly StackPanel _content = new();
     private readonly ScrollViewer _scroll = new();
+    private readonly StackPanel _tabStrip = new()
+    {
+        Orientation = global::Avalonia.Layout.Orientation.Horizontal,
+        Spacing = 2
+    };
+    private string _viewMode = "main";
     private readonly DispatcherTimer _editTimer = new()
     {
         Interval = TimeSpan.FromMilliseconds(300)
@@ -47,9 +54,22 @@ public sealed partial class StructuredCodeEditor : UserControl
         _scroll.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto;
         _scroll.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
         _content.Background = CodeBrush;
-        _content.Margin = new Thickness(28, 10, 18, 24);
+        _content.Margin = new Thickness(28, 10, 18, 16);
         _scroll.Content = _content;
-        Content = _scroll;
+        // 官方经典视图底部的程序集切换条(窗口程序集/常量数据表/自定义数据类型表)。
+        var root = new Grid { RowDefinitions = new RowDefinitions("*,Auto") };
+        root.Children.Add(_scroll);
+        var tabHost = new Border
+        {
+            Background = HeaderBrush,
+            BorderBrush = LineBrush,
+            BorderThickness = new Thickness(0, 1, 0, 0),
+            Padding = new Thickness(6, 2)
+        };
+        tabHost.Child = _tabStrip;
+        Grid.SetRow(tabHost, 1);
+        root.Children.Add(tabHost);
+        Content = root;
         _editTimer.Tick += (_, _) =>
         {
             _editTimer.Stop();
@@ -221,11 +241,25 @@ public sealed partial class StructuredCodeEditor : UserControl
             _bodyEditors.Clear();
             _dirtyFunctions.Clear();
             _content.Children.Clear();
-            AddAssemblyBlock();
-            foreach (var function in _document.Functions)
+            switch (_viewMode)
             {
-                AddFunctionBlock(function);
+                case "constants":
+                    AddConstantsTable();
+                    break;
+                case "types":
+                    AddStructsTables();
+                    break;
+                default:
+                    AddAssemblyBlock();
+                    foreach (var function in _document.Functions)
+                    {
+                        AddFunctionBlock(function);
+                    }
+
+                    break;
             }
+
+            RebuildTabStrip();
         }
         finally
         {
@@ -251,7 +285,7 @@ public sealed partial class StructuredCodeEditor : UserControl
             {
                 function.ReturnType = value.Trim();
                 NotifyChanged();
-            }),
+            }, blue: true),
             BooleanCell(function.IsPublic, widths[2], value =>
             {
                 function.IsPublic = value;
@@ -311,7 +345,7 @@ public sealed partial class StructuredCodeEditor : UserControl
             Background = Brushes.Transparent,
             Foreground = CodeTextBrush,
             FontFamily = CodeFont,
-            FontSize = 13,
+            FontSize = 12,
             ShowLineNumbers = false,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
             VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
@@ -320,6 +354,16 @@ public sealed partial class StructuredCodeEditor : UserControl
             SyntaxHighlighting = YyHighlighting.Yy,
             WordWrap = false
         };
+        // 流程线页边:车道与箭头在页边控件中绘制,文字顶格不缩进。
+        EasyLanguageFlowRenderer.Attach(editor);
+        CurrentLineRenderer.Attach(editor);
+        editor.TextArea.TextView.LineTransformers.Add(
+            new SemanticColorizer(
+                () => _document?.Functions.Select(f => f.Name).ToList() ?? [],
+                () => _document?.MainStatements
+                    .Where(s => s.Kind == YyCodeStatementKinds.Constant)
+                    .Select(s => s.Name)
+                    .ToList() ?? []));
         var session = CodeEditorSession.Attach(
             editor,
             new CodeEditorSessionOptions
@@ -376,7 +420,6 @@ public sealed partial class StructuredCodeEditor : UserControl
             _editTimer.Stop();
             _editTimer.Start();
         };
-        editor.TextArea.TextView.BackgroundRenderers.Add(new EasyLanguageFlowRenderer());
         UpdateBodyHeight(editor);
         _bodyEditors.Add(new BodyEditorEntry(function, editor, session));
         return editor;
@@ -409,6 +452,7 @@ public sealed partial class StructuredCodeEditor : UserControl
             start++;
         }
 
+        // 顶层语句顶格:只有如果/循环等块使内容缩进(官方行为)。
         return RemoveCommonIndent(string.Join('\n', lines.Skip(start)).TrimEnd());
     }
 

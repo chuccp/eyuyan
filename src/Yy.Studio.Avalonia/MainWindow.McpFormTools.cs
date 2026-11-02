@@ -13,7 +13,7 @@ public sealed partial class MainWindow
     {
         var document = CurrentDocument?.FormView is not null
             ? CurrentDocument
-            : _documents.LastOrDefault(item => item.FormView is not null);
+            : _tabs.Documents.LastOrDefault(item => item.FormView is not null);
         var form = document?.FormView?.CurrentForm;
         if (document is null || form is null)
         {
@@ -63,9 +63,9 @@ public sealed partial class MainWindow
             return document;
         }
 
-        document = _documents.LastOrDefault(item => item.FormView is not null)
+        document = _tabs.Documents.LastOrDefault(item => item.FormView is not null)
             ?? throw new InvalidOperationException("请先打开窗体设计器。");
-        DocumentTabs.SelectedItem = document.Tab;
+        _tabs.Select(document);
         if (document.FormSourceMode && !SyncFormSource(document))
         {
             throw new InvalidOperationException("窗体源码无效，请先修正后再操作设计器。");

@@ -33,18 +33,11 @@ public sealed class DesignerSurface : Control
     public static readonly StyledProperty<double> GridSizeProperty =
         AvaloniaProperty.Register<DesignerSurface, double>(nameof(GridSize), 8);
 
-    private static readonly IBrush GridBrush =
-        new SolidColorBrush(Color.FromArgb(38, 80, 96, 112));
-
-    private static readonly IBrush MajorGridBrush =
-        new SolidColorBrush(Color.FromArgb(70, 80, 96, 112));
+    private static readonly IBrush DotBrush =
+        new SolidColorBrush(Color.FromRgb(128, 128, 128));
 
     private static readonly IPen BorderPen =
-        new Pen(new SolidColorBrush(Color.FromRgb(176, 186, 198)), 1);
-
-    private static readonly IPen GridPen = new Pen(GridBrush, 1);
-
-    private static readonly IPen MajorGridPen = new Pen(MajorGridBrush, 1);
+        new Pen(new SolidColorBrush(Color.FromRgb(0, 0, 0)), 1);
 
     static DesignerSurface()
     {
@@ -81,24 +74,16 @@ public sealed class DesignerSurface : Control
         var gridSize = GridSize;
         if (ShowGrid && gridSize >= 2)
         {
-            var index = 0;
+            // 官方点阵网格:8px 间隔的 1px 灰点。
             for (var x = gridSize; x < width; x += gridSize)
             {
-                index++;
-                context.DrawLine(
-                    index % 5 == 0 ? MajorGridPen : GridPen,
-                    new Point(x, 0),
-                    new Point(x, height));
-            }
-
-            index = 0;
-            for (var y = gridSize; y < height; y += gridSize)
-            {
-                index++;
-                context.DrawLine(
-                    index % 5 == 0 ? MajorGridPen : GridPen,
-                    new Point(0, y),
-                    new Point(width, y));
+                for (var y = gridSize; y < height; y += gridSize)
+                {
+                    context.DrawRectangle(
+                        DotBrush,
+                        null,
+                        new Rect(x, y, 1, 1));
+                }
             }
         }
 

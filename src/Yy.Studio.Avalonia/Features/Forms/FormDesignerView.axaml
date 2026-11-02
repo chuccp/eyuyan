@@ -3,71 +3,118 @@
              xmlns:forms="using:Yy.Studio.Avalonia.Features.Forms"
              x:Class="Yy.Studio.Avalonia.Features.Forms.FormDesignerView"
              Background="#FFFFFF">
-  <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="*,300">
-    <Border Grid.Row="0" Grid.ColumnSpan="2"
-            Background="#F4F7FB" BorderBrush="#DDE4EC" BorderThickness="0,0,0,1"
-            Padding="10,6">
-      <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
-        <WrapPanel.Styles>
-          <Style Selector="Button">
-            <Setter Property="Margin" Value="0,0,6,3" />
-          </Style>
-        </WrapPanel.Styles>
-        <TextBlock Text="组件" VerticalAlignment="Center" Foreground="#37475A"
-                   Margin="0,0,6,3" />
-        <ComboBox x:Name="ToolboxCombo" Width="150" Margin="0,0,6,3" />
-        <Button Content="添加控件" Padding="10,4" Click="OnAddControlClick" />
-        <Button Content="删除" Padding="10,4" Click="OnDeleteClick" />
-        <Button Content="置前" Padding="10,4" Click="OnBringFrontClick" />
-        <Button Content="置后" Padding="10,4" Click="OnSendBackClick" />
-        <Button Content="左对齐" Padding="10,4" Click="OnAlignLeftClick" />
-        <Button Content="顶对齐" Padding="10,4" Click="OnAlignTopClick" />
-        <Button Content="水平均分" Padding="10,4" Click="OnDistributeHorizontalClick" />
-        <Button Content="垂直均分" Padding="10,4" Click="OnDistributeVerticalClick" />
-        <CheckBox x:Name="SnapCheckBox" Content="网格吸附" IsChecked="True"
-                  Click="OnSnapClick" VerticalAlignment="Center" Margin="0,0,6,3" />
-      </WrapPanel>
-    </Border>
+  <!-- 中间画布 | 属性夹(移交宿主后收起) | 组件箱(仅设计器显示) -->
+  <Grid RowDefinitions="*,Auto" ColumnDefinitions="*,300,132">
 
-    <Border Grid.Row="1" Grid.Column="0" Background="#E8EDF3" ClipToBounds="True">
+    <Border Grid.Row="0" Grid.Column="0" Background="#E8EDF3" ClipToBounds="True">
       <ScrollViewer x:Name="CanvasScrollViewer"
                     Background="#E8EDF3"
                     HorizontalScrollBarVisibility="Auto"
                     VerticalScrollBarVisibility="Auto">
-        <Border Padding="24" Background="Transparent">
-          <Grid x:Name="CanvasHost" HorizontalAlignment="Left" VerticalAlignment="Top">
-            <forms:DesignerSurface x:Name="GridSurface" IsHitTestVisible="False" />
-            <Canvas x:Name="DesignerCanvas" Focusable="True" Background="Transparent" />
-            <forms:DesignerSelectionOverlay x:Name="SelectionOverlay" IsHitTestVisible="False" />
-          </Grid>
-        </Border>
+        <Grid x:Name="CanvasHost" HorizontalAlignment="Left" VerticalAlignment="Top">
+          <!-- 设计期窗框:官方样式蓝渐变标题栏(随画布滚动,不参与控件坐标系) -->
+          <Border x:Name="TitleChrome"
+                  Height="28"
+                  VerticalAlignment="Top"
+                  BorderBrush="#000000"
+                  BorderThickness="1,1,1,0">
+            <Border.Background>
+              <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
+                <GradientStop Color="#0A246A" Offset="0" />
+                <GradientStop Color="#316AC5" Offset="1" />
+              </LinearGradientBrush>
+            </Border.Background>
+            <Grid Margin="10,0,4,0">
+              <TextBlock x:Name="TitleChromeText"
+                         Text=""
+                         Foreground="White"
+                         FontSize="12"
+                         FontWeight="SemiBold"
+                         VerticalAlignment="Center"
+                         TextTrimming="CharacterEllipsis" />
+              <StackPanel Orientation="Horizontal"
+                          HorizontalAlignment="Right"
+                          VerticalAlignment="Center"
+                          Spacing="2">
+                <Border Width="12" Height="12" Background="Transparent">
+                  <Rectangle Width="8" Height="1" Fill="White"
+                             VerticalAlignment="Bottom" />
+                </Border>
+                <Border Width="12" Height="12" Background="Transparent">
+                  <Rectangle Width="8" Height="8"
+                             Stroke="White" StrokeThickness="1"
+                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <Border Width="14" Height="12"
+                        Background="#C0392B"
+                        BorderBrush="#E8746B"
+                        BorderThickness="1">
+                  <TextBlock Text="×"
+                             Foreground="White"
+                             FontSize="11"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center" />
+                </Border>
+              </StackPanel>
+            </Grid>
+          </Border>
+          <forms:DesignerSurface x:Name="GridSurface" Margin="0,28,0,0" IsHitTestVisible="False" />
+          <Canvas x:Name="DesignerCanvas" Margin="0,28,0,0" Focusable="True" Background="Transparent" />
+          <forms:DesignerSelectionOverlay x:Name="SelectionOverlay" Margin="0,28,0,0" IsHitTestVisible="False" />
+        </Grid>
       </ScrollViewer>
     </Border>
 
     <Border x:Name="DesignerPropertyPanel"
-            Grid.Row="1" Grid.Column="1"
-            Background="#FBFCFE" BorderBrush="#DDE4EC" BorderThickness="1,0,0,0">
-      <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="10" Spacing="8">
-          <TextBlock Text="属性" FontWeight="SemiBold" Foreground="#17212B" />
-          <ComboBox x:Name="PropertyObjectCombo" HorizontalAlignment="Stretch"
-                    SelectionChanged="OnPropertyObjectChanged" />
-          <ComboBox x:Name="EventSelectorCombo" HorizontalAlignment="Stretch"
-                    SelectionChanged="OnEventSelectorChanged" />
-          <Border Height="1" Background="#E1E7EE" Margin="0,2" />
-          <StackPanel x:Name="PropertyRowsHost" Spacing="4" />
-          <TextBlock x:Name="PropertyHintText" TextWrapping="Wrap" FontSize="11"
-                     Foreground="#66778B" Margin="0,4,0,0" />
-        </StackPanel>
-      </ScrollViewer>
+            Grid.Row="0" Grid.Column="1"
+            Background="#FFFFFF"
+            BorderBrush="#D8DBDF"
+            BorderThickness="1,0,0,0"
+            Padding="8,6">
+      <DockPanel>
+        <ComboBox x:Name="PropertyObjectCombo" HorizontalAlignment="Stretch"
+                  DockPanel.Dock="Top"
+                  SelectionChanged="OnPropertyObjectChanged" />
+        <ComboBox x:Name="EventSelectorCombo" HorizontalAlignment="Stretch"
+                  DockPanel.Dock="Top" Margin="0,4,0,4"
+                  SelectionChanged="OnEventSelectorChanged" />
+        <TextBlock x:Name="PropertyHintText" DockPanel.Dock="Bottom"
+                   TextWrapping="Wrap" FontSize="11"
+                   Foreground="#6F737A" Margin="0,6,0,0" />
+        <ScrollViewer>
+          <StackPanel x:Name="PropertyRowsHost" Spacing="0" />
+        </ScrollViewer>
+      </DockPanel>
     </Border>
 
-    <Border Grid.Row="2" Grid.ColumnSpan="2"
-            Background="#F1F5F9" BorderBrush="#DBE2EA" BorderThickness="0,1,0,0"
-            Padding="10,4">
-      <TextBlock x:Name="StatusText" Text="选择控件后可拖动、缩放或编辑属性。"
-                 FontSize="11" Foreground="#66778B"
-                 TextTrimming="CharacterEllipsis" />
+    <Border x:Name="ToolboxPanel"
+            Grid.Row="0" Grid.Column="2"
+            Background="#FCFCFD"
+            BorderBrush="#D8DBDF"
+            BorderThickness="1,0,0,0">
+      <DockPanel>
+        <Border DockPanel.Dock="Top"
+                Background="#F2F3F5"
+                BorderBrush="#D8DBDF"
+                BorderThickness="0,0,0,1"
+                Padding="6,4">
+          <TextBlock Text="基本组件"
+                     FontSize="11"
+                     FontWeight="SemiBold"
+                     Foreground="#1F2328" />
+        </Border>
+        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+          <WrapPanel x:Name="ToolboxTiles"
+                     Orientation="Horizontal"
+                     Margin="3" />
+        </ScrollViewer>
+      </DockPanel>
     </Border>
+
+    <TextBlock x:Name="StatusText" Grid.Row="1" Grid.ColumnSpan="3"
+               Text="选择控件后可拖动、缩放或编辑属性。"
+               FontSize="11" Foreground="#6F737A"
+               Margin="10,4" />
   </Grid>
 </UserControl>

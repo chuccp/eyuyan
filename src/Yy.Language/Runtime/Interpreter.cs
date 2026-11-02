@@ -55,7 +55,24 @@ internal sealed partial class Interpreter
 
         try
         {
-            return ExecuteBlock(program.Main, _globals);
+            // 先执行主块(顶层语句与 .程序集变量/.常量 声明)。
+            var mainResult = ExecuteBlock(program.Main, _globals);
+            // 老语法程序没有顶层语句(仅有声明):以“__启动窗口_创建完毕”事件子程序为入口。
+            if (program.Main.Statements.All(statement => statement is VariableStatement) &&
+                _globals.TryGet("__启动窗口_创建完毕", out var startup) &&
+                startup is UserFunction startupFunction)
+            {
+                return InvokeUser(
+                    startupFunction,
+                    Array.Empty<object?>(),
+                    new CallExpression(
+                        1,
+                        1,
+                        new IdentifierExpression(1, 1, "__启动窗口_创建完毕"),
+                        Array.Empty<Expression>()));
+            }
+
+            return mainResult;
         }
         catch (BreakSignal)
         {
@@ -120,7 +137,9 @@ internal sealed partial class Interpreter
 
     private object? ExecuteVariable(VariableStatement statement, Environment environment)
     {
-        var value = Evaluate(statement.Initializer, environment);
+        var value = statement.Initializer is null
+            ? YyTypeSystem.DefaultValue(statement.DeclaredType)
+            : Evaluate(statement.Initializer, environment);
         YyTypeSystem.Ensure(
             value,
             statement.DeclaredType,

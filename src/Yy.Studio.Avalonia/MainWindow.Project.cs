@@ -137,8 +137,7 @@ public sealed partial class MainWindow
                         _workspace.Project!.TargetPlatform)
                         ? _workspace.Project.TargetPlatform
                         : Yy.Compiler.YyBuildTargets.Auto;
-                    ProjectStatusText.Text =
-                        $"{_workspace.Project.Name} · {_workspace.Project.PackageName}";
+                    SetStatus($"已打开 {_workspace.Project.Name} · {_workspace.Project.PackageName}");
                 }
                 catch (Exception exception) when (
                     exception is InvalidDataException or IOException or UnauthorizedAccessException)
@@ -156,12 +155,10 @@ public sealed partial class MainWindow
             _workspace.Load(path);
             RefreshProjectTree();
             var project = _workspace.Project!;
-            Title = $"易语 Studio · {project.Name}";
-            TitleDocumentText.Text = project.Name;
-            ProjectStatusText.Text = $"{project.Name} · {project.PackageName}";
             TargetBox.SelectedItem = Yy.Compiler.YyBuildTargets.All.Contains(project.TargetPlatform)
                 ? project.TargetPlatform
                 : Yy.Compiler.YyBuildTargets.Auto;
+            SyncTargetPlatformMenu();
             SetStatus($"已打开 {project.Name}（{project.TargetPlatform}）");
             AppendConsole($"工程：{project.ProjectPath}");
             _recentFiles.AddRecent(project.DirectoryPath);
@@ -285,6 +282,36 @@ public sealed partial class MainWindow
     private void OnOpenSelectedNode(object? sender, RoutedEventArgs e) =>
         OpenSelectedNode();
 
+    private async void OnCopySelectedNodePath(object? sender, RoutedEventArgs e)
+    {
+        if (ProjectTree.SelectedItem is not ProjectNode { FullPath: not null } node)
+        {
+            return;
+        }
+
+        if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
+        {
+            await clipboard.SetTextAsync(node.FullPath);
+            SetStatus("已复制路径：" + node.FullPath);
+        }
+    }
+
+    private void CloseOtherDocuments(EditorDocument? keep)
+    {
+        foreach (var document in _tabs.Documents.Where(d => !ReferenceEquals(d, keep)).ToList())
+        {
+            if (document.IsDirty)
+            {
+                SetStatus($"{document.FileName} 有未保存修改，请先保存。");
+                continue;
+            }
+
+            _tabs.Remove(document);
+        }
+
+        UpdateActionState();
+    }
+
     private void OpenSelectedNode()
     {
         if (ProjectTree.SelectedItem is ProjectNode { IsDirectory: false, FullPath: not null } node)
@@ -334,46 +361,30 @@ public sealed partial class MainWindow
         });
     }
 
-    private void OnDocumentTabsSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private void OnDocumentTabsSelectionChanged(EditorDocument? document)
     {
-        if (CurrentDocument is { } document && CaretText is not null)
+        if (document is not null && CaretText is not null)
         {
             UpdateCaret(document);
-            Title = $"{document.FileName} · 易语 Studio";
-            if (TitleDocumentText is not null)
-            {
-                TitleDocumentText.Text = _workspace.Project is { } owner
-                    ? $"{owner.Name} · {document.FileName}"
-                    : document.FileName;
-            }
         }
-        else if (DocumentTabs is not null)
+
+        UpdateDocumentIdentity();
+        RefreshWindowMenu();
+
+        if (WorkPropertyHost is not null)
         {
-            Title = _workspace.Project is { } project
-                ? $"{project.Name} · 易语 Studio"
-                : "易语 Studio";
-            if (TitleDocumentText is not null)
+            WorkPropertyHost.Content = document?.FormPropertyPanel
+                ?? _defaultPropertyContent;
+            if (document?.FormPropertyPanel is not null &&
+                WorkTabs is not null)
             {
-                TitleDocumentText.Text = _workspace.Project?.Name ?? "易语 Studio";
+                WorkTabs.SelectedIndex = 1;
             }
         }
 
-        if (DocumentTabs is not null)
-        {
-            if (WorkPropertyHost is not null)
-            {
-                WorkPropertyHost.Content = CurrentDocument?.FormPropertyPanel
-                    ?? _defaultPropertyContent;
-                if (CurrentDocument?.FormPropertyPanel is not null &&
-                    WorkTabs is not null)
-                {
-                    WorkTabs.SelectedIndex = 1;
-                }
-            }
-            UpdateActionState();
-            RefreshWorkPanel();
-            RefreshWindowMenu();
-        }
+        UpdateActionState();
+        RefreshWorkPanel();
+        RefreshWindowMenu();
     }
 
     private void UpdateCaret(EditorDocument document) =>
@@ -382,11 +393,9 @@ public sealed partial class MainWindow
     private void OpenDocument(string path)
     {
         var fullPath = Path.GetFullPath(path);
-        var existing = _documents.FirstOrDefault(document =>
-            string.Equals(document.Path, fullPath, StringComparison.Ordinal));
-        if (existing is not null)
+        if (_tabs.Find(fullPath) is { } existing)
         {
-            DocumentTabs.SelectedItem = existing.Tab;
+            _tabs.Select(existing);
             return;
         }
 
@@ -416,43 +425,19 @@ public sealed partial class MainWindow
 
             var editor = YyCodeEditor.Create(text, fullPath, readOnly);
             ConfigureEditor(editor);
-            var headerText = new TextBlock
-            {
-                Text = Path.GetFileName(fullPath),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            var closeButton = new Button
-            {
-                Content = "×",
-                Padding = new Thickness(4, 0),
-                Background = global::Avalonia.Media.Brushes.Transparent,
-                BorderThickness = new Thickness(0),
-                FontSize = 15
-            };
-            var header = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 6
-            };
-            header.Children.Add(headerText);
-            header.Children.Add(closeButton);
-            var tab = new TabItem
-            {
-                Header = header,
-                Content = editor,
-                Tag = fullPath
-            };
+            var tabHandle = _tabs.CreateTab(fullPath, editor);
             var document = new EditorDocument
             {
                 Path = fullPath,
                 FileName = Path.GetFileName(fullPath),
-                Tab = tab,
-                HeaderText = headerText,
+                Tab = tabHandle.Tab,
+                HeaderText = tabHandle.Title,
+                DirtyMarkText = tabHandle.DirtyMark,
+                CloseButton = tabHandle.CloseButton,
                 Editor = editor,
                 IsReadOnly = readOnly,
                 SavedText = text
             };
-            closeButton.Click += (_, _) => CloseDocument(document);
             if (!readOnly)
             {
                 editor.TextChanged += (_, _) =>
@@ -464,7 +449,7 @@ public sealed partial class MainWindow
                     if (document.IsDirty != dirty)
                     {
                         document.IsDirty = dirty;
-                        UpdateDocumentHeader(document);
+                        _tabs.UpdateHeader(document);
                     }
                 };
             }
@@ -477,9 +462,7 @@ public sealed partial class MainWindow
                 }
             };
             HideStartPage();
-            _documents.Add(document);
-            DocumentTabs.Items.Add(tab);
-            DocumentTabs.SelectedItem = tab;
+            _tabs.Attach(document);
             _recentFiles.AddRecent(fullPath);
             UpdateActionState();
             if (readOnly)
@@ -499,10 +482,7 @@ public sealed partial class MainWindow
         }
     }
 
-    private EditorDocument? CurrentDocument =>
-        DocumentTabs?.SelectedItem is TabItem tab
-            ? _documents.FirstOrDefault(document => ReferenceEquals(document.Tab, tab))
-            : null;
+    private EditorDocument? CurrentDocument => _tabs.Current;
 
     private void OnSaveCurrent(object? sender, RoutedEventArgs e) =>
         SaveCurrent();
@@ -614,7 +594,7 @@ public sealed partial class MainWindow
 
     private bool SaveAll()
     {
-        foreach (var document in _documents.Where(item => item.IsDirty))
+        foreach (var document in _tabs.Documents.Where(item => item.IsDirty))
         {
             if (!SaveDocument(document))
             {
@@ -662,8 +642,11 @@ public sealed partial class MainWindow
         }
     }
 
-    private static void UpdateDocumentHeader(EditorDocument document) =>
-        document.HeaderText.Text = document.FileName + (document.IsDirty ? " *" : string.Empty);
+    private void UpdateDocumentHeader(EditorDocument document)
+    {
+        _tabs.UpdateHeader(document);
+        UpdateDocumentIdentity();
+    }
 
     private void OnCloseCurrent(object? sender, RoutedEventArgs e) =>
         CloseCurrent();
@@ -684,13 +667,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        _documents.Remove(document);
-        DocumentTabs.Items.Remove(document.Tab);
-        if (_documents.Count == 0)
-        {
-            ShowStartPage();
-        }
-
+        _tabs.Remove(document);
         RefreshWindowMenu();
         SetStatus($"已关闭 {document.FileName}");
         UpdateActionState();

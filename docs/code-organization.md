@@ -15,6 +15,11 @@
 | `src/Yy.Studio.Avalonia/MainWindow.Build.cs` | 检查、编译、运行、PID 和输出回传 |
 | `src/Yy.Studio.Avalonia/MainWindow.Mcp.cs` | MCP 传输、状态、截图、工程/文件工具 |
 | `src/Yy.Studio.Avalonia/Editor/YyCodeEditor.cs` | AvaloniaEdit 编辑器、XHZD 着色、行号和搜索 |
+| `src/Yy.Studio.Avalonia/Editor/SemanticColorizer.cs` | 常量与子程序名语义着色 |
+| `src/Yy.Studio.Avalonia/Editor/CurrentLineRenderer.cs` | 当前行底色 |
+| `src/Yy.Studio.Avalonia/Editor/CodeEditorContextMenu.cs` | 编辑器 IDEA 式右键菜单 |
+| `src/Yy.Studio.Avalonia/Themes/StudioTheme.axaml` | 共享浅色主题:夹标签、按钮、工具窗、表格单元格 |
+| `src/Yy.Studio.Avalonia/Workspace/DocumentTabController.cs` | 文档标签统一封装:外观、切换、关闭路由、脏标记和右键菜单 |
 | `src/Yy.Studio.Avalonia/Features/...` | 设置、文档、窗体设计、项目对话框等迁移功能 |
 | `src/Yy.Studio.Core/Workspace/StudioWorkspace.cs` | 工程加载、源码树、项目/单文件编译 |
 | `src/Yy.Studio.Core/Configuration/...` | `YyStudio.json` 模型与校验 |
@@ -70,6 +75,9 @@
 | `src/Yy.Compiler/YyProjectModels.cs` | 项目窗体、全局变量、常量、资源、DLL 和数据库模型 |
 | `src/Yy.Compiler/YyProject.Creation.cs` | 新项目和窗体三件套创建、默认模板 |
 | `src/Yy.Compiler/YyProject.Resources.cs` | 资源导入、分类复制、资源表校验和索引同步 |
+| `src/Yy.Compiler/Convert/EProgramConverter.cs` | 老程序(.e)转换为易语工程(入口源码 + 导入报告) |
+| `src/Yy.Compiler/Convert/ERecordReader.cs` | CNWTEPRG 帧类型码记录读取(子程序/程序集/变量/文本) |
+| `src/Yy.Language/Syntax/Parser*.cs` | 解析器(核心/声明/语句/表达式);老语法是基础,新语汇为超集 |
 | `src/Yy.Compiler/Build/YyBuildTarget.cs` | `auto`、Windows、macOS 目标和宿主环境解析 |
 | `src/Yy.Compiler/Resources/YyResourceIndex.cs` | `ids.xml` 生成、标识解析和资源路径定位 |
 | `src/Yy.Sdk/YySdk.cs` | SDK 版本、包成熟度与依赖目录、原生句柄和无装箱界面契约 |
@@ -107,7 +115,7 @@
 | `src/Yy.Compiler` | 无 UI 依赖的工程协议、窗体模型、资源索引和 AST 汇总 |
 | `src/Yy.Compiler/ProjectCompiler.cs` | 校验项目并汇总入口、窗体和模块源码 |
 | `tools/Yy.Cli` | `yy` / `yy.exe` 命令行入口和目标选择 |
-| `tools/Yy.Cli/Program.cs` | `build`、`check`、`run`、`version` 子命令 |
+| `tools/Yy.Cli/Program.cs` | `build`、`check`、`run`、`convert`、`version` 子命令 |
 | `tests/Yy.Native.Backends.Tests` | 后端注册表、Mach-O 结构、内嵌签名、交叉编译和 macOS 运行时 |
 | `docs/backend-architecture.md` | 后端契约、共享语义和新增平台流程 |
 

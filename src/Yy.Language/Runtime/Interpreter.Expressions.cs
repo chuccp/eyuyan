@@ -225,13 +225,19 @@ internal sealed partial class Interpreter
         {
             var parameter = declaration.Parameters[index];
             object? value;
-            if (index < arguments.Length)
+            if (index < arguments.Length &&
+                call.Arguments[index] is not LiteralExpression { Value: null })
             {
                 value = arguments[index];
             }
             else if (parameter.DefaultValue is not null)
             {
+                // 老语法允许省略参数:f(a, , b);省略位置取声明默认值。
                 value = Evaluate(parameter.DefaultValue, local);
+            }
+            else if (index < arguments.Length)
+            {
+                value = arguments[index];
             }
             else
             {

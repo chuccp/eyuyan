@@ -297,20 +297,21 @@ public static class YyCodeDocumentConverter
         YyCodeStatementKinds.Variable or YyCodeStatementKinds.Constant =>
             statement.Kind + " " + statement.Name +
             (string.IsNullOrWhiteSpace(statement.TypeName) ? string.Empty : ": " + statement.TypeName) +
-            " = " + statement.Expression,
+            (string.IsNullOrWhiteSpace(statement.Expression) ? string.Empty : " = " + statement.Expression),
         YyCodeStatementKinds.Assign =>
             statement.Target + " " + statement.Operator + " " + statement.Expression,
         YyCodeStatementKinds.Call => statement.Expression,
-        YyCodeStatementKinds.If => "如果 " + statement.Condition.Trim() + " 则",
+        YyCodeStatementKinds.If => statement.ElseChildren.Count == 0
+            ? "如果真 (" + statement.Condition.Trim() + ")"
+            : "判断开始 (" + statement.Condition.Trim() + ")",
         YyCodeStatementKinds.While => "当 " + statement.Condition.Trim() + " 循环",
         YyCodeStatementKinds.CountLoop =>
             "计次循环 " + statement.Variable + " 从 " + statement.From +
             " 到 " + statement.To + " 步长 " + statement.Step,
         YyCodeStatementKinds.ForEach => "遍历 " + statement.Variable + " 于 " + statement.Expression,
         YyCodeStatementKinds.Try => "尝试",
-        YyCodeStatementKinds.Return => string.IsNullOrWhiteSpace(statement.Expression)
-            ? "返回"
-            : "返回 " + statement.Expression,
+        YyCodeStatementKinds.Return =>
+            "返回 (" + (statement.Expression?.Trim() ?? string.Empty) + ")",
         YyCodeStatementKinds.Break => "跳出",
         YyCodeStatementKinds.Continue => "继续",
         _ => statement.Expression
@@ -343,16 +344,18 @@ public static class YyCodeDocumentConverter
             throw new YyCodeFormatException("一次只能输入一行语句。", 1, 1);
         }
 
+        // 块体按新规则缩进一级;收口行与块关键字同层(解析器兼容两种收口词序)。
         var closer = trimmed switch
         {
-            var t when t.StartsWith("如果", StringComparison.Ordinal) => "\n结束如果",
+            var t when t.StartsWith("如果", StringComparison.Ordinal) => "\n    结束如果",
+            var t when t.StartsWith("判断开始", StringComparison.Ordinal) => "\n    判断结束",
             var t when t.StartsWith("当", StringComparison.Ordinal) ||
-                       t.StartsWith("计次循环", StringComparison.Ordinal) => "\n结束循环",
-            var t when t.StartsWith("遍历", StringComparison.Ordinal) => "\n结束遍历",
-            var t when t.StartsWith("尝试", StringComparison.Ordinal) => "\n结束尝试",
+                       t.StartsWith("计次循环", StringComparison.Ordinal) => "\n    结束循环",
+            var t when t.StartsWith("遍历", StringComparison.Ordinal) => "\n    结束遍历",
+            var t when t.StartsWith("尝试", StringComparison.Ordinal) => "\n    结束尝试",
             _ => string.Empty
         };
-        var wrapped = ".程序集 _行\n子程序 _行()\n" + trimmed + closer + "\n结束子程序\n";
+        var wrapped = ".程序集 _行\n子程序 _行()\n    " + trimmed + closer + "\n结束子程序\n";
         var document = FromSource(wrapped, "_行");
         if (document.Functions.Count != 1 || document.Functions[0].Statements.Count != 1)
         {
@@ -387,7 +390,12 @@ public static class YyCodeDocumentConverter
                         builder.Append(": ").Append(statement.TypeName);
                     }
 
-                    builder.Append(" = ").AppendLine(statement.Expression);
+                    if (!string.IsNullOrWhiteSpace(statement.Expression))
+                    {
+                        builder.Append(" = ").Append(statement.Expression);
+                    }
+
+                    builder.AppendLine();
                     break;
                 case YyCodeStatementKinds.Assign:
                     builder.Append(indent).Append(statement.Target)
@@ -398,22 +406,12 @@ public static class YyCodeDocumentConverter
                     builder.Append(indent).AppendLine(statement.Expression);
                     break;
                 case YyCodeStatementKinds.If:
-                    builder.Append(indent).Append("如果 ").Append(statement.Condition.Trim())
-                        .AppendLine(" 则");
-                    EmitStatements(builder, statement.Children, depth + 1, lineMap);
-                    if (statement.ElseChildren.Count > 0)
-                    {
-                        builder.Append(indent).AppendLine("否则");
-                        EmitStatements(builder, statement.ElseChildren, depth + 1, lineMap);
-                    }
-
-                    builder.Append(indent).AppendLine("结束如果");
+                    EmitIfStatement(builder, statement, depth, lineMap);
                     break;
                 case YyCodeStatementKinds.While:
                     builder.Append(indent).Append("当 ").Append(statement.Condition.Trim())
                         .AppendLine(" 循环");
                     EmitStatements(builder, statement.Children, depth + 1, lineMap);
-                    builder.Append(indent).AppendLine("结束循环");
                     break;
                 case YyCodeStatementKinds.CountLoop:
                     builder.Append(indent).Append("计次循环 ").Append(statement.Variable)
@@ -421,29 +419,23 @@ public static class YyCodeDocumentConverter
                         .Append(" 到 ").Append(statement.To)
                         .Append(" 步长 ").AppendLine(statement.Step);
                     EmitStatements(builder, statement.Children, depth + 1, lineMap);
-                    builder.Append(indent).AppendLine("结束循环");
                     break;
                 case YyCodeStatementKinds.ForEach:
                     builder.Append(indent).Append("遍历 ").Append(statement.Variable)
                         .Append(" 于 ").AppendLine(statement.Expression);
                     EmitStatements(builder, statement.Children, depth + 1, lineMap);
-                    builder.Append(indent).AppendLine("结束遍历");
                     break;
                 case YyCodeStatementKinds.Try:
                     builder.Append(indent).AppendLine("尝试");
                     EmitStatements(builder, statement.Children, depth + 1, lineMap);
                     builder.Append(indent).Append("捕获 ").AppendLine(statement.CatchName);
                     EmitStatements(builder, statement.ElseChildren, depth + 1, lineMap);
-                    builder.Append(indent).AppendLine("结束尝试");
                     break;
                 case YyCodeStatementKinds.Return:
-                    builder.Append(indent).Append("返回");
-                    if (!string.IsNullOrWhiteSpace(statement.Expression))
-                    {
-                        builder.Append(' ').Append(statement.Expression);
-                    }
-
-                    builder.AppendLine();
+                    // 官方风格:返回 ()、返回 (表达式)。
+                    builder.Append(indent).Append("返回 (")
+                        .Append(statement.Expression?.Trim() ?? string.Empty)
+                        .AppendLine(")");
                     break;
                 case YyCodeStatementKinds.Break:
                     builder.Append(indent).AppendLine("跳出");
@@ -453,6 +445,55 @@ public static class YyCodeDocumentConverter
                     break;
             }
         }
+    }
+
+    /// <summary>
+    /// 官方语汇输出:无分支用“如果真 (条件)”;多分支用“判断开始/判断/默认”。
+    /// 块结束由缩进表达,不输出收口文字(对齐 Python 与官方经典视图)。
+    /// </summary>
+    private static void EmitIfStatement(
+        StringBuilder builder,
+        YyCodeStatement statement,
+        int depth,
+        IDictionary<YyCodeStatement, int>? lineMap)
+    {
+        var indent = new string(' ', depth * 4);
+        if (statement.ElseChildren.Count == 0)
+        {
+            builder.Append(indent).Append("如果真 (").Append(statement.Condition.Trim())
+                .AppendLine(")");
+            EmitStatements(builder, statement.Children, depth + 1, lineMap);
+            return;
+        }
+
+        builder.Append(indent).Append("判断开始 (").Append(statement.Condition.Trim())
+            .AppendLine(")");
+        EmitStatements(builder, statement.Children, depth + 1, lineMap);
+        EmitElseChain(builder, statement.ElseChildren, depth, lineMap);
+    }
+
+    private static void EmitElseChain(
+        StringBuilder builder,
+        IReadOnlyList<YyCodeStatement> elseChildren,
+        int depth,
+        IDictionary<YyCodeStatement, int>? lineMap)
+    {
+        var indent = new string(' ', depth * 4);
+        if (elseChildren.Count == 1 && elseChildren[0].Kind == YyCodeStatementKinds.If)
+        {
+            var branch = elseChildren[0];
+            if (branch.Children.Count > 0 || branch.ElseChildren.Count > 0)
+            {
+                builder.Append(indent).Append("判断 (").Append(branch.Condition.Trim())
+                    .AppendLine(")");
+                EmitStatements(builder, branch.Children, depth + 1, lineMap);
+                EmitElseChain(builder, branch.ElseChildren, depth, lineMap);
+                return;
+            }
+        }
+
+        builder.Append(indent).AppendLine("默认");
+        EmitStatements(builder, elseChildren, depth + 1, lineMap);
     }
 
     private static int CountLines(StringBuilder builder)
@@ -478,7 +519,9 @@ public static class YyCodeDocumentConverter
                 Kind = variable.IsConstant ? YyCodeStatementKinds.Constant : YyCodeStatementKinds.Variable,
                 Name = variable.Name,
                 TypeName = variable.DeclaredType ?? string.Empty,
-                Expression = ExpressionToSource(variable.Initializer)
+                Expression = variable.Initializer is null
+                    ? string.Empty
+                    : ExpressionToSource(variable.Initializer)
             },
             AssignStatement assignment => new YyCodeStatement
             {

@@ -209,7 +209,7 @@ public sealed partial class MainWindow
                         file = item.File
                     }).ToArray()
                 },
-            documents = _documents.Select(document => new
+            documents = _tabs.Documents.Select(document => new
             {
                 name = document.FileName,
                 path = document.Path,
@@ -246,7 +246,7 @@ public sealed partial class MainWindow
             : document.Editor.Text ?? string.Empty;
     }
 
-    private static void SetCodeModel(EditorDocument document, YyCodeDocument model)
+    private void SetCodeModel(EditorDocument document, YyCodeDocument model)
     {
         var source = YyCodeDocumentConverter.ToSource(model);
         document.SuppressDirtyTracking = true;
@@ -329,7 +329,7 @@ public sealed partial class MainWindow
             throw new InvalidOperationException("保存失败。");
         }
 
-        return new { saved = _documents.Select(document => document.Path).ToArray() };
+        return new { saved = _tabs.Documents.Select(document => document.Path).ToArray() };
     }
 
     private object McpNewProgram()

@@ -104,16 +104,25 @@ public partial class FormDesignerView
     {
         var grid = new Grid
         {
-            ColumnDefinitions = new ColumnDefinitions(row.IsColor ? "88,*,20" : "88,*"),
-            Margin = new Thickness(0, 1)
+            ColumnDefinitions = new ColumnDefinitions(row.IsColor ? "92,*,22" : "92,*"),
+            Margin = new Thickness(0)
         };
-        grid.Children.Add(new TextBlock
+        // 易语言式属性表:左列灰面名格,右列白底值格,统一 1px 下陷线。
+        var nameCell = new Border
         {
-            Text = row.Name,
-            FontSize = 12,
-            Foreground = new SolidColorBrush(Color.FromRgb(55, 71, 90)),
-            VerticalAlignment = VerticalAlignment.Center
-        });
+            Background = new SolidColorBrush(Color.FromRgb(242, 243, 245)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(215, 218, 222)),
+            BorderThickness = new Thickness(0, 0, 1, 1),
+            Padding = new Thickness(5, 2),
+            Child = new TextBlock
+            {
+                Text = row.Name,
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromRgb(31, 35, 40)),
+                VerticalAlignment = VerticalAlignment.Center
+            }
+        };
+        grid.Children.Add(nameCell);
 
         Control editor;
         if (row.IsBool)
@@ -183,8 +192,15 @@ public partial class FormDesignerView
             }
         }
 
-        Grid.SetColumn(editor, 1);
-        grid.Children.Add(editor);
+        var valueCell = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(255, 255, 255)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(215, 218, 222)),
+            BorderThickness = new Thickness(0, 0, 1, 1),
+            Child = editor
+        };
+        Grid.SetColumn(valueCell, 1);
+        grid.Children.Add(valueCell);
         _propertyEditors.Add((row, editor));
         return grid;
     }
@@ -368,32 +384,6 @@ public partial class FormDesignerView
     }
 
     // ---------- XAML 事件 ----------
-
-    private void OnAddControlClick(object? sender, RoutedEventArgs e)
-    {
-        if (ToolboxCombo.SelectedItem is ComboBoxItem { Tag: string type })
-        {
-            AddControl(type);
-        }
-    }
-
-    private void OnDeleteClick(object? sender, RoutedEventArgs e) => DeleteSelection();
-
-    private void OnBringFrontClick(object? sender, RoutedEventArgs e) =>
-        BringSelectionToFront();
-
-    private void OnSendBackClick(object? sender, RoutedEventArgs e) =>
-        SendSelectionToBack();
-
-    private void OnSnapClick(object? sender, RoutedEventArgs e)
-    {
-        if (_editor is not null)
-        {
-            _editor.SnapToGrid = SnapCheckBox.IsChecked == true;
-        }
-
-        SetStatus(SnapCheckBox.IsChecked == true ? "已启用 8px 网格吸附。" : "已关闭网格吸附。");
-    }
 
     private void OnPropertyObjectChanged(object? sender, SelectionChangedEventArgs e)
     {

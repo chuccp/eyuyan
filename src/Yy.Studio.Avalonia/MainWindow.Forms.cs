@@ -16,11 +16,9 @@ public sealed partial class MainWindow
 {
     private void OpenFormDocument(string fullPath, string text)
     {
-        var existing = _documents.FirstOrDefault(document =>
-            string.Equals(document.Path, fullPath, StringComparison.Ordinal));
-        if (existing is not null)
+        if (_tabs.Find(fullPath) is { } existing)
         {
-            DocumentTabs.SelectedItem = existing.Tab;
+            _tabs.Select(existing);
             return;
         }
 
@@ -58,43 +56,45 @@ public sealed partial class MainWindow
             };
             toolbar.Children.Add(visualButton);
             toolbar.Children.Add(sourceButton);
+            var breadcrumb = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 4,
+                Margin = new Thickness(10, 3, 10, 3),
+                Background = Brushes.White
+            };
+            breadcrumb.Children.Add(new TextBlock
+            {
+                Text = "›",
+                Foreground = Brush.Parse("#6F737A"),
+                FontSize = 13,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            breadcrumb.Children.Add(new TextBlock
+            {
+                Text = BuildBreadcrumb(fullPath),
+                Foreground = Brush.Parse("#6F737A"),
+                FontSize = 11,
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
+            // 对齐主分支:标签条 → 面包屑 → 界面/源码条 → 内容。
             var host = new DockPanel { LastChildFill = true };
+            DockPanel.SetDock(breadcrumb, Dock.Top);
             DockPanel.SetDock(toolbar, Dock.Top);
+            host.Children.Add(breadcrumb);
             host.Children.Add(toolbar);
             host.Children.Add(content);
 
-            var headerText = new TextBlock
-            {
-                Text = Path.GetFileName(fullPath),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            var closeButton = new Button
-            {
-                Content = "×",
-                Padding = new Thickness(4, 0),
-                Background = Brushes.Transparent,
-                BorderThickness = new Thickness(0),
-                FontSize = 15
-            };
-            var header = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 6
-            };
-            header.Children.Add(headerText);
-            header.Children.Add(closeButton);
-            var tab = new TabItem
-            {
-                Header = header,
-                Content = host,
-                Tag = fullPath
-            };
+            var tabHandle = _tabs.CreateTab(fullPath, host, "▣");
             var document = new EditorDocument
             {
                 Path = fullPath,
                 FileName = Path.GetFileName(fullPath),
-                Tab = tab,
-                HeaderText = headerText,
+                Tab = tabHandle.Tab,
+                HeaderText = tabHandle.Title,
+                DirtyMarkText = tabHandle.DirtyMark,
+                CloseButton = tabHandle.CloseButton,
                 Editor = sourceEditor,
                 FormView = designer,
                 FormPropertyPanel = propertyPanel,
@@ -103,7 +103,6 @@ public sealed partial class MainWindow
                 SavedText = text
             };
 
-            closeButton.Click += (_, _) => CloseDocument(document);
             visualButton.Click += (_, _) => SetFormSourceMode(document, source: false);
             sourceButton.Click += (_, _) => SetFormSourceMode(document, source: true);
             designer.FormChanged += (_, _) =>
@@ -115,6 +114,8 @@ public sealed partial class MainWindow
             designer.SelectionChanged += (_, _) => RefreshWorkPanel();
             designer.StatusChanged += SetStatus;
             designer.EventRequested += (_, args) => HandleDesignerEvent(document, args);
+            designer.PreviewRequested += (_, _) => OnPreviewForm(null, new RoutedEventArgs());
+            designer.ViewCodeRequested += (_, _) => OpenFormCodeBehind(document);
             sourceEditor.TextChanged += (_, _) =>
             {
                 var dirty = !string.Equals(
@@ -136,9 +137,7 @@ public sealed partial class MainWindow
             };
 
             HideStartPage();
-            _documents.Add(document);
-            DocumentTabs.Items.Add(tab);
-            DocumentTabs.SelectedItem = tab;
+            _tabs.Attach(document);
             _recentFiles.AddRecent(fullPath);
             SetStatus($"已打开窗体 {document.FileName}");
             UpdateActionState();
@@ -150,6 +149,18 @@ public sealed partial class MainWindow
             SetStatus("打开窗体失败。");
             AppendConsole("错误：" + exception.Message);
         }
+    }
+
+    private void OpenFormCodeBehind(EditorDocument document)
+    {
+        var userCodePath = YyFormCompanionFiles.UserCodePath(document.Path);
+        if (!File.Exists(userCodePath))
+        {
+            SetStatus("该窗体还没有用户代码文件。");
+            return;
+        }
+
+        OpenDocument(userCodePath);
     }
 
     private void OnPreviewForm(object? sender, RoutedEventArgs e)

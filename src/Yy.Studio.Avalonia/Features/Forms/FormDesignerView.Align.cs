@@ -1,4 +1,3 @@
-using Avalonia.Interactivity;
 using Yy.Compiler.Forms;
 
 namespace Yy.Studio.Avalonia.Features.Forms;
@@ -100,16 +99,4 @@ public sealed partial class FormDesignerView
         NotifyFormChanged();
         SetStatus($"已{(horizontal ? "水平" : "垂直")}分布 {ordered.Length} 个控件。");
     }
-
-    private void OnAlignLeftClick(object? sender, RoutedEventArgs e) =>
-        AlignSelection(FormAlignment.Left);
-
-    private void OnAlignTopClick(object? sender, RoutedEventArgs e) =>
-        AlignSelection(FormAlignment.Top);
-
-    private void OnDistributeHorizontalClick(object? sender, RoutedEventArgs e) =>
-        DistributeSelection(horizontal: true);
-
-    private void OnDistributeVerticalClick(object? sender, RoutedEventArgs e) =>
-        DistributeSelection(horizontal: false);
 }

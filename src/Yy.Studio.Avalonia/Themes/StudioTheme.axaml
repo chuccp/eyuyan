@@ -1,0 +1,250 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- 主分支 WPF Classic.xaml 的 Avalonia 移植:IDEA 浅色表面、经典夹标签、树选中圆角。 -->
+
+  <Styles.Resources>
+    <SolidColorBrush x:Key="Studio.PanelBrush" Color="#FCFCFD" />
+    <SolidColorBrush x:Key="Studio.PanelRaisedBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="Studio.BorderBrush" Color="#D8DBDF" />
+    <SolidColorBrush x:Key="Studio.MutedBrush" Color="#6F737A" />
+    <SolidColorBrush x:Key="Studio.TextBrush" Color="#1F2328" />
+    <SolidColorBrush x:Key="Studio.AccentBrush" Color="#3574F0" />
+    <SolidColorBrush x:Key="Studio.AccentHoverBrush" Color="#4C86F5" />
+    <SolidColorBrush x:Key="Studio.WarningBrush" Color="#A87924" />
+    <SolidColorBrush x:Key="Studio.ErrorBrush" Color="#C94F4F" />
+    <SolidColorBrush x:Key="Studio.SuccessBrush" Color="#2F9E62" />
+    <SolidColorBrush x:Key="Studio.FaceBrush" Color="#F2F3F5" />
+    <SolidColorBrush x:Key="Studio.SunkenShadowBrush" Color="#D7DADE" />
+    <SolidColorBrush x:Key="Studio.SunkenDarkBrush" Color="#8F949B" />
+    <SolidColorBrush x:Key="Studio.HintBrush" Color="#F7F7F8" />
+    <SolidColorBrush x:Key="Studio.EditorBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="Studio.WorkspaceBrush" Color="#E8EAED" />
+
+    <!-- 夹标签:隐式 ControlTheme 覆盖 Fluent 默认条目主题。
+         选中项以圆角描边盒标示(参照 VS Code 标签条),未选中仅悬停浅灰底。 -->
+    <ControlTheme x:Key="{x:Type TabItem}" TargetType="TabItem">
+      <Setter Property="Foreground" Value="{DynamicResource Studio.TextBrush}" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="10,3" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border x:Name="TabFace"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="Transparent"
+                  BorderThickness="1"
+                  CornerRadius="4"
+                  Padding="{TemplateBinding Padding}"
+                  Margin="2,2,2,2">
+            <ContentPresenter Content="{TemplateBinding Header}"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:pointerover /template/ Border#TabFace">
+        <Setter Property="Background" Value="#ECEEF1" />
+      </Style>
+      <Style Selector="^:selected /template/ Border#TabFace">
+        <Setter Property="Background" Value="{DynamicResource Studio.PanelRaisedBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Studio.SunkenDarkBrush}" />
+      </Style>
+    </ControlTheme>
+  </Styles.Resources>
+
+  <Style Selector="TabControl">
+    <Setter Property="Background" Value="{DynamicResource Studio.PanelBrush}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="FontSize" Value="12" />
+    <!-- 标签条下 1px 基线分割线(参照 VS Code 标签条):分割线画在条目底层,
+         选中标签的强调线覆盖其上,二者贴合不留缝。
+         与 Fluent 官方模板一致使用 ItemsPresenter 继承条目,
+         不能改绑 ItemsSource(直接声明的 TabItem 不走 ItemsSource)。 -->
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                Background="{TemplateBinding Background}"
+                HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
+                VerticalAlignment="{TemplateBinding VerticalAlignment}">
+          <DockPanel>
+            <Border DockPanel.Dock="Top"
+                    Background="Transparent">
+              <Grid>
+                <Rectangle Height="1"
+                           VerticalAlignment="Bottom"
+                           Fill="#D8DBDF" />
+                <ItemsPresenter Name="PART_ItemsPresenter"
+                                ItemsPanel="{TemplateBinding ItemsPanel}" />
+              </Grid>
+            </Border>
+            <ContentPresenter Name="PART_SelectedContentHost"
+                              Margin="{TemplateBinding Padding}"
+                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                              Content="{TemplateBinding SelectedContent}"
+                              ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
+          </DockPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+
+  <!-- 默认按钮:扁平灰面、悬停凸起 -->
+  <Style Selector="Button">
+    <Setter Property="Foreground" Value="{DynamicResource Studio.TextBrush}" />
+    <Setter Property="Background" Value="{DynamicResource Studio.FaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Studio.BorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="3" />
+    <Setter Property="Padding" Value="9,3" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="#ECEEF1" />
+  </Style>
+
+  <!-- 侧轨按钮:平时无边框 -->
+  <Style Selector="Button.rail">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Width" Value="32" />
+    <Setter Property="Height" Value="32" />
+    <Setter Property="Margin" Value="1,2" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+  <Style Selector="Button.rail /template/ ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.rail:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="#ECEEF1" />
+  </Style>
+  <Style Selector="Button.rail:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="#E1E4E8" />
+  </Style>
+  <Style Selector="Button.rail:disabled">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Opacity" Value="0.4" />
+  </Style>
+  <Style Selector="Button.rail:disabled /template/ ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <!-- 窗口按钮:固定 46×38 矢量图形 -->
+  <Style Selector="Button.caption">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="Width" Value="46" />
+    <Setter Property="Height" Value="38" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+  <Style Selector="Button.caption /template/ ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.caption:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="#ECEEF1" />
+  </Style>
+  <Style Selector="Button.caption:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="#E1E4E8" />
+  </Style>
+  <Style Selector="Button.caption.close:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="#C94F4F" />
+  </Style>
+  <Style Selector="Button.caption.close:pointerover Path#CaptionGlyph">
+    <Setter Property="Stroke" Value="White" />
+  </Style>
+
+  <!-- 顶栏“布局”按钮 -->
+  <Style Selector="Button.topbar">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Height" Value="28" />
+    <Setter Property="Margin" Value="4,5,8,5" />
+    <Setter Property="Padding" Value="9,0" />
+    <Setter Property="Foreground" Value="{DynamicResource Studio.MutedBrush}" />
+  </Style>
+  <Style Selector="Button.topbar:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="#ECEEF1" />
+  </Style>
+
+  <!-- 工具窗口面板:白卡、12 圆角、头部浅灰条 -->
+  <Style Selector="Border.toolWindow">
+    <!-- 框内底色统一为白色(外框/缝隙为 #F7F7F8)。 -->
+    <Setter Property="Background" Value="#FFFFFF" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="ClipToBounds" Value="True" />
+  </Style>
+  <Style Selector="Border.toolHeader">
+    <Setter Property="Background" Value="{DynamicResource Studio.PanelRaisedBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Studio.BorderBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <Setter Property="Padding" Value="10,6" />
+  </Style>
+
+  <!-- 树:选中圆角浅灰,›/⌄ 展开符 -->
+  <Style Selector="TreeView">
+    <Setter Property="Background" Value="{DynamicResource Studio.EditorBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Studio.TextBrush}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="3,2" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+  <Style Selector="TreeViewItem">
+    <Setter Property="Foreground" Value="{DynamicResource Studio.TextBrush}" />
+  </Style>
+  <Style Selector="TreeViewItem /template/ Border#PART_LayoutRoot">
+    <Setter Property="CornerRadius" Value="5" />
+  </Style>
+
+  <!-- 列表与输入框 -->
+  <Style Selector="ListBox">
+    <Setter Property="Background" Value="{DynamicResource Studio.EditorBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Studio.TextBrush}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+  <Style Selector="TextBox">
+    <Setter Property="Background" Value="{DynamicResource Studio.EditorBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Studio.TextBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Studio.SunkenShadowBrush}" />
+    <Setter Property="CornerRadius" Value="3" />
+    <Setter Property="Padding" Value="3,2" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+  <!-- 只读展示框(提示/控制台等)聚焦时不加高亮框。 -->
+  <Style Selector="TextBox:readonly:focus /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="{DynamicResource Studio.EditorBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Studio.SunkenShadowBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+
+  <!-- 经典视图表格单元格 -->
+  <Style Selector="Border.tableHeaderCell">
+    <Setter Property="Background" Value="{DynamicResource Studio.FaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Studio.SunkenShadowBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Padding" Value="5,2" />
+  </Style>
+  <Style Selector="Border.tableBodyCell">
+    <Setter Property="Background" Value="{DynamicResource Studio.EditorBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Studio.SunkenShadowBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,1,1" />
+    <Setter Property="Padding" Value="4,1" />
+  </Style>
+
+  <!-- 蚀刻分隔线 -->
+  <Style Selector="Separator">
+    <Setter Property="Background" Value="{DynamicResource Studio.SunkenShadowBrush}" />
+    <Setter Property="Height" Value="1" />
+    <Setter Property="Margin" Value="2,3" />
+  </Style>
+</Styles>

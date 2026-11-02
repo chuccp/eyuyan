@@ -35,6 +35,37 @@ public sealed class Lexer
         "+=", "-=", "*=", "/=", "%="
     ];
 
+    // 老语法:官方源码使用全角运算符与全角标点,统一归一到半角词法记号。
+    private static readonly Dictionary<char, string> FullWidthOperators = new()
+    {
+        ['＋'] = "+",
+        ['－'] = "-",
+        ['×'] = "*",
+        ['÷'] = "/",
+        ['％'] = "%",
+        ['＞'] = ">",
+        ['＜'] = "<",
+        ['＝'] = "=",
+        ['！'] = "!",
+        ['＆'] = "&",
+        ['≥'] = ">=",
+        ['≤'] = "<=",
+        ['≠'] = "!="
+    };
+
+    private static readonly Dictionary<char, string> FullWidthPunctuation = new()
+    {
+        ['（'] = "(",
+        ['）'] = ")",
+        ['［'] = "[",
+        ['］'] = "]",
+        ['｛'] = "{",
+        ['｝'] = "}",
+        ['，'] = ",",
+        ['、'] = ",",
+        ['．'] = "."
+    };
+
     private readonly string _source;
     private readonly List<Token> _tokens = [];
     private int _offset;
@@ -65,7 +96,7 @@ public sealed class Lexer
     {
         var current = Peek();
 
-        if (current is ' ' or '\t' or '\uFEFF')
+        if (current is ' ' or '\t' or '\u3000' or '\uFEFF')
         {
             Advance();
             return null;
@@ -80,7 +111,13 @@ public sealed class Lexer
             return new Token(TokenKind.NewLine, "\n", null, line, column, offset);
         }
 
-        if (current == '\'' || (current == '/' && Peek(1) == '/') || current == '#')
+        // \u201C#\u201D\u540E\u63A5\u6807\u8BC6\u7B26\u5B57\u7B26\u662F\u5E38\u91CF\u540D(#\u5E38\u91CF\u3001#\u7EC4.\u6210\u5458),\u5426\u5219\u662F\u884C\u6CE8\u91CA\u3002
+        if (current == '#' && (char.IsLetter(Peek(1)) || Peek(1) == '_'))
+        {
+            return ReadConstant();
+        }
+
+        if (current == '\'' || (current == '/' && Peek(1) == '/'))
         {
             while (!IsAtEnd && Peek() is not '\r' and not '\n')
             {
@@ -128,7 +165,19 @@ public sealed class Lexer
             }
         }
 
-        if ("+-*/%<>=!?:".Contains(current))
+        if (FullWidthOperators.TryGetValue(current, out var fullWidthOperator))
+        {
+            Advance();
+            return new Token(TokenKind.Operator, fullWidthOperator, fullWidthOperator, lineStart, columnStart, offsetStart);
+        }
+
+        if (FullWidthPunctuation.TryGetValue(current, out var fullWidthPunctuation))
+        {
+            Advance();
+            return new Token(TokenKind.Punctuation, fullWidthPunctuation, fullWidthPunctuation, lineStart, columnStart, offsetStart);
+        }
+
+        if ("+-*/%<>=!?:&".Contains(current))
         {
             Advance();
             return new Token(TokenKind.Operator, current.ToString(), current.ToString(), lineStart, columnStart, offsetStart);
@@ -231,6 +280,24 @@ public sealed class Lexer
     }
 
     private Token ReadIdentifier()
+    {
+        var lineStart = _line;
+        var columnStart = _column;
+        var offsetStart = _offset;
+        var start = _offset;
+
+        Advance();
+        while (char.IsLetterOrDigit(Peek()) || Peek() == '_')
+        {
+            Advance();
+        }
+
+        var text = _source[start.._offset];
+        return new Token(TokenKind.Identifier, text, text, lineStart, columnStart, offsetStart);
+    }
+
+    /// <summary>常量名(#常量、#常量组.成员):“#”连同标识符整体作为标识符记号。</summary>
+    private Token ReadConstant()
     {
         var lineStart = _line;
         var columnStart = _column;

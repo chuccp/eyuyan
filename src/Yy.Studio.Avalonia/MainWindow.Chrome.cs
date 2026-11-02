@@ -29,8 +29,23 @@ public sealed partial class MainWindow
     private void OnCloseWindow(object? sender, RoutedEventArgs e) =>
         Close();
 
-    private void ToggleMaximize() =>
+    private void ToggleMaximize()
+    {
         WindowState = WindowState == WindowState.Maximized
             ? WindowState.Normal
             : WindowState.Maximized;
+        UpdateCaptionButtons();
+    }
+
+    private void UpdateCaptionButtons()
+    {
+        if (CaptionMaximizeIcon is null || CaptionRestoreIcon is null)
+        {
+            return;
+        }
+
+        var maximized = WindowState == WindowState.Maximized;
+        CaptionMaximizeIcon.IsVisible = !maximized;
+        CaptionRestoreIcon.IsVisible = maximized;
+    }
 }

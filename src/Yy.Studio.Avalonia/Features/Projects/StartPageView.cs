@@ -128,13 +128,19 @@ public sealed class StartPageView : UserControl
     private Control BuildRecentCard()
     {
         var panel = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*") };
-        var heading = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        var heading = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+            ClipToBounds = true
+        };
         heading.Children.Add(new TextBlock
         {
             Text = "最近的项目",
-            FontSize = 16,
+            FontSize = 15,
             FontWeight = FontWeight.SemiBold,
-            Foreground = ProjectTheme.TextBrush
+            Foreground = ProjectTheme.TextBrush,
+            VerticalAlignment = VerticalAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis
         });
 
         var actions = new StackPanel

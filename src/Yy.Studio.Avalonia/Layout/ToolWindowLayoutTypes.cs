@@ -114,8 +114,10 @@ internal static class ToolWindowLayoutMetrics
 {
     public const double RailSize = 28;
     public const double PanelInset = 6;
+    /// <summary>面板面向相邻面板一侧的内缝;与分割条合计 1+4+1=6,全布局统一。</summary>
+    public const double PanelGapInset = 1;
     public const double SplitterWidth = 4;
-    public const double BottomSplitterHeight = 5;
+    public const double BottomSplitterHeight = 4;
     public const double SideMinSize = 180;
     public const double WorkMinSize = 220;
     public const double WorkMinSizeWithToolbox = 320;

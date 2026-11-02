@@ -16,11 +16,9 @@ public sealed partial class MainWindow
 {
     private void OpenCodeDocument(string fullPath, string text)
     {
-        var existing = _documents.FirstOrDefault(document =>
-            string.Equals(document.Path, fullPath, StringComparison.Ordinal));
-        if (existing is not null)
+        if (_tabs.Find(fullPath) is { } existing)
         {
-            DocumentTabs.SelectedItem = existing.Tab;
+            _tabs.Select(existing);
             return;
         }
 
@@ -40,46 +38,137 @@ public sealed partial class MainWindow
 
         var plain = YyCodeEditor.Create(plainText, fullPath, readOnly: false);
         ConfigureEditor(plain);
+        AttachEditorContextMenu(plain);
+        plain.TextArea.TextView.LineTransformers.Add(
+            new Editor.SemanticColorizer(
+                () => model?.Functions.Select(f => f.Name).ToList() ?? [],
+                () => model?.MainStatements
+                    .Where(s => s.Kind == Yy.Language.Structured.YyCodeStatementKinds.Constant)
+                    .Select(s => s.Name)
+                    .ToList() ?? []));
+        var navForm = TryLoadAssociatedForm(fullPath);
         var classic = model is null ? null : new StructuredCodeEditor();
-        if (classic is not null && model is not null)
+        if (classic is not null)
         {
-            classic.LoadDocument(model);
+            classic.ContextMenuFactory = (bodyEditor, searchPanel) =>
+                Editor.CodeEditorContextMenu.Create(
+                    bodyEditor,
+                    searchPanel,
+                    () => FormatCurrentCode(),
+                    completionEditor => EditorAssistance.GetSession(completionEditor)?.ShowCompletion(),
+                    () => ShowHelpText("上下文帮助:把光标停在命令上按 F1 查看详情。"));
+            if (model is not null)
+            {
+                classic.LoadDocument(model);
+            }
         }
 
         var classicHost = new Border { Child = classic };
-        var plainHost = new Border { Child = plain, IsVisible = false };
+        var plainHost = new Border
+        {
+            Child = plain,
+            // 解析失败时没有经典视图,直接落回纯代码,不留空白页。
+            IsVisible = classic is null
+        };
         var content = new Grid();
         content.Children.Add(classicHost);
         content.Children.Add(plainHost);
-        var functionCombo = new ComboBox
+        // 易语言式代码窗口导航:对象 + 过程双下拉(对齐官方经典视图)。
+        var objectCombo = new ComboBox
         {
             Width = 190,
-            PlaceholderText = "子程序",
+            FontSize = 11.5,
             IsEnabled = classic is not null
         };
-        if (classic is not null)
+        var procedureCombo = new ComboBox
         {
-            void RefreshFunctions()
+            Width = 230,
+            FontSize = 11.5,
+            IsEnabled = classic is not null
+        };
+        var codeContext = new TextBlock
+        {
+            FontSize = 10.5,
+            Foreground = Brush.Parse("#6F737A"),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(10, 0, 8, 0),
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        var updatingNavigation = false;
+
+        void RefreshCodeNavigation(string? preferredFunction = null)
+        {
+            if (classic is null)
             {
-                var selected = functionCombo.SelectedItem as string;
-                functionCombo.ItemsSource = classic.Functions
-                    .Select(function => function.Name)
-                    .ToArray();
-                if (selected is not null)
-                {
-                    functionCombo.SelectedItem = selected;
-                }
+                return;
             }
 
-            RefreshFunctions();
-            functionCombo.SelectionChanged += (_, _) =>
+            updatingNavigation = true;
+            try
             {
-                if (functionCombo.SelectedItem is string name)
+                var functions = classic.Functions
+                    .Select(function => function.Name)
+                    .ToArray();
+                var choices = BuildCodeObjectChoices(navForm, functions);
+                var previous = objectCombo.SelectedItem as CodeObjectChoice;
+                var target = preferredFunction is null
+                    ? null
+                    : choices.FirstOrDefault(choice =>
+                        choice.Handlers.Contains(preferredFunction, StringComparer.Ordinal));
+                target ??= choices.FirstOrDefault(choice =>
+                        string.Equals(choice.Display, previous?.Display, StringComparison.Ordinal))
+                    ?? choices.Skip(1).FirstOrDefault()
+                    ?? choices.FirstOrDefault()
+                    ?? new CodeObjectChoice("（通用）", []);
+                objectCombo.ItemsSource = choices;
+                objectCombo.SelectedItem = target;
+
+                var allowed = target.Handlers
+                    .Where(functions.Contains)
+                    .ToArray();
+                if (allowed.Length == 0)
+                {
+                    allowed = functions;
+                }
+
+                var current = procedureCombo.SelectedItem as string;
+                procedureCombo.ItemsSource = allowed;
+                procedureCombo.SelectedItem =
+                    preferredFunction is not null && allowed.Contains(preferredFunction)
+                        ? preferredFunction
+                        : current is not null && allowed.Contains(current)
+                            ? current
+                            : allowed.FirstOrDefault();
+            }
+            finally
+            {
+                updatingNavigation = false;
+            }
+
+            codeContext.Text = navForm is null
+                ? $"程序集：{classic.Document?.Name} · {classic.Functions.Count} 个子程序"
+                : $"窗口：{navForm.Name} · {classic.Functions.Count} 个子程序";
+        }
+
+        if (classic is not null)
+        {
+            RefreshCodeNavigation();
+            objectCombo.SelectionChanged += (_, _) =>
+            {
+                if (!updatingNavigation)
+                {
+                    RefreshCodeNavigation();
+                }
+            };
+            procedureCombo.SelectionChanged += (_, _) =>
+            {
+                if (!updatingNavigation &&
+                    procedureCombo.SelectedItem is string name)
                 {
                     classic.SelectFunction(name);
                 }
             };
-            classic.ModelChanged += (_, _) => RefreshFunctions();
+            classic.ModelChanged += (_, _) => RefreshCodeNavigation();
         }
 
         var classicButton = new Button
@@ -98,46 +187,80 @@ public sealed partial class MainWindow
             Spacing = 6,
             Margin = new Thickness(8, 5)
         };
-        toolbar.Children.Add(functionCombo);
+        toolbar.Children.Add(new TextBlock
+        {
+            Text = "对象",
+            FontSize = 11,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(2, 0, 6, 0)
+        });
+        toolbar.Children.Add(objectCombo);
+        toolbar.Children.Add(new TextBlock
+        {
+            Text = "过程",
+            FontSize = 11,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(10, 0, 6, 0)
+        });
+        toolbar.Children.Add(procedureCombo);
+        toolbar.Children.Add(codeContext);
         toolbar.Children.Add(classicButton);
         toolbar.Children.Add(plainButton);
-        var host = new DockPanel { LastChildFill = true };
-        DockPanel.SetDock(toolbar, Dock.Top);
-        host.Children.Add(toolbar);
-        host.Children.Add(content);
-
-        var headerText = new TextBlock
+        var hintBar = new TextBlock
         {
-            Text = Path.GetFileName(fullPath),
-            VerticalAlignment = VerticalAlignment.Center
+            IsVisible = false,
+            FontFamily = new FontFamily("Cascadia Code, Consolas, Microsoft YaHei UI"),
+            FontSize = 10.5,
+            Foreground = Brush.Parse("#3574F0"),
+            Background = Brush.Parse("#F2F3F5"),
+            Padding = new Thickness(10, 4),
+            TextWrapping = TextWrapping.Wrap
         };
-        var closeButton = new Button
-        {
-            Content = "×",
-            Padding = new Thickness(4, 0),
-            Background = Brushes.Transparent,
-            BorderThickness = new Thickness(0),
-            FontSize = 15
-        };
-        var header = new StackPanel
+        var breadcrumb = new StackPanel
         {
             Orientation = Orientation.Horizontal,
-            Spacing = 6
+            Spacing = 4,
+            Margin = new Thickness(10, 3, 10, 3),
+            Background = Brushes.White
         };
-        header.Children.Add(headerText);
-        header.Children.Add(closeButton);
-        var tab = new TabItem
+        breadcrumb.Children.Add(new TextBlock
         {
-            Header = header,
-            Content = host,
-            Tag = fullPath
+            Text = "›",
+            Foreground = Brush.Parse("#6F737A"),
+            FontSize = 13,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        var breadcrumbText = new TextBlock
+        {
+            Text = BuildBreadcrumb(fullPath),
+            Foreground = Brush.Parse("#6F737A"),
+            FontSize = 11,
+            VerticalAlignment = VerticalAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis
         };
+        breadcrumb.Children.Add(breadcrumbText);
+        // 对齐主分支:标签条 → 面包屑 → 对象/过程条 → 内容。
+        var host = new DockPanel { LastChildFill = true };
+        DockPanel.SetDock(breadcrumb, Dock.Top);
+        DockPanel.SetDock(toolbar, Dock.Top);
+        DockPanel.SetDock(hintBar, Dock.Bottom);
+        host.Children.Add(breadcrumb);
+        host.Children.Add(toolbar);
+        host.Children.Add(hintBar);
+        host.Children.Add(content);
+
+        var isForm = string.Equals(
+            Path.GetExtension(fullPath), ".yyx", StringComparison.OrdinalIgnoreCase);
+        var tabHandle = _tabs.CreateTab(fullPath, host, isForm ? "▣" : "‹›");
         var document = new EditorDocument
         {
             Path = fullPath,
             FileName = Path.GetFileName(fullPath),
-            Tab = tab,
-            HeaderText = headerText,
+            Tab = tabHandle.Tab,
+            HeaderText = tabHandle.Title,
+            DirtyMarkText = tabHandle.DirtyMark,
+            CloseButton = tabHandle.CloseButton,
+            HintBar = hintBar,
             Editor = plain,
             StructuredView = classic,
             PlainCodeHost = plainHost,
@@ -155,7 +278,7 @@ public sealed partial class MainWindow
                 UpdateDocumentHeader(document);
                 RefreshWorkPanel();
             };
-            classic.HintRequested += SetStatus;
+            classic.HintRequested += ShowHelpText;
             classic.ParameterHintChanged += (_, _, hint) => ShowParameterHint(hint);
         }
         else
@@ -164,7 +287,6 @@ public sealed partial class MainWindow
         }
 
         plainButton.Click += (_, _) => SetCodeView(document, classic: false);
-        closeButton.Click += (_, _) => CloseDocument(document);
         plain.TextChanged += (_, _) =>
         {
             if (document.SuppressDirtyTracking)
@@ -190,23 +312,20 @@ public sealed partial class MainWindow
             }
         };
 
-        var form = TryLoadAssociatedForm(fullPath);
-        if (form is not null)
+        if (navForm is not null)
         {
-            classic?.SetForm(form);
+            classic?.SetForm(navForm);
             var session = EditorAssistance.GetSession(plain);
             session?.SetEnvironment(new CompletionEnvironment
             {
-                Form = form,
+                Form = navForm,
                 FilePath = fullPath,
                 DocumentFunctions = model?.Functions
             });
         }
 
         HideStartPage();
-        _documents.Add(document);
-        DocumentTabs.Items.Add(tab);
-        DocumentTabs.SelectedItem = tab;
+        _tabs.Attach(document);
         _recentFiles.AddRecent(fullPath);
         SetStatus($"已打开 {document.FileName}");
         UpdateActionState();
@@ -361,10 +480,141 @@ public sealed partial class MainWindow
         }
     }
 
-    private void ShowParameterHint(YyParameterHint? hint) =>
+    private void AttachEditorContextMenu(AvaloniaEdit.TextEditor editor)
+    {
+        var session = EditorAssistance.GetSession(editor);
+        if (session is not null)
+        {
+            session.HintRequested += ShowHelpText;
+        }
+
+        editor.ContextMenu = Editor.CodeEditorContextMenu.Create(
+            editor,
+            session?.SearchPanel,
+            () => FormatCurrentCode(),
+            completionEditor => EditorAssistance.GetSession(completionEditor)?.ShowCompletion(),
+            () => ShowHelpText("上下文帮助:把光标停在命令上按 F1 查看详情。"));
+        editor.TextArea.PointerPressed += (_, e) =>
+            Editor.CodeEditorContextMenu.MoveCaretToPointer(editor, e);
+    }
+
+    /// <summary>F1/提示信息写入底部“提示”页,状态栏只留摘要。</summary>
+    private void ShowHelpText(string text)
+    {
+        if (EditorHelpBox is not null)
+        {
+            EditorHelpBox.Text = text;
+            SelectBottomTab("提示");
+        }
+
+        var firstLine = text.Split('\n', 2)[0];
+        SetStatus(firstLine.Length > 60 ? firstLine[..60] + "…" : firstLine);
+    }
+
+    private void ShowParameterHint(YyParameterHint? hint)
+    {
+        var bar = CurrentDocument?.HintBar;
+        if (bar is not null)
+        {
+            bar.IsVisible = hint is not null;
+            bar.Text = hint is null
+                ? string.Empty
+                : $"{hint.Signature}   参数 {hint.ActiveParameter + 1}：{hint.Name}";
+        }
+
+        if (EditorHelpBox is not null)
+        {
+            EditorHelpBox.Text = hint is null
+                ? string.Empty
+                : $"{hint.Signature}\n参数 {hint.ActiveParameter + 1}：{hint.Name}";
+        }
+
         SetStatus(hint is null
             ? "就绪"
             : $"{hint.Signature} · 参数 {hint.ActiveParameter + 1}：{hint.Name}");
+    }
+
+    private sealed record CodeObjectChoice(string Display, string[] Handlers)
+    {
+        public override string ToString() => Display;
+    }
+
+    private static List<CodeObjectChoice> BuildCodeObjectChoices(
+        Yy.Compiler.Forms.YyFormModel? form,
+        IReadOnlyList<string> functions)
+    {
+        var choices = new List<CodeObjectChoice>();
+        var bound = new HashSet<string>(StringComparer.Ordinal);
+        if (form is not null)
+        {
+            var formHandlers = new[] { form.LoadEvent, form.OpenEvent, form.CloseEvent }
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Select(name => name!)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            if (formHandlers.Length > 0)
+            {
+                choices.Add(new CodeObjectChoice(form.Name + "（窗口）", formHandlers));
+                bound.UnionWith(formHandlers);
+            }
+
+            foreach (var control in form.Controls)
+            {
+                var handlers = new[]
+                    {
+                        control.ClickEvent,
+                        control.TextChangedEvent,
+                        control.SelectionChangedEvent,
+                        control.CheckedChangedEvent
+                    }
+                    .Where(name => !string.IsNullOrWhiteSpace(name))
+                    .Select(name => name!)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray();
+                if (handlers.Length == 0)
+                {
+                    continue;
+                }
+
+                choices.Add(new CodeObjectChoice(
+                    $"{control.Name}（{Yy.Compiler.Forms.YyControlTypes.GetDisplayName(control.Type)}）",
+                    handlers));
+                bound.UnionWith(handlers);
+            }
+        }
+
+        var general = functions
+            .Where(name => !bound.Contains(name))
+            .ToArray();
+        choices.Insert(0, new CodeObjectChoice("（通用）", general));
+        return choices;
+    }
+
+    private string BuildBreadcrumb(string fullPath)
+    {
+        var segments = new List<string>();
+        if (_workspace.Project is { } project)
+        {
+            segments.Add(project.Name);
+            var relative = Path.GetRelativePath(project.DirectoryPath, fullPath);
+            if (!relative.StartsWith("..", StringComparison.Ordinal))
+            {
+                segments.AddRange(
+                    relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                        .Where(part => part.Length > 0));
+            }
+            else
+            {
+                segments.Add(Path.GetFileName(fullPath));
+            }
+        }
+        else
+        {
+            segments.Add(Path.GetFileName(fullPath));
+        }
+
+        return string.Join(" › ", segments);
+    }
 
     private static YyFormModel? TryLoadAssociatedForm(string codePath)
     {

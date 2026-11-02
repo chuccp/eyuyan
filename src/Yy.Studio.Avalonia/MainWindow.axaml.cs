@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Input;
 using Avalonia.Threading;
+using Avalonia.Platform.Storage;
 using Yy.Studio.Avalonia.Features.Forms;
 using Yy.Studio.Avalonia.Features.Projects;
 using Yy.Language;
@@ -11,13 +12,14 @@ using Yy.Studio.Core.Configuration;
 using Yy.Studio.Avalonia.Editor;
 using Yy.Studio.Avalonia.Features.Documentation;
 using Yy.Studio.Core.Workspace;
+using Yy.Studio.Avalonia.Workspace;
 
 namespace Yy.Studio.Avalonia;
 
 public sealed partial class MainWindow : Window
 {
     private readonly StudioWorkspace _workspace = new();
-    private readonly List<EditorDocument> _documents = [];
+    private DocumentTabController _tabs = null!;
     private Process? _process;
     private bool _building;
     private TabItem? _startPageTab;
@@ -37,6 +39,19 @@ public sealed partial class MainWindow : Window
     public MainWindow(string[] args)
     {
         InitializeComponent();
+        _tabs = new DocumentTabController(DocumentTabs);
+        _tabs.SelectionChanged += OnDocumentTabsSelectionChanged;
+        _tabs.SaveRequested += document => SaveDocument(document);
+        _tabs.CloseRequested += CloseDocument;
+        _tabs.CloseOthersRequested += CloseOtherDocuments;
+        _tabs.Emptied += ShowStartPage;
+        PropertyChanged += (_, args) =>
+        {
+            if (args.Property == WindowStateProperty)
+            {
+                UpdateCaptionButtons();
+            }
+        };
         _defaultPropertyContent = WorkPropertyHost.Content as Control;
         Configuration = StudioConfiguration.Load(args);
         if (!string.IsNullOrWhiteSpace(Configuration.LoadWarning))
@@ -46,6 +61,9 @@ public sealed partial class MainWindow : Window
 
         TargetBox.ItemsSource = Yy.Compiler.YyBuildTargets.All;
         TargetBox.SelectedItem = Yy.Compiler.YyBuildTargets.Auto;
+        TargetBox.SelectionChanged += (_, _) => SyncTargetPlatformMenu();
+        SyncTargetPlatformMenu();
+        InitializeClipHistory();
         InitializeToolWindowLayout();
         ShowStartPage();
         AppendConsole("易语 Studio · Avalonia 跨平台外壳");
@@ -84,7 +102,20 @@ public sealed partial class MainWindow : Window
         return null;
     }
 
-    private void SetStatus(string text) => StatusText.Text = text;
+    private void SetStatus(string text)
+    {
+        StatusText.Text = text;
+        // 失败/错误类消息用错误色,其余保持常规色(状态点同步提示)。
+        var error = text.Contains("失败", StringComparison.Ordinal) ||
+                    text.Contains("错误", StringComparison.Ordinal) ||
+                    text.Contains("无法", StringComparison.Ordinal);
+        StatusText.Foreground = error
+            ? global::Avalonia.Media.Brush.Parse("#C94F4F")
+            : global::Avalonia.Media.Brush.Parse("#1F2328");
+        StatusDot.Fill = error
+            ? global::Avalonia.Media.Brush.Parse("#C94F4F")
+            : global::Avalonia.Media.Brush.Parse("#4ADE80");
+    }
 
     private void AppendConsole(string text)
     {
@@ -122,10 +153,13 @@ public sealed partial class MainWindow : Window
                             StringComparison.OrdinalIgnoreCase);
         var canBuild = (hasProject || hasSource) && !_building;
         var running = _process is not null;
-        CheckButton.IsEnabled = hasProject && !_building;
-        BuildButton.IsEnabled = canBuild && !running;
-        RunButton.IsEnabled = canBuild && !running;
-        StopButton.IsEnabled = running;
+        MenuCheckItem.IsEnabled = hasProject && !_building;
+        MenuBuildItem.IsEnabled = canBuild && !running;
+        MenuRunItem.IsEnabled = canBuild && !running;
+        MenuStopItem.IsEnabled = running;
+        RailBuildButton.IsEnabled = canBuild && !running;
+        RailRunProjectButton.IsEnabled = canBuild && !running;
+        RailStopButton.IsEnabled = running;
     }
 
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
@@ -280,9 +314,44 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private void OnWindowDragOver(object? sender, DragEventArgs e)
+    {
+        e.DragEffects = e.Data.Contains(DataFormats.Files)
+            ? DragDropEffects.Copy
+            : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private async void OnWindowDrop(object? sender, DragEventArgs e)
+    {
+        if (!e.Data.Contains(DataFormats.Files))
+        {
+            return;
+        }
+
+        foreach (var item in e.Data.GetFiles() ?? [])
+        {
+            try
+            {
+                var path = item.TryGetLocalPath();
+                if (!string.IsNullOrWhiteSpace(path))
+                {
+                    OpenProjectPath(path);
+                    return;
+                }
+            }
+            catch (Exception exception) when (
+                exception is IOException or UnauthorizedAccessException)
+            {
+                SetStatus("无法打开拖入的文件：" + exception.Message);
+                return;
+            }
+        }
+    }
+
     private void OnWindowClosing(object? sender, WindowClosingEventArgs e)
     {
-        if (_documents.Any(document => document.IsDirty))
+        if (_tabs.Documents.Any(document => document.IsDirty))
         {
             e.Cancel = true;
             SetStatus("有未保存的文档，请先保存（Ctrl+S / ⌘S）。");
@@ -310,9 +379,15 @@ public sealed partial class MainWindow : Window
     private void OnClearConsole(object? sender, RoutedEventArgs e) =>
         ConsoleText.Text = string.Empty;
 
+    private void OnConsoleCopy(object? sender, RoutedEventArgs e) =>
+        ConsoleText.Copy();
+
+    private void OnConsoleSelectAll(object? sender, RoutedEventArgs e) =>
+        ConsoleText.SelectAll();
+
     private void OnExit(object? sender, RoutedEventArgs e)
     {
-        if (_documents.Any(document => document.IsDirty))
+        if (_tabs.Documents.Any(document => document.IsDirty))
         {
             SetStatus("有未保存的文档，请先保存后再退出。");
             return;
@@ -325,7 +400,7 @@ public sealed partial class MainWindow : Window
     {
         if (_startPageTab is not null)
         {
-            DocumentTabs.SelectedItem = _startPageTab;
+            _tabs.Select(_startPageTab);
             return;
         }
 
@@ -339,13 +414,26 @@ public sealed partial class MainWindow : Window
         _startPage.NewRequested += () => OnNewProgram(null, new RoutedEventArgs());
         _startPage.OpenRequested += () => _ = OpenFileAsync();
         _startPage.ProjectRequested += OpenProjectPath;
+        var startHeader = new StackPanel { Orientation = global::Avalonia.Layout.Orientation.Horizontal, Spacing = 5 };
+        startHeader.Children.Add(new TextBlock
+        {
+            Text = "⌂",
+            FontSize = 12,
+            Foreground = global::Avalonia.Media.Brush.Parse("#6F737A"),
+            VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+        });
+        startHeader.Children.Add(new TextBlock
+        {
+            Text = "起始页",
+            FontSize = 12,
+            VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+        });
         _startPageTab = new TabItem
         {
-            Header = "起始页",
+            Header = startHeader,
             Content = _startPage
         };
-        DocumentTabs.Items.Add(_startPageTab);
-        DocumentTabs.SelectedItem = _startPageTab;
+        _tabs.AddExtra(_startPageTab, HideStartPage);
     }
 
     private void HideStartPage()
@@ -355,7 +443,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        DocumentTabs.Items.Remove(_startPageTab);
+        _tabs.RemoveExtra(_startPageTab);
         _startPageTab = null;
         _startPage = null;
     }

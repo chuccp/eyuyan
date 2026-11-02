@@ -1,5 +1,9 @@
 namespace Yy.Language.Syntax;
 
+/// <summary>
+/// 易语解析器:老语法(官方语汇,点前缀声明行/语句与收口行)是基础,
+/// 新语汇(缩进块、如果真/判断开始、类型化声明)是其超集。
+/// </summary>
 public sealed partial class Parser
 {
     private readonly string _source;
@@ -11,6 +15,25 @@ public sealed partial class Parser
     private readonly List<InterfaceDeclaration> _interfaces = [];
     private readonly Dictionary<string, string> _metadata = new(StringComparer.Ordinal);
     private int _current;
+
+    /// <summary>语句关键字(老语法可带“.”前缀)。</summary>
+    private static readonly HashSet<string> StatementKeywords = new(StringComparer.Ordinal)
+    {
+        "变量", "定义", "常量", "如果真", "如果", "判断开始", "判断", "默认", "否则", "否则如果",
+        "当", "计次循环", "计次循环首", "计次循环尾", "变量循环首", "变量循环尾",
+        "判断循环首", "判断循环尾", "循环判断首", "循环判断尾",
+        "遍历", "遍历循环首", "遍历循环尾",
+        "返回", "跳出", "继续", "跳出循环", "继续循环", "尝试", "捕获",
+        "如果真结束", "如果结束", "结束如果", "判断结束", "结束判断",
+        "结束循环", "循环结束", "结束遍历", "遍历结束", "结束尝试", "尝试结束",
+        "结束子程序", "子程序结束", "结束函数", "函数结束"
+    };
+
+    /// <summary>顶层声明行(老语法以“.”开头)。</summary>
+    private static readonly HashSet<string> DeclarationRows = new(StringComparer.Ordinal)
+    {
+        "子程序", "函数", "程序集", "程序集变量", "支持库", "版本", "常量", "引入", "导入包"
+    };
 
     public Parser(string source, string? sourceName = null)
     {
@@ -39,15 +62,34 @@ public sealed partial class Parser
 
         while (!IsAtEnd)
         {
-            if (Check(TokenKind.Punctuation, "."))
+            if (Check(TokenKind.Punctuation, ".") && CheckAhead(1, TokenKind.Identifier))
             {
+                var key = Peek(1).Text;
+                if (key is "子程序" or "函数")
+                {
+                    functions.Add(ParseFunction(rowForm: true));
+                    continue;
+                }
+
+                if (key is "程序集变量" or "常量")
+                {
+                    mainStatements.Add(ParseDataRow());
+                    continue;
+                }
+
+                if (StatementKeywords.Contains(key))
+                {
+                    mainStatements.Add(ParseStatement());
+                    continue;
+                }
+
                 ParseMetadata();
                 continue;
             }
 
             if (CheckWord("子程序") || CheckWord("函数"))
             {
-                functions.Add(ParseFunction());
+                functions.Add(ParseFunction(rowForm: false));
                 continue;
             }
 
@@ -92,64 +134,6 @@ public sealed partial class Parser
         };
     }
 
-    private FunctionDeclaration ParseFunction()
-    {
-        var keyword = Advance();
-        var name = ConsumeIdentifier("子程序名");
-        Consume(TokenKind.Punctuation, "(", "子程序名后需要左括号");
-
-        var parameters = new List<ParameterDeclaration>();
-        if (!Check(TokenKind.Punctuation, ")"))
-        {
-            do
-            {
-                var parameterName = ConsumeIdentifier("参数名");
-                string? parameterType = null;
-                if (Match(TokenKind.Operator, ":"))
-                {
-                    parameterType = ParseTypeName("参数类型");
-                }
-
-                Expression? defaultValue = null;
-                if (MatchOperator("="))
-                {
-                    defaultValue = ParseExpression();
-                }
-
-                parameters.Add(new ParameterDeclaration(parameterName.Text, defaultValue, parameterType));
-            }
-            while (Match(TokenKind.Punctuation, ","));
-        }
-
-        Consume(TokenKind.Punctuation, ")", "参数列表缺少右括号");
-        string? returnType = null;
-        if (Match(TokenKind.Operator, ":"))
-        {
-            returnType = ParseTypeName("返回值类型");
-        }
-
-        ConsumeLineEnd();
-        var body = ParseBlock(["结束子程序", "子程序结束", "结束函数", "函数结束"]);
-
-        if (!IsAtEnd && IsAnyWord(["结束子程序", "子程序结束", "结束函数", "函数结束"]))
-        {
-            ConsumeLine();
-        }
-        else
-        {
-            throw Error(Peek(), $"子程序“{name.Text}”缺少结束标记，请添加“结束子程序”。");
-        }
-
-        return new FunctionDeclaration(
-            keyword.Line,
-            keyword.Column,
-            name.Text,
-            parameters,
-            body,
-            returnType,
-            _sourceName);
-    }
-
     private void ParseMetadata()
     {
         if (Check(TokenKind.Punctuation, "."))
@@ -163,9 +147,16 @@ public sealed partial class Parser
             var key = Advance().Text;
             if (string.Equals(key, "版本", StringComparison.Ordinal))
             {
-                throw Error(
-                    Peek(),
-                    "“.版本”不属于用户源代码；格式版本由工程清单管理。");
+                // 老语法文件头“.版本 2”:登记版本号,不再视为错误。
+                var versionValues = new List<string>();
+                while (!AtLineEnd)
+                {
+                    versionValues.Add(Advance().Text);
+                }
+
+                _metadata["版本"] = string.Join(" ", versionValues);
+                ConsumeLineEnd();
+                return;
             }
 
             var values = new List<string>();
@@ -245,457 +236,53 @@ public sealed partial class Parser
         return import;
     }
 
-    private BlockStatement ParseBlock(string[] terminators)
+    /// <summary>
+    /// 语句块:块体必须比块关键字缩进一级,缩进回退即块结束;
+    /// 老语法的收口行(如“.如果真结束”)作为终止符在出现时消费。
+    /// </summary>
+    private BlockStatement ParseBlock(string[] terminators, int openerIndent = -1)
     {
         var start = Peek();
         var statements = new List<Statement>();
         SkipNewLines();
+        var baseIndent = -1;
 
         while (!IsAtEnd && !IsAnyWord(terminators))
         {
+            var indent = Peek().Column - 1;
+            if (baseIndent < 0)
+            {
+                if (openerIndent >= 0 && indent <= openerIndent)
+                {
+                    throw Error(Peek(), "块体需要缩进。");
+                }
+
+                baseIndent = indent;
+            }
+            else if (indent < baseIndent)
+            {
+                break;
+            }
+
             statements.Add(ParseStatement());
         }
 
         return new BlockStatement(start.Line, start.Column, statements);
     }
 
-    private Statement ParseStatement()
+    // ---- 记号工具 ----
+
+    private void ConsumeEnd(string construct, params string[] words)
     {
-        SkipNewLines();
-        var token = Peek();
-
-        if (IsAnyWord(["结束如果", "如果结束", "否则", "否则如果", "结束循环", "循环结束",
-                "结束遍历", "遍历结束", "结束尝试", "尝试结束", "捕获", "结束子程序", "子程序结束",
-                "结束函数", "函数结束"]))
+        // 缩进已能判定块结束;收口行仅在出现时消费(老语法)。
+        if (!IsAnyWord(words))
         {
-            throw Error(token, $"意外的结束标记“{token.Text}”。");
+            return;
         }
 
-        if (MatchWord("变量") || MatchWord("定义"))
+        if (Check(TokenKind.Punctuation, "."))
         {
-            return ParseVariable(token, false);
-        }
-
-        if (MatchWord("常量"))
-        {
-            return ParseVariable(token, true);
-        }
-
-        if (MatchWord("如果"))
-        {
-            return ParseIf(token);
-        }
-
-        if (MatchWord("当"))
-        {
-            return ParseWhile(token);
-        }
-
-        if (MatchWord("计次循环"))
-        {
-            return ParseCountLoop(token);
-        }
-
-        if (MatchWord("遍历"))
-        {
-            return ParseForEach(token);
-        }
-
-        if (MatchWord("返回"))
-        {
-            var value = AtLineEnd ? null : ParseExpression();
-            var statement = new ReturnStatement(token.Line, token.Column, value);
-            ConsumeLineEnd();
-            return statement;
-        }
-
-        if (MatchWord("跳出"))
-        {
-            var statement = new BreakStatement(token.Line, token.Column);
-            ConsumeLineEnd();
-            return statement;
-        }
-
-        if (MatchWord("继续"))
-        {
-            var statement = new ContinueStatement(token.Line, token.Column);
-            ConsumeLineEnd();
-            return statement;
-        }
-
-        if (MatchWord("尝试"))
-        {
-            return ParseTry(token);
-        }
-
-        if ((CheckWord("输出") || CheckWord("打印") || CheckWord("提示")) &&
-            !CheckAhead(1, TokenKind.Punctuation, "("))
-        {
-            var command = Advance();
-            var arguments = new List<Expression>();
-            if (!AtLineEnd)
-            {
-                do
-                {
-                    arguments.Add(ParseExpression());
-                }
-                while (Match(TokenKind.Punctuation, ","));
-            }
-
-            var call = new CallExpression(
-                command.Line,
-                command.Column,
-                new IdentifierExpression(command.Line, command.Column, command.Text),
-                arguments);
-            var statement = new ExpressionStatement(command.Line, command.Column, call);
-            ConsumeLineEnd();
-            return statement;
-        }
-
-        var left = ParseExpression();
-        if (Check(TokenKind.Operator, "=") ||
-            Check(TokenKind.Operator, "+=") ||
-            Check(TokenKind.Operator, "-=") ||
-            Check(TokenKind.Operator, "*=") ||
-            Check(TokenKind.Operator, "/=") ||
-            Check(TokenKind.Operator, "%="))
-        {
-            var assignment = Advance();
-            if (left is not IdentifierExpression and not MemberExpression and not IndexExpression)
-            {
-                throw Error(assignment, "赋值号左侧必须是变量、对象属性或数组元素。");
-            }
-
-            var value = ParseExpression();
-            var statement = new AssignStatement(token.Line, token.Column, left, assignment.Text, value);
-            ConsumeLineEnd();
-            return statement;
-        }
-
-        var expressionStatement = new ExpressionStatement(token.Line, token.Column, left);
-        ConsumeLineEnd();
-        return expressionStatement;
-    }
-
-    private Statement ParseVariable(Token start, bool isConstant)
-    {
-        var name = ConsumeIdentifier("变量名");
-        string? declaredType = null;
-        if (Match(TokenKind.Operator, ":"))
-        {
-            declaredType = ParseTypeName("变量类型");
-        }
-
-        Consume(TokenKind.Operator, "=", "变量声明需要使用“=”给出初始值");
-        var initializer = ParseExpression();
-        var statement = new VariableStatement(
-            start.Line,
-            start.Column,
-            name.Text,
-            initializer,
-            isConstant,
-            declaredType);
-        ConsumeLineEnd();
-        return statement;
-    }
-
-    private string ParseTypeName(string description)
-    {
-        var token = ConsumeIdentifier(description);
-        if (YyTypeSystem.IsKnown(token.Text))
-        {
-            return YyTypeSystem.CanonicalName(token.Text);
-        }
-
-        if (_structs.Any(item => string.Equals(item.Name, token.Text, StringComparison.Ordinal)) ||
-            _interfaces.Any(item => string.Equals(item.Name, token.Text, StringComparison.Ordinal)))
-        {
-            return token.Text;
-        }
-
-        throw new YyDiagnostic(
-            $"未知类型“{token.Text}”",
-            token.Line,
-            token.Column,
-            $"可用类型：{string.Join("、", YyTypeSystem.KnownTypes)}。",
-            _sourceName);
-    }
-
-    private IfStatement ParseIf(Token start)
-    {
-        return ParseIf(start, consumeEnd: true);
-    }
-
-    private IfStatement ParseIf(Token start, bool consumeEnd)
-    {
-        var condition = ParseExpression();
-        MatchWord("则");
-        ConsumeLineEnd();
-
-        var then = ParseBlock(["否则如果", "否则", "结束如果", "如果结束"]);
-        BlockStatement? elseBlock = null;
-
-        if (IsAnyWord(["否则如果", "否则"]))
-        {
-            var branch = Peek();
-            if (MatchWord("否则如果"))
-            {
-                var nested = ParseIf(branch, consumeEnd);
-                elseBlock = new BlockStatement(branch.Line, branch.Column, [nested]);
-            }
-            else
-            {
-                Advance();
-                ConsumeLineEnd();
-                elseBlock = ParseBlock(["结束如果", "如果结束"]);
-                if (consumeEnd)
-                {
-                    ConsumeEnd("结束如果", "如果结束", "如果语句");
-                }
-            }
-        }
-        else if (consumeEnd)
-        {
-            ConsumeEnd("结束如果", "如果结束", "如果语句");
-        }
-
-        return new IfStatement(start.Line, start.Column, condition, then, elseBlock);
-    }
-
-    private Statement ParseWhile(Token start)
-    {
-        var condition = ParseExpression();
-        MatchWord("循环");
-        ConsumeLineEnd();
-        var body = ParseBlock(["结束循环", "循环结束"]);
-        ConsumeEnd("结束循环", "循环结束", "当循环");
-        return new WhileStatement(start.Line, start.Column, condition, body);
-    }
-
-    private Statement ParseCountLoop(Token start)
-    {
-        var variable = ConsumeIdentifier("循环变量");
-        MatchWord("从");
-        var from = ParseExpression();
-        MatchWord("到");
-        var to = ParseExpression();
-        Expression step = new LiteralExpression(start.Line, start.Column, 1d);
-        if (MatchWord("步长"))
-        {
-            step = ParseExpression();
-        }
-
-        ConsumeLineEnd();
-        var body = ParseBlock(["结束循环", "循环结束"]);
-        ConsumeEnd("结束循环", "循环结束", "计次循环");
-        return new CountLoopStatement(start.Line, start.Column, variable.Text, from, to, step, body);
-    }
-
-    private Statement ParseForEach(Token start)
-    {
-        var variable = ConsumeIdentifier("遍历变量");
-        MatchWord("于");
-        var collection = ParseExpression();
-        MatchWord("循环");
-        ConsumeLineEnd();
-        var body = ParseBlock(["结束遍历", "遍历结束", "结束循环", "循环结束"]);
-
-        if (IsAnyWord(["结束遍历", "遍历结束"]))
-        {
-            ConsumeEnd("结束遍历", "遍历结束", "遍历语句");
-        }
-        else
-        {
-            ConsumeEnd("结束循环", "循环结束", "遍历语句");
-        }
-
-        return new ForEachStatement(start.Line, start.Column, variable.Text, collection, body);
-    }
-
-    private Statement ParseTry(Token start)
-    {
-        ConsumeLineEnd();
-        var tryBlock = ParseBlock(["捕获", "结束尝试", "尝试结束"]);
-        string? errorVariable = null;
-        BlockStatement? catchBlock = null;
-
-        if (MatchWord("捕获"))
-        {
-            if (Check(TokenKind.Identifier))
-            {
-                errorVariable = Advance().Text;
-            }
-
-            ConsumeLineEnd();
-            catchBlock = ParseBlock(["结束尝试", "尝试结束"]);
-        }
-
-        ConsumeEnd("结束尝试", "尝试结束", "尝试语句");
-        return new TryStatement(start.Line, start.Column, tryBlock, errorVariable, catchBlock);
-    }
-
-    private Expression ParseExpression(int minimumPrecedence = 0)
-    {
-        var left = ParseUnary();
-
-        while (TryGetBinaryOperator(Peek(), out var precedence) && precedence >= minimumPrecedence)
-        {
-            var op = Advance();
-            var right = ParseExpression(precedence + 1);
-            left = new BinaryExpression(left.Line, left.Column, left, op.Text, right);
-        }
-
-        return left;
-    }
-
-    private Expression ParseUnary()
-    {
-        if (CheckWord("非") || Check(TokenKind.Operator, "!") || Check(TokenKind.Operator, "-") ||
-            Check(TokenKind.Operator, "+"))
-        {
-            var op = Advance();
-            var operand = ParseUnary();
-            return new UnaryExpression(op.Line, op.Column, op.Text, operand);
-        }
-
-        return ParsePostfix(ParsePrimary());
-    }
-
-    private Expression ParsePostfix(Expression expression)
-    {
-        while (true)
-        {
-            if (Match(TokenKind.Punctuation, "("))
-            {
-                var arguments = new List<Expression>();
-                if (!Check(TokenKind.Punctuation, ")"))
-                {
-                    do
-                    {
-                        SkipNewLines();
-                        arguments.Add(ParseExpression());
-                        SkipNewLines();
-                    }
-                    while (Match(TokenKind.Punctuation, ","));
-                }
-
-                Consume(TokenKind.Punctuation, ")", "函数调用缺少右括号");
-                expression = new CallExpression(expression.Line, expression.Column, expression, arguments);
-                continue;
-            }
-
-            if (Match(TokenKind.Punctuation, "["))
-            {
-                var index = ParseExpression();
-                Consume(TokenKind.Punctuation, "]", "索引缺少右方括号");
-                expression = new IndexExpression(expression.Line, expression.Column, expression, index);
-                continue;
-            }
-
-            if (Match(TokenKind.Punctuation, "."))
-            {
-                var member = ConsumeIdentifier("属性名");
-                expression = new MemberExpression(expression.Line, expression.Column, expression, member.Text);
-                continue;
-            }
-
-            break;
-        }
-
-        return expression;
-    }
-
-    private Expression ParsePrimary()
-    {
-        var token = Advance();
-        switch (token.Kind)
-        {
-            case TokenKind.Number:
-            case TokenKind.String:
-                return new LiteralExpression(token.Line, token.Column, token.Value);
-
-            case TokenKind.Identifier:
-                return token.Text switch
-                {
-                    "真" or "是" => new LiteralExpression(token.Line, token.Column, true),
-                    "假" or "否" => new LiteralExpression(token.Line, token.Column, false),
-                    "空" or "无" => new LiteralExpression(token.Line, token.Column, null),
-                    _ => new IdentifierExpression(token.Line, token.Column, token.Text)
-                };
-
-            case TokenKind.Punctuation when token.Text == "(":
-                var expression = ParseExpression();
-                Consume(TokenKind.Punctuation, ")", "表达式缺少右括号");
-                return expression;
-
-            case TokenKind.Punctuation when token.Text == "[":
-                var items = new List<Expression>();
-                SkipNewLines();
-                if (!Check(TokenKind.Punctuation, "]"))
-                {
-                    do
-                    {
-                        items.Add(ParseExpression());
-                        SkipNewLines();
-                    }
-                    while (Match(TokenKind.Punctuation, ","));
-                }
-
-                Consume(TokenKind.Punctuation, "]", "数组缺少右方括号");
-                return new ArrayExpression(token.Line, token.Column, items);
-
-            case TokenKind.Punctuation when token.Text == "{":
-                var properties = new List<(string Key, Expression Value)>();
-                SkipNewLines();
-                if (!Check(TokenKind.Punctuation, "}"))
-                {
-                    do
-                    {
-                        SkipNewLines();
-                        var key = Advance();
-                        if (key.Kind is not TokenKind.Identifier and not TokenKind.String)
-                        {
-                            throw Error(key, "对象属性名需要使用标识符或字符串。");
-                        }
-
-                        Consume(TokenKind.Operator, ":", $"对象属性“{key.Text}”后需要冒号");
-                        var value = ParseExpression();
-                        properties.Add((key.Text, value));
-                        SkipNewLines();
-                    }
-                    while (Match(TokenKind.Punctuation, ","));
-                }
-
-                Consume(TokenKind.Punctuation, "}", "对象缺少右花括号");
-                return new ObjectExpression(token.Line, token.Column, properties);
-
-            default:
-                throw Error(token, $"此处不能使用“{Display(token)}”。");
-        }
-    }
-
-    private static bool TryGetBinaryOperator(Token token, out int precedence)
-    {
-        precedence = token.Text switch
-        {
-            "??" => 1,
-            "或" or "||" => 2,
-            "且" or "&&" => 3,
-            "==" or "!=" or "等于" or "不等于" => 4,
-            "<" or "<=" or ">" or ">=" => 5,
-            "+" or "-" => 6,
-            "*" or "/" or "%" => 7,
-            _ => -1
-        };
-
-        return precedence >= 0 && token.Kind is TokenKind.Operator or TokenKind.Identifier;
-    }
-
-    private void ConsumeEnd(string first, string second, string construct)
-    {
-        if (!IsAnyWord([first, second]))
-        {
-            throw Error(Peek(), $"{construct}缺少结束标记，请添加“{first}”。");
+            Advance();
         }
 
         ConsumeLine();
@@ -776,11 +363,17 @@ public sealed partial class Parser
         return true;
     }
 
+    /// <summary>匹配关键字;老语法的“.”前缀一并消费。</summary>
     private bool MatchWord(string word)
     {
-        if (!CheckWord(word))
+        if (!AtWord(word))
         {
             return false;
+        }
+
+        if (Check(TokenKind.Punctuation, "."))
+        {
+            Advance();
         }
 
         Advance();
@@ -797,12 +390,45 @@ public sealed partial class Parser
     private bool CheckAhead(int distance, TokenKind kind, string text) =>
         Peek(distance).Kind == kind && Peek(distance).Text == text;
 
+    private bool CheckAhead(int distance, TokenKind kind) =>
+        Peek(distance).Kind == kind;
+
     private bool CheckWord(string word) => Peek().IsWord(word);
 
+    /// <summary>当前位置是关键字(允许“.”前缀)。</summary>
+    private bool AtWord(string word) =>
+        CheckWord(word) ||
+        (Check(TokenKind.Punctuation, ".") &&
+         CheckAhead(1, TokenKind.Identifier) &&
+         Peek(1).IsWord(word));
+
+    /// <summary>当前位置是任一关键字(允许“.”前缀)。</summary>
     private bool IsAnyWord(IReadOnlyCollection<string> words)
     {
-        return Peek().Kind == TokenKind.Identifier && words.Contains(Peek().Text, StringComparer.Ordinal);
+        if (Peek().Kind == TokenKind.Identifier && words.Contains(Peek().Text, StringComparer.Ordinal))
+        {
+            return true;
+        }
+
+        return Check(TokenKind.Punctuation, ".") &&
+               CheckAhead(1, TokenKind.Identifier) &&
+               words.Contains(Peek(1).Text, StringComparer.Ordinal);
     }
+
+    /// <summary>老语法声明行(.子程序/.程序集/…)或顶层声明关键字是否开始。</summary>
+    private bool IsDeclarationRowAhead() =>
+        (Check(TokenKind.Punctuation, ".") &&
+         CheckAhead(1, TokenKind.Identifier) &&
+         DeclarationRows.Contains(Peek(1).Text)) ||
+        CheckWord("引入") || CheckWord("导入包") ||
+        CheckWord("子程序") || CheckWord("函数") ||
+        CheckWord("结构体") || CheckWord("记录") || CheckWord("接口");
+
+    /// <summary>声明行的某一行(.参数/.局部变量)是否开始。</summary>
+    private bool AtDataRow(string word) =>
+        Check(TokenKind.Punctuation, ".") &&
+        CheckAhead(1, TokenKind.Identifier) &&
+        Peek(1).IsWord(word);
 
     private Token Advance()
     {

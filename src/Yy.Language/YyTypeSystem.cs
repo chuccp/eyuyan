@@ -17,11 +17,33 @@ public static class YyTypeSystem
             ["空"] = "空"
         };
 
+    // 官方易语言类型名映射到规范名(强类型词汇)。
+    private static readonly Dictionary<string, string> Aliases =
+        new(StringComparer.Ordinal)
+        {
+            ["整数型"] = "数字",
+            ["短整数型"] = "数字",
+            ["长整数型"] = "数字",
+            ["小数型"] = "数字",
+            ["双精度小数型"] = "数字",
+            ["字节型"] = "数字",
+            ["文本型"] = "文本",
+            ["逻辑型"] = "逻辑",
+            ["字节集"] = "任意",
+            ["日期时间型"] = "日期",
+            ["数组型"] = "数组",
+            ["对象型"] = "对象"
+        };
+
     public static IReadOnlyCollection<string> KnownTypes => DisplayNames.Values;
 
-    public static bool IsKnown(string name) => DisplayNames.ContainsKey(name);
+    public static bool IsKnown(string name) =>
+        DisplayNames.ContainsKey(name) || Aliases.ContainsKey(name);
 
-    public static string CanonicalName(string name) => DisplayNames[name];
+    public static string CanonicalName(string name) =>
+        DisplayNames.TryGetValue(name, out var canonical)
+            ? canonical
+            : Aliases[name];
 
     public static bool Matches(object? value, string typeName)
     {
@@ -38,6 +60,17 @@ public static class YyTypeSystem
             _ => value is IReadOnlyDictionary<string, object?>
         };
     }
+
+    /// <summary>无初始值声明(老语法 .局部变量 行)的默认值。</summary>
+    public static object? DefaultValue(string? typeName) =>
+        CanonicalName(typeName ?? "任意") switch
+        {
+            "数字" => 0d,
+            "文本" => string.Empty,
+            "逻辑" => false,
+            "数组" => new List<object?>(),
+            _ => null
+        };
 
     public static void Ensure(
         object? value,

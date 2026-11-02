@@ -37,7 +37,16 @@ public sealed class YyIndentationStrategy : IIndentationStrategy
         }
 
         var text = document.GetText(line);
-        var leading = text.Length - text.TrimStart().Length;
+        var trimmed = text.TrimStart();
+        // 否则/捕获/结束… 自身回退一级,与其块关键字对齐。
+        if (trimmed.StartsWith("否则", StringComparison.Ordinal) ||
+            trimmed.StartsWith("捕获", StringComparison.Ordinal) ||
+            trimmed.StartsWith("结束", StringComparison.Ordinal))
+        {
+            indent = Math.Max(0, indent - IndentSize);
+        }
+
+        var leading = text.Length - trimmed.Length;
         document.Replace(
             line.Offset,
             leading,

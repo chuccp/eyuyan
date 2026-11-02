@@ -73,7 +73,7 @@ public sealed record VariableStatement(
     int Line,
     int Column,
     string Name,
-    Expression Initializer,
+    Expression? Initializer,
     bool IsConstant,
     string? DeclaredType = null) : Statement(Line, Column);
 

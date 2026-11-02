@@ -157,7 +157,7 @@ public sealed partial class MainWindow
 
     private void ApplyEditorConfiguration()
     {
-        foreach (var document in _documents)
+        foreach (var document in _tabs.Documents)
         {
             ConfigureEditor(document.Editor);
         }
@@ -167,5 +167,119 @@ public sealed partial class MainWindow
     {
         editor.FontSize = Configuration.Editor.FontSize;
         editor.Options.IndentationSize = Configuration.Editor.TabWidth;
+    }
+
+    /// <summary>按标题切换底部工具窗页签(提示/控制台/调用表/监视表/变量表/搜寻1/搜寻2/剪辑历史)。</summary>
+    private void SelectBottomTab(string header)
+    {
+        foreach (var item in BottomTabs.Items)
+        {
+            if (item is TabItem { Header: string text } &&
+                string.Equals(text, header, StringComparison.Ordinal))
+            {
+                BottomTabs.SelectedItem = item;
+                return;
+            }
+        }
+    }
+
+    private string CurrentTargetPlatform =>
+        TargetBox.SelectedItem as string ?? Yy.Compiler.YyBuildTargets.Auto;
+
+    private static string PlatformDisplayName(string target) => target switch
+    {
+        Yy.Compiler.YyBuildTargets.WindowsX64 => "Windows",
+        Yy.Compiler.YyBuildTargets.MacOSArm64 => "macOS (ARM64)",
+        Yy.Compiler.YyBuildTargets.MacOSX64 => "macOS (x64)",
+        _ => "auto"
+    };
+
+    private void SyncTargetPlatformMenu()
+    {
+        var current = CurrentTargetPlatform;
+        foreach (var item in TargetPlatformMenu.Items)
+        {
+            if (item is MenuItem { Tag: string tag } menu)
+            {
+                menu.IsChecked = string.Equals(tag, current, StringComparison.Ordinal);
+            }
+        }
+
+        if (PlatformStatusText is not null)
+        {
+            PlatformStatusText.Text = "UTF-8 · " + PlatformDisplayName(current) + " 原生";
+        }
+
+        UpdateDocumentIdentity();
+    }
+
+    private void OnTargetPlatformClick(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as MenuItem)?.Tag is not string tag)
+        {
+            return;
+        }
+
+        TargetBox.SelectedItem = Yy.Compiler.YyBuildTargets.All.Contains(tag)
+            ? tag
+            : Yy.Compiler.YyBuildTargets.Auto;
+        SyncTargetPlatformMenu();
+    }
+
+    /// <summary>按主分支口径组合窗口标题:目的平台与当前文档身份。</summary>
+    private void UpdateDocumentIdentity()
+    {
+        if (TitleDocumentText is null)
+        {
+            return;
+        }
+
+        var platform = PlatformDisplayName(CurrentTargetPlatform);
+        var dirty = CurrentDocument?.IsDirty == true ? "● " : string.Empty;
+        string title;
+        if (CurrentDocument is null)
+        {
+            title = $"{dirty}易语 Studio - 目的平台: {platform}";
+        }
+        else if (ReferenceEquals(CurrentDocument.Tab, _startPageTab))
+        {
+            title = $"易语 Studio - 目的平台: {platform} - [起始页]";
+        }
+        else
+        {
+            var document = CurrentDocument;
+            var formName = document.FormView?.CurrentForm?.Name ??
+                           TryGetAssociatedFormName(document.Path);
+            title = formName is null
+                ? $"{dirty}易语 Studio - 目的平台: {platform} - [程序集: {document.FileName}]"
+                : document.FormView is not null
+                    ? $"{dirty}易语 Studio - 目的平台: {platform} - [窗口: {formName}]"
+                    : $"{dirty}易语 Studio - 目的平台: {platform} - [程序集: {document.FileName} / {formName}]";
+        }
+
+        Title = title;
+        TitleDocumentText.Text = title;
+    }
+
+    private static string? TryGetAssociatedFormName(string codePath)
+    {
+        try
+        {
+            var formPath = Yy.Compiler.Forms.YyFormCompanionFiles.GetAssociatedFormPath(codePath);
+            if (!File.Exists(formPath))
+            {
+                return null;
+            }
+
+            var form = Yy.Compiler.Forms.YyFormSerializer.Deserialize(
+                File.ReadAllText(formPath));
+            return string.IsNullOrWhiteSpace(form.Name) ? form.Title : form.Name;
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException
+                or InvalidDataException or Yy.Compiler.Forms.YyFormFormatException)
+        {
+            return null;
+        }
     }
 }

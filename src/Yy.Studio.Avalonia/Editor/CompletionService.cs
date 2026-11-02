@@ -6,6 +6,7 @@ using Yy.Compiler.Forms;
 using Yy.Language;
 using Yy.Language.Structured;
 using Yy.Sdk;
+using Yy.Studio.Core.Completion;
 
 namespace Yy.Studio.Avalonia.Editor;
 

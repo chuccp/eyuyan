@@ -11,6 +11,13 @@ public sealed class EditorDocument
     public required string FileName { get; set; }
     public required TabItem Tab { get; init; }
     public required TextBlock HeaderText { get; init; }
+
+    public TextBlock? DirtyMarkText { get; init; }
+
+    /// <summary>标签头上的关闭按钮;由 <see cref="DocumentTabController.CreateTab"/> 创建。</summary>
+    public Button? CloseButton { get; init; }
+
+    public TextBlock? HintBar { get; init; }
     public required TextEditor Editor { get; init; }
     public FormDesignerView? FormView { get; init; }
     public Control? FormVisualHost { get; init; }

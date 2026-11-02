@@ -42,7 +42,7 @@ public sealed partial class MainWindow
         }
     }
 
-    private static void SetInsertedCodeModel(
+    private void SetInsertedCodeModel(
         EditorDocument document,
         YyCodeDocument model)
     {

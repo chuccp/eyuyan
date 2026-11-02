@@ -101,7 +101,7 @@ public sealed partial class MainWindow
         debugger.IsBreakpoint = number => _breakpoints.Contains(number);
         debugger.Paused += pause => Dispatcher.UIThread.Post(() => OnDebugPaused(pause));
         _debugProbe = debugger;
-        BottomTabs.SelectedIndex = 0;
+        SelectBottomTab("控制台");
         AppendConsole("调试开始…");
         SetStatus("调试运行中…");
         try
@@ -114,7 +114,7 @@ public sealed partial class MainWindow
                 debugger));
             ShowDebugVariables(result.Variables);
             CallStackList.ItemsSource = Array.Empty<string>();
-            BottomTabs.SelectedIndex = 0;
+            SelectBottomTab("控制台");
             AppendConsole($"调试完成 · {result.Elapsed.TotalMilliseconds:F1} ms");
             SetStatus("调试完成");
         }
@@ -170,7 +170,7 @@ public sealed partial class MainWindow
         {
             $"第 {pause.Line} 行 · 调用深度 {pause.Depth}"
         };
-        BottomTabs.SelectedIndex = 1;
+        SelectBottomTab("变量表");
         PropertySummary.Text = $"调试暂停 · 第 {pause.Line} 行" +
             Environment.NewLine +
             string.Join(
@@ -242,19 +242,21 @@ public sealed partial class MainWindow
 
     private void OnRemoveWatch(object? sender, RoutedEventArgs e)
     {
-        if (WatchList.SelectedItem is string name)
+        if (WatchList.SelectedItem is DebugRow row)
         {
-            _watchNames.Remove(name);
+            _watchNames.Remove(row.Key);
             RefreshWatches();
         }
     }
 
+    private sealed record DebugRow(string Key, string Value);
+
     private void ShowDebugVariables(IReadOnlyDictionary<string, object?>? variables)
     {
         VariableList.ItemsSource = variables is null
-            ? Array.Empty<string>()
+            ? Array.Empty<DebugRow>()
             : variables.OrderBy(pair => pair.Key, StringComparer.Ordinal)
-                .Select(pair => $"{pair.Key} = {DisplayValue(pair.Value)}")
+                .Select(pair => new DebugRow(pair.Key, DisplayValue(pair.Value)))
                 .ToArray();
         RefreshWatches(variables);
     }
@@ -263,8 +265,8 @@ public sealed partial class MainWindow
     {
         WatchList.ItemsSource = _watchNames
             .Select(name => variables is not null && variables.TryGetValue(name, out var value)
-                ? $"{name} = {DisplayValue(value)}"
-                : $"{name} = （运行暂停时显示）")
+                ? new DebugRow(name, DisplayValue(value))
+                : new DebugRow(name, "（运行暂停时显示）"))
             .ToArray();
     }
 }

@@ -84,7 +84,7 @@ public sealed partial class MainWindow
 
         _building = true;
         UpdateActionState();
-        BottomTabs.SelectedIndex = 0;
+        SelectBottomTab("控制台");
         SetStatus("正在编译…");
         AppendConsole($"编译：{_workspace.Project.Name}");
         try
@@ -218,7 +218,7 @@ public sealed partial class MainWindow
             process.Start();
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
-            BottomTabs.SelectedIndex = 0;
+            SelectBottomTab("控制台");
             SetStatus($"运行中 · PID {process.Id}");
             AppendConsole($"运行：{result.OutputPath} · PID {process.Id}");
             UpdateActionState();

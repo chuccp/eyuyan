@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Media;
 using AvaloniaEdit;
 using AvaloniaEdit.Search;
@@ -19,15 +20,17 @@ public static class YyCodeEditor
             Text = text,
             IsReadOnly = readOnly,
             ShowLineNumbers = true,
-            FontFamily = new FontFamily("Menlo, Consolas, monospace"),
-            FontSize = 14,
+            FontFamily = new FontFamily("Cascadia Code, Consolas, Microsoft YaHei UI"),
+            FontSize = 13,
             Background = Brushes.White,
-            Foreground = new SolidColorBrush(Color.FromRgb(31, 41, 55))
+            Foreground = new SolidColorBrush(Color.FromRgb(31, 41, 55)),
+            Padding = new Thickness(8, 10, 8, 16)
         };
         editor.Options.ConvertTabsToSpaces = true;
         editor.Options.IndentationSize = 4;
         editor.Options.EnableHyperlinks = false;
         editor.Options.EnableEmailHyperlinks = false;
+        CurrentLineRenderer.Attach(editor);
 
         if (string.Equals(Path.GetExtension(path), ".yyc", StringComparison.OrdinalIgnoreCase))
         {

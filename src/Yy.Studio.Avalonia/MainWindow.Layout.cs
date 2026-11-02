@@ -77,6 +77,81 @@ public sealed partial class MainWindow
     private void OnToggleProjectWindow(object? sender, RoutedEventArgs e) =>
         CycleToolWindow(ToolWindowKind.Project);
 
+    /// <summary>顶栏“布局”入口:工具窗口显示、布局预设和状态栏开关。</summary>
+    private void OnLayoutButtonClick(object? sender, RoutedEventArgs e)
+    {
+        var menu = new ContextMenu { Placement = PlacementMode.BottomEdgeAlignedRight };
+        menu.Items.Add(CreateLayoutToggleItem("项目", "Alt+1", ToolWindowKind.Project));
+        menu.Items.Add(CreateLayoutToggleItem("程序", "Alt+2", ToolWindowKind.Work));
+        menu.Items.Add(CreateLayoutToggleItem("控制台", "Alt+4", ToolWindowKind.Console));
+        var toolbox = new MenuItem
+        {
+            Header = "窗口组件箱",
+            ToggleType = MenuItemToggleType.CheckBox,
+            IsChecked = CurrentDocument?.FormView?.IsToolboxVisible == true
+        };
+        toolbox.Click += OnToggleToolboxPanel;
+        menu.Items.Add(toolbox);
+        menu.Items.Add(new Separator());
+
+        var presets = new MenuItem { Header = "布局预设" };
+        foreach (var (header, tag) in new[]
+                 {
+                     ("默认布局", "默认"),
+                     ("专注代码", "专注代码"),
+                     ("窗体设计", "窗体设计")
+                 })
+        {
+            var item = new MenuItem { Header = header, Tag = tag };
+            item.Click += OnLayoutPreset;
+            presets.Items.Add(item);
+        }
+
+        menu.Items.Add(presets);
+        menu.Items.Add(new Separator());
+        var statusBar = new MenuItem
+        {
+            Header = "状态栏",
+            ToggleType = MenuItemToggleType.CheckBox,
+            IsChecked = _toolWindowLayout?.StatusBarVisible != false
+        };
+        statusBar.Click += OnToggleStatusBar;
+        menu.Items.Add(statusBar);
+
+        if (sender is Control anchor)
+        {
+            menu.Open(anchor);
+        }
+    }
+
+    private MenuItem CreateLayoutToggleItem(
+        string header,
+        string gesture,
+        ToolWindowKind kind)
+    {
+        var state = _toolWindowLayout?.GetState(kind) ?? ToolWindowState.Visible;
+        var item = new MenuItem
+        {
+            Header = header,
+            ToggleType = MenuItemToggleType.CheckBox,
+            IsChecked = state != ToolWindowState.Hidden
+        };
+        item.Click += (_, _) => CycleToolWindow(kind);
+        return item;
+    }
+
+    private void OnToggleToolboxPanel(object? sender, RoutedEventArgs e)
+    {
+        if (CurrentDocument?.FormView is { } view)
+        {
+            view.IsToolboxVisible = !view.IsToolboxVisible;
+        }
+        else
+        {
+            SetStatus("请先打开窗体设计器。");
+        }
+    }
+
     private void OnToggleWorkWindow(object? sender, RoutedEventArgs e) =>
         CycleToolWindow(ToolWindowKind.Work);
 
