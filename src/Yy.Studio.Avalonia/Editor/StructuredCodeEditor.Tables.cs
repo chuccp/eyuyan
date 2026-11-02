@@ -105,6 +105,21 @@ public sealed partial class StructuredCodeEditor
                     NotifyChanged();
                 }, comment: true)
             }));
+
+        AddTableAction("＋ 添加常量", () =>
+        {
+            var index = _document!.MainStatements.FindLastIndex(
+                statement => statement.Kind == YyCodeStatementKinds.Constant);
+            _document.MainStatements.Insert(index + 1, new YyCodeStatement
+            {
+                Kind = YyCodeStatementKinds.Constant,
+                Name = "新常量",
+                TypeName = "文本",
+                Expression = "\"\""
+            });
+            NotifyChanged();
+            Rebuild();
+        });
     }
 
     private void AddStructsTables()
@@ -140,7 +155,48 @@ public sealed partial class StructuredCodeEditor
                         NotifyChanged();
                     })
                 }));
+            AddTableAction("＋ 添加字段", () =>
+            {
+                structure.Fields.Add(new YyCodeStructField
+                {
+                    Name = "新字段",
+                    TypeName = "文本"
+                });
+                NotifyChanged();
+                Rebuild();
+            });
         }
+
+        if (_document.Structs.Count == 0)
+        {
+            _content.Children.Add(new TextBlock
+            {
+                Text = "暂无自定义数据类型。",
+                Margin = new Thickness(6, 8, 0, 0),
+                FontSize = 12,
+                Foreground = Brush.Parse("#6C707E")
+            });
+        }
+
+        AddTableAction("＋ 添加数据类型", () =>
+        {
+            _document.Structs.Add(new YyCodeStruct { Name = "新数据类型" });
+            NotifyChanged();
+            Rebuild();
+        });
+    }
+
+    private void AddTableAction(string label, Action action)
+    {
+        var button = new Button
+        {
+            Content = label,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Margin = new Thickness(4, 6, 0, 0),
+            Padding = new Thickness(10, 3)
+        };
+        button.Click += (_, _) => action();
+        _content.Children.Add(button);
     }
 
     private void RebuildTabStrip()
@@ -176,11 +232,8 @@ public sealed partial class StructuredCodeEditor
         }
 
         AddTab("窗口程序集：" + _document.Name, "main");
-        AddTab(
-            "[常量数据表]",
-            "constants",
-            _document.MainStatements.Any(s => s.Kind == YyCodeStatementKinds.Constant));
-        AddTab("[自定义数据类型表]", "types", _document.Structs.Count > 0);
+        AddTab("[常量数据表]", "constants");
+        AddTab("[自定义数据类型表]", "types");
     }
 
     private void AddParameterTable(YyCodeFunction function)

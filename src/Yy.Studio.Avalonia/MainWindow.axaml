@@ -7,7 +7,7 @@
         MinWidth="900"
         MinHeight="600"
         WindowStartupLocation="CenterScreen"
-        Background="#E8EAED"
+        Background="{DynamicResource Studio.WorkspaceBrush}"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
         KeyDown="OnWindowKeyDown"
@@ -22,8 +22,8 @@
     <!-- 顶栏无底部分隔线(参考:BorderThickness=0,靠色差区分) -->
     <Border x:Name="WindowTitleBar"
             DockPanel.Dock="Top"
-            Height="38"
-            Background="#F7F7F8"
+            Height="40"
+            Background="{DynamicResource Studio.PanelBrush}"
             BorderThickness="0">
       <Grid ColumnDefinitions="Auto,Auto,*,Auto">
         <Panel Grid.Column="0">
@@ -110,7 +110,7 @@
               Background="Transparent"
               Padding="2,0"
               VerticalAlignment="Center"
-              FontSize="12">
+              FontSize="13">
           <MenuItem Header="_F程序">
             <MenuItem Header="新建工程…" Click="OnNewProject" />
             <MenuItem Header="新建程序…" Click="OnNewProgram" />
@@ -228,7 +228,7 @@
                 DoubleTapped="OnTitleBarDoubleTapped">
           <TextBlock x:Name="TitleDocumentText"
                      Text="易语 Studio"
-                     Foreground="#6F737A"
+                     Foreground="{DynamicResource Studio.MutedBrush}"
                      FontSize="11.5"
                      VerticalAlignment="Center"
                      HorizontalAlignment="Center"
@@ -251,28 +251,28 @@
           <StackPanel x:Name="WindowsCaptionButtons"
                       Orientation="Horizontal"
                       VerticalAlignment="Center">
-            <Border Width="1" Height="18" Margin="0,10,3,10" Background="#D8DBDF" />
+            <Border Width="1" Height="18" Margin="0,10,3,10" Background="{DynamicResource Studio.BorderBrush}" />
             <Button Classes="caption" Click="OnMinimizeWindow" ToolTip.Tip="最小化">
-              <Rectangle Width="10" Height="1" Fill="#4B5563"
+              <Rectangle Width="10" Height="1" Fill="{DynamicResource Studio.MutedBrush}"
                          HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Button>
             <Button x:Name="CaptionMaximizeButton" Classes="caption" Click="OnMaximizeRestoreWindow" ToolTip.Tip="最大化">
               <Grid Width="12" Height="12">
                 <Rectangle x:Name="CaptionMaximizeIcon" Width="10" Height="10"
-                           Stroke="#4B5563" StrokeThickness="1"
+                           Stroke="{DynamicResource Studio.MutedBrush}" StrokeThickness="1"
                            HorizontalAlignment="Center" VerticalAlignment="Center" />
                 <Canvas x:Name="CaptionRestoreIcon" Width="12" Height="12" IsVisible="False">
                   <Rectangle Canvas.Left="3" Canvas.Top="0" Width="8" Height="8"
-                             Stroke="#4B5563" StrokeThickness="1" />
+                             Stroke="{DynamicResource Studio.MutedBrush}" StrokeThickness="1" />
                   <Rectangle Canvas.Left="0" Canvas.Top="3" Width="8" Height="8"
-                             Fill="#F7F7F8" Stroke="#4B5563" StrokeThickness="1" />
+                             Fill="#F7F7F8" Stroke="{DynamicResource Studio.MutedBrush}" StrokeThickness="1" />
                 </Canvas>
               </Grid>
             </Button>
             <Button Classes="caption close" Click="OnCloseWindow" ToolTip.Tip="关闭">
               <Path x:Name="CaptionGlyph" Width="10" Height="10"
                     Data="M 1,1 L 9,9 M 9,1 L 1,9"
-                    Stroke="#4B5563" StrokeThickness="1.2"
+                    Stroke="{DynamicResource Studio.MutedBrush}" StrokeThickness="1.2"
                     Stretch="Uniform"
                     HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Button>
@@ -284,8 +284,10 @@
     <!-- 状态条:实际 MCP 地址可点击复制 -->
     <Border x:Name="StatusBarRow"
             DockPanel.Dock="Bottom"
-            Height="22"
-            Background="#F7F7F8">
+            Height="24"
+            Background="{DynamicResource Studio.PanelBrush}"
+            BorderBrush="{DynamicResource Studio.BorderBrush}"
+            BorderThickness="0,1,0,0">
       <Grid Margin="8,0">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="*" />
@@ -294,12 +296,12 @@
           <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-          <Ellipse x:Name="StatusDot" Width="7" Height="7" Fill="#4ADE80" />
+          <Ellipse x:Name="StatusDot" Width="7" Height="7" Fill="{DynamicResource Studio.SuccessBrush}" />
           <TextBlock x:Name="StatusText"
                      Text="就绪"
                      Margin="7,0,0,0"
-                     FontSize="11"
-                     Foreground="#1F2328"
+                     FontSize="12"
+                     Foreground="{DynamicResource Studio.TextBrush}"
                      VerticalAlignment="Center" />
         </StackPanel>
         <Button x:Name="McpEndpointButton"
@@ -310,23 +312,23 @@
                 Background="Transparent"
                 BorderThickness="0"
                 CornerRadius="2"
-                Foreground="#6F737A"
-                FontSize="10.5"
+                Foreground="{DynamicResource Studio.MutedBrush}"
+                FontSize="11"
                 Cursor="Hand"
                 ToolTip.Tip="点击复制 MCP HTTP 地址"
                 Click="OnCopyMcpEndpoint" />
         <TextBlock x:Name="CaretText"
                    Grid.Column="2"
                    Text="行 1，列 1"
-                   FontSize="11"
-                   Foreground="#1F2328"
+                   FontSize="11.5"
+                   Foreground="{DynamicResource Studio.TextBrush}"
                    Margin="0,0,18,0"
                    VerticalAlignment="Center" />
         <TextBlock x:Name="PlatformStatusText"
                    Grid.Column="3"
                    Text="UTF-8 · Windows 原生"
                    FontSize="11"
-                   Foreground="#6F737A"
+                   Foreground="{DynamicResource Studio.MutedBrush}"
                    VerticalAlignment="Center" />
       </Grid>
     </Border>
@@ -338,41 +340,87 @@
     <Grid x:Name="SideActionShell" ColumnDefinitions="34,*,34">
       <Border x:Name="LeftActionRail"
               Grid.Column="0"
-              Background="#F7F7F8"
+              Background="{DynamicResource Studio.PanelBrush}"
               BorderThickness="0">
         <DockPanel Margin="0,6" LastChildFill="False">
           <StackPanel DockPanel.Dock="Top">
-            <Button Classes="rail" Content="▶" Foreground="#238B55"
-                    ToolTip.Tip="运行 (F5)" Click="OnRunProject" />
-            <Button x:Name="RailRunProjectButton" Classes="rail" Content="▶▶" FontSize="11"
-                    ToolTip.Tip="运行项目 (Ctrl+F5)" Click="OnRunProject" />
-            <Button x:Name="RailStopButton" Classes="rail" Content="■" Foreground="#C94F4F"
-                    ToolTip.Tip="停止运行 (Shift+F5)" Click="OnStopProgram" />
-            <Border Width="18" Height="1" Margin="0,5" Background="#D5D8DC" HorizontalAlignment="Center" />
-            <Button x:Name="RailBuildButton" Classes="rail" Content="⚒"
-                    ToolTip.Tip="编译为 EXE (Ctrl+B)" Click="OnBuildProject" />
-            <Button Classes="rail" Content="●" Foreground="#C94F4F"
-                    ToolTip.Tip="切换断点 (F9)" Click="OnDebugToggleBreakpoint" />
-            <Border Width="18" Height="1" Margin="0,5" Background="#D5D8DC" HorizontalAlignment="Center" />
-            <Button Classes="rail" Content="▤"
-                    ToolTip.Tip="显示或隐藏项目工具窗口 (Alt+1)" Click="OnToggleProjectWindowRail" />
+            <Button Classes="rail" ToolTip.Tip="运行 (F5)" Click="OnRunProject">
+              <Path Data="{StaticResource Icon.Run}"
+                    Fill="{DynamicResource Studio.SuccessBrush}"
+                    Stretch="Uniform" Width="16" Height="16" />
+            </Button>
+            <Button x:Name="RailRunProjectButton" Classes="rail"
+                    ToolTip.Tip="运行项目 (Ctrl+F5)" Click="OnRunProject">
+              <Path Data="{StaticResource Icon.RunProject}"
+                    Fill="{DynamicResource Studio.SuccessBrush}"
+                    Stretch="Uniform" Width="16" Height="16" />
+            </Button>
+            <Button x:Name="RailStopButton" Classes="rail"
+                    ToolTip.Tip="停止运行 (Shift+F5)" Click="OnStopProgram">
+              <Path Data="{StaticResource Icon.Stop}"
+                    Fill="{DynamicResource Studio.ErrorBrush}"
+                    Stretch="Uniform" Width="14" Height="14" />
+            </Button>
+            <Border Width="18" Height="1" Margin="0,5"
+                    Background="{DynamicResource Studio.BorderBrush}"
+                    HorizontalAlignment="Center" />
+            <Button x:Name="RailBuildButton" Classes="rail"
+                    ToolTip.Tip="编译为 EXE (Ctrl+B)" Click="OnBuildProject">
+              <Path Data="{StaticResource Icon.Build}"
+                    Stroke="{Binding $parent[Button].Foreground}"
+                    StrokeThickness="1.3" StrokeLineCap="Round" StrokeJoin="Round"
+                    Fill="Transparent" Stretch="Uniform" Width="16" Height="16" />
+            </Button>
+            <Button Classes="rail"
+                    ToolTip.Tip="切换断点 (F9)" Click="OnDebugToggleBreakpoint">
+              <Path Data="{StaticResource Icon.Breakpoint}"
+                    Fill="{DynamicResource Studio.ErrorBrush}"
+                    Stretch="Uniform" Width="14" Height="14" />
+            </Button>
+            <Border Width="18" Height="1" Margin="0,5"
+                    Background="{DynamicResource Studio.BorderBrush}"
+                    HorizontalAlignment="Center" />
+            <Button Classes="rail"
+                    ToolTip.Tip="显示或隐藏项目工具窗口 (Alt+1)" Click="OnToggleProjectWindowRail">
+              <Path Data="{StaticResource Icon.Folder}"
+                    Stroke="{Binding $parent[Button].Foreground}"
+                    StrokeThickness="1.3" StrokeLineCap="Round" StrokeJoin="Round"
+                    Fill="Transparent" Stretch="Uniform" Width="16" Height="16" />
+            </Button>
           </StackPanel>
           <StackPanel DockPanel.Dock="Bottom">
-            <Button x:Name="RailRunOutputButton" Classes="rail" Content="▷"
-                    ToolTip.Tip="显示控制台 (Alt+4)" Click="OnShowRunOutputWindow" />
-            <Button x:Name="RailCommandLineButton" Classes="rail" Content=">_"
-                    FontFamily="Cascadia Code,Consolas,monospace"
-                    FontSize="11" FontWeight="SemiBold"
-                    ToolTip.Tip="显示命令行 (Alt+4)" Click="OnOpenCommandLineWindow" />
-            <Border Width="18" Height="1" Margin="0,5" Background="#D5D8DC" HorizontalAlignment="Center" />
-            <Button Classes="rail" Content="⌘"
-                    ToolTip.Tip="Studio 设置" Click="OnSystemConfig" />
+            <Button x:Name="RailRunOutputButton" Classes="rail"
+                    ToolTip.Tip="显示控制台 (Alt+4)" Click="OnShowRunOutputWindow">
+              <Grid Width="16" Height="16">
+                <Path Data="{StaticResource Icon.RunOutput}"
+                      Stroke="{Binding $parent[Button].Foreground}"
+                      StrokeThickness="1.3" StrokeLineCap="Round" StrokeJoin="Round"
+                      Fill="Transparent" Stretch="Uniform" />
+                <Path Data="{StaticResource Icon.Play}"
+                      Fill="{Binding $parent[Button].Foreground}"
+                      Stretch="Uniform" />
+              </Grid>
+            </Button>
+            <Button x:Name="RailCommandLineButton" Classes="rail"
+                    ToolTip.Tip="显示命令行 (Alt+4)" Click="OnOpenCommandLineWindow">
+              <Path Data="{StaticResource Icon.Terminal}"
+                    Stroke="{Binding $parent[Button].Foreground}"
+                    StrokeThickness="1.3" StrokeLineCap="Round" StrokeJoin="Round"
+                    Fill="Transparent" Stretch="Uniform" Width="16" Height="16" />
+            </Button>
+            <Border Width="18" Height="1" Margin="0,5"
+                    Background="{DynamicResource Studio.BorderBrush}"
+                    HorizontalAlignment="Center" />
+            <Button Classes="rail"
+                    ToolTip.Tip="Studio 设置" Click="OnSystemConfig">
+              <TextBlock Text="⚙" FontSize="15" />
+            </Button>
           </StackPanel>
         </DockPanel>
       </Border>
 
       <Grid x:Name="ToolWindowHost" Grid.Column="1"
-              Background="#F7F7F8">
+              Background="{DynamicResource Studio.PanelBrush}">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="260" MinWidth="180" />
           <ColumnDefinition Width="4" />
@@ -396,7 +444,7 @@
               <TextBlock Text="项目"
                          FontSize="11"
                          FontWeight="SemiBold"
-                         Foreground="#1F2328" />
+                         Foreground="{DynamicResource Studio.TextBrush}" />
             </Border>
             <TreeView x:Name="ProjectTree"
                       Background="Transparent"
@@ -411,7 +459,7 @@
               <TreeView.ItemTemplate>
                 <TreeDataTemplate ItemsSource="{Binding Children}">
                   <StackPanel Orientation="Horizontal" Spacing="6">
-                    <TextBlock Text="{Binding Icon}" Foreground="#6F737A" FontSize="11" />
+                    <TextBlock Text="{Binding Icon}" Foreground="{DynamicResource Studio.MutedBrush}" FontSize="11" />
                     <TextBlock Text="{Binding Name}" Padding="0,1" />
                   </StackPanel>
                 </TreeDataTemplate>
@@ -444,10 +492,11 @@
           <Grid>
             <TabControl x:Name="DocumentTabs"
                         Background="Transparent"
+                        ItemContainerTheme="{StaticResource DocumentTabItemTheme}"
                         Padding="0" />
             <TextBlock Text="F1 帮助 · Ctrl+Space 补全"
                        FontSize="10"
-                       Foreground="#6F737A"
+                       Foreground="{DynamicResource Studio.MutedBrush}"
                        HorizontalAlignment="Right"
                        VerticalAlignment="Top"
                        Margin="0,10,12,0"
@@ -470,9 +519,9 @@
               <DockPanel>
                 <Border DockPanel.Dock="Top" Classes="toolHeader">
                   <TextBlock Text="程序数据"
-                             FontSize="11"
+                             FontSize="12"
                              FontWeight="SemiBold"
-                             Foreground="#1F2328" />
+                             Foreground="{DynamicResource Studio.TextBrush}" />
                 </Border>
                 <TreeView x:Name="ProgramOutline"
                           Background="Transparent"
@@ -487,7 +536,7 @@
                   <TreeView.ItemTemplate>
                     <TreeDataTemplate ItemsSource="{Binding Children}">
                       <StackPanel Orientation="Horizontal" Spacing="5">
-                        <TextBlock Text="{Binding Icon}" Foreground="#6F737A" FontSize="11" />
+                        <TextBlock Text="{Binding Icon}" Foreground="{DynamicResource Studio.MutedBrush}" FontSize="11" />
                         <TextBlock Text="{Binding Name}" />
                       </StackPanel>
                     </TreeDataTemplate>
@@ -500,14 +549,14 @@
                 <ContentControl x:Name="WorkPropertyHost">
                   <StackPanel Margin="12,10" Spacing="8">
                     <TextBlock Text="属性"
-                               FontSize="11"
+                               FontSize="12"
                                FontWeight="SemiBold"
-                               Foreground="#1F2328" />
+                               Foreground="{DynamicResource Studio.TextBrush}" />
                     <TextBlock x:Name="PropertySummary"
                                Text="选择代码、窗体或控件后显示摘要。"
                                TextWrapping="Wrap"
                                FontSize="11.5"
-                               Foreground="#6F737A" />
+                               Foreground="{DynamicResource Studio.MutedBrush}" />
                   </StackPanel>
                 </ContentControl>
               </ScrollViewer>
@@ -527,7 +576,7 @@
                 Classes="toolWindow">
           <DockPanel LastChildFill="True">
             <Border DockPanel.Dock="Top"
-                    Background="#F7F7F8"
+                    Background="{DynamicResource Studio.PanelBrush}"
                     Padding="8,3"
                     BorderThickness="0">
               <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -541,7 +590,7 @@
                              Text="命令行"
                              FontSize="12"
                              FontWeight="SemiBold"
-                             Foreground="#1F2328"
+                             Foreground="{DynamicResource Studio.TextBrush}"
                              VerticalAlignment="Center" />
                 </StackPanel>
                 <StackPanel x:Name="TerminalTabStrip"
@@ -631,7 +680,7 @@
                   <TextBlock x:Name="TerminalSearchStatus"
                              MinWidth="36"
                              FontSize="11"
-                             Foreground="#6F737A"
+                             Foreground="{DynamicResource Studio.MutedBrush}"
                              VerticalAlignment="Center" />
                   <Button Classes="terminalTabAdd" Content="↑"
                           ToolTip.Tip="上一个 (Shift+Enter)"
@@ -652,14 +701,24 @@
       <!-- 右快捷轨 -->
       <Border x:Name="RightActionRail"
               Grid.Column="2"
-              Background="#F7F7F8"
+              Background="{DynamicResource Studio.PanelBrush}"
               BorderThickness="0">
         <DockPanel Margin="0,6" LastChildFill="False">
           <StackPanel DockPanel.Dock="Top">
-            <Button Classes="rail" Content="◫"
-                    ToolTip.Tip="显示或隐藏程序/属性工具窗口 (Alt+2)" Click="OnToggleWorkWindowRail" />
-            <Button Classes="rail" Content="⌨"
-                    ToolTip.Tip="显示控制台 (Alt+4)" Click="OnToggleConsoleWindowRail" />
+            <Button Classes="rail"
+                    ToolTip.Tip="显示或隐藏程序/属性工具窗口 (Alt+2)" Click="OnToggleWorkWindowRail">
+              <Path Data="{StaticResource Icon.Layout}"
+                    Stroke="{Binding $parent[Button].Foreground}"
+                    StrokeThickness="1.3" StrokeLineCap="Round" StrokeJoin="Round"
+                    Fill="Transparent" Stretch="Uniform" Width="16" Height="16" />
+            </Button>
+            <Button Classes="rail"
+                    ToolTip.Tip="显示控制台 (Alt+4)" Click="OnToggleConsoleWindowRail">
+              <Path Data="{StaticResource Icon.Keyboard}"
+                    Stroke="{Binding $parent[Button].Foreground}"
+                    StrokeThickness="1.3" StrokeLineCap="Round" StrokeJoin="Round"
+                    Fill="Transparent" Stretch="Uniform" Width="16" Height="16" />
+            </Button>
           </StackPanel>
           <StackPanel DockPanel.Dock="Bottom">
             <Button Classes="rail" Content="M" FontFamily="Cascadia Code,Consolas,monospace"
@@ -667,9 +726,13 @@
                     ToolTip.Tip="复制实际 MCP HTTP 地址" Click="OnCopyMcpEndpoint" />
             <Button Classes="rail" Content="?" FontSize="14" FontWeight="SemiBold"
                     ToolTip.Tip="打开易语开发文档 (F1)" Click="OnDocumentation" />
-            <Border Width="18" Height="1" Margin="0,5" Background="#D5D8DC" HorizontalAlignment="Center" />
-            <Button Classes="rail" Content="⚙"
-                    ToolTip.Tip="Studio 设置" Click="OnSystemConfig" />
+            <Border Width="18" Height="1" Margin="0,5"
+                    Background="{DynamicResource Studio.BorderBrush}"
+                    HorizontalAlignment="Center" />
+            <Button Classes="rail"
+                    ToolTip.Tip="Studio 设置" Click="OnSystemConfig">
+              <TextBlock Text="⚙" FontSize="15" />
+            </Button>
           </StackPanel>
         </DockPanel>
       </Border>

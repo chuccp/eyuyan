@@ -19,8 +19,8 @@ public sealed record DocumentTabHandle(
 /// </summary>
 public sealed class DocumentTabController
 {
-    private static readonly IBrush MutedBrush = Brush.Parse("#6F737A");
-    private static readonly IBrush DirtyBrush = Brush.Parse("#A87924");
+    private static readonly IBrush MutedBrush = Brush.Parse("#6C707E");
+    private static readonly IBrush DirtyBrush = Brush.Parse("#3574F0");
 
     private readonly TabControl _tabs;
     private readonly List<EditorDocument> _documents = [];
@@ -71,16 +71,14 @@ public sealed class DocumentTabController
             Orientation = Orientation.Horizontal,
             Spacing = 5
         };
-        if (!string.IsNullOrEmpty(icon))
+        panel.Children.Add(new Border
         {
-            panel.Children.Add(new TextBlock
-            {
-                Text = icon,
-                FontSize = 11,
-                Foreground = MutedBrush,
-                VerticalAlignment = VerticalAlignment.Center
-            });
-        }
+            Width = 9,
+            Height = 9,
+            CornerRadius = new CornerRadius(2),
+            Background = Brush.Parse(FileTypeColor(path)),
+            VerticalAlignment = VerticalAlignment.Center
+        });
 
         var title = new TextBlock
         {
@@ -206,6 +204,31 @@ public sealed class DocumentTabController
         {
             document.DirtyMarkText.Text = document.IsDirty ? "●" : string.Empty;
         }
+    }
+
+    private static string FileTypeColor(string path)
+    {
+        var extension = System.IO.Path.GetExtension(path);
+        if (string.Equals(extension, ".yyx", StringComparison.OrdinalIgnoreCase))
+        {
+            return "#208A3C";
+        }
+
+        if (string.Equals(extension, ".yyc", StringComparison.OrdinalIgnoreCase))
+        {
+            return path.EndsWith(
+                ".Designer.yyc",
+                StringComparison.OrdinalIgnoreCase)
+                ? "#A8ADBD"
+                : "#3574F0";
+        }
+
+        if (string.Equals(extension, ".yyproj", StringComparison.OrdinalIgnoreCase))
+        {
+            return "#A46704";
+        }
+
+        return "#6C707E";
     }
 
     private ContextMenu BuildDocumentMenu(EditorDocument document)

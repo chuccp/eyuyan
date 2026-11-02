@@ -77,19 +77,19 @@ public sealed partial class MainWindow
         var objectCombo = new ComboBox
         {
             Width = 190,
-            FontSize = 11.5,
+            FontSize = 12,
             IsEnabled = classic is not null
         };
         var procedureCombo = new ComboBox
         {
             Width = 230,
-            FontSize = 11.5,
+            FontSize = 12,
             IsEnabled = classic is not null
         };
         var codeContext = new TextBlock
         {
-            FontSize = 10.5,
-            Foreground = Brush.Parse("#6F737A"),
+            FontSize = 11,
+            Foreground = Brush.Parse("#6C707E"),
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(10, 0, 8, 0),
             TextTrimming = TextTrimming.CharacterEllipsis
@@ -174,78 +174,77 @@ public sealed partial class MainWindow
         var classicButton = new Button
         {
             Content = "经典视图",
-            Padding = new Thickness(12, 4)
+            Padding = new Thickness(8, 3)
         };
         var plainButton = new Button
         {
             Content = "纯代码",
-            Padding = new Thickness(12, 4)
+            Padding = new Thickness(8, 3)
         };
-        var toolbar = new StackPanel
+        var viewButtons = new StackPanel
         {
             Orientation = Orientation.Horizontal,
             Spacing = 6,
-            Margin = new Thickness(8, 5)
+            Margin = new Thickness(12, 0, 0, 0),
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center,
+            Children = { classicButton, plainButton }
         };
-        toolbar.Children.Add(new TextBlock
+        var toolbar = new Grid
+        {
+            Margin = new Thickness(8, 5),
+            ColumnDefinitions = new ColumnDefinitions("Auto,Auto,Auto,Auto,*")
+        };
+        AddToolbarCell(toolbar, new TextBlock
         {
             Text = "对象",
-            FontSize = 11,
+            FontSize = 12,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(2, 0, 6, 0)
-        });
-        toolbar.Children.Add(objectCombo);
-        toolbar.Children.Add(new TextBlock
+        }, 0);
+        objectCombo.Width = 130;
+        AddToolbarCell(toolbar, objectCombo, 1);
+        AddToolbarCell(toolbar, new TextBlock
         {
             Text = "过程",
-            FontSize = 11,
+            FontSize = 12,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(10, 0, 6, 0)
-        });
-        toolbar.Children.Add(procedureCombo);
-        toolbar.Children.Add(codeContext);
-        toolbar.Children.Add(classicButton);
-        toolbar.Children.Add(plainButton);
+        }, 2);
+        procedureCombo.Width = 150;
+        AddToolbarCell(toolbar, procedureCombo, 3);
+        // 尾部始终吃满剩余宽度，视图按钮固定在右侧；上下文只在空间足够时显示。
+        var toolbarTail = new DockPanel { LastChildFill = true };
+        DockPanel.SetDock(viewButtons, Dock.Right);
+        toolbarTail.Children.Add(viewButtons);
+        toolbarTail.Children.Add(codeContext);
+        AddToolbarCell(toolbar, toolbarTail, 4);
+        toolbar.SizeChanged += (_, e) =>
+        {
+            // 空间不足时收起上下文摘要；两个选择框和右侧视图按钮保持原位。
+            codeContext.IsVisible = e.NewSize.Width >= 660;
+        };
         var hintBar = new TextBlock
         {
             IsVisible = false,
             FontFamily = new FontFamily("Cascadia Code, Consolas, Microsoft YaHei UI"),
             FontSize = 10.5,
             Foreground = Brush.Parse("#3574F0"),
-            Background = Brush.Parse("#F2F3F5"),
+            Background = Brush.Parse("#F7F8FA"),
             Padding = new Thickness(10, 4),
             TextWrapping = TextWrapping.Wrap
         };
-        var breadcrumb = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 4,
-            Margin = new Thickness(10, 3, 10, 3),
-            Background = Brushes.White
-        };
-        breadcrumb.Children.Add(new TextBlock
-        {
-            Text = "›",
-            Foreground = Brush.Parse("#6F737A"),
-            FontSize = 13,
-            VerticalAlignment = VerticalAlignment.Center
-        });
-        var breadcrumbText = new TextBlock
-        {
-            Text = BuildBreadcrumb(fullPath),
-            Foreground = Brush.Parse("#6F737A"),
-            FontSize = 11,
-            VerticalAlignment = VerticalAlignment.Center,
-            TextTrimming = TextTrimming.CharacterEllipsis
-        };
-        breadcrumb.Children.Add(breadcrumbText);
-        // 对齐主分支:标签条 → 面包屑 → 对象/过程条 → 内容。
+        // 标签条 → 对象/过程条 → 代码内容。
         var host = new DockPanel { LastChildFill = true };
-        DockPanel.SetDock(breadcrumb, Dock.Top);
         DockPanel.SetDock(toolbar, Dock.Top);
         DockPanel.SetDock(hintBar, Dock.Bottom);
-        host.Children.Add(breadcrumb);
         host.Children.Add(toolbar);
+        var toolbarDivider = new Border
+        {
+            Classes = { "toolbarDivider" }
+        };
+        DockPanel.SetDock(toolbarDivider, Dock.Top);
+        host.Children.Add(toolbarDivider);
         host.Children.Add(hintBar);
         host.Children.Add(content);
 
@@ -631,5 +630,11 @@ public sealed partial class MainWindow
         {
             return null;
         }
+    }
+
+    private static void AddToolbarCell(Grid toolbar, Control control, int column)
+    {
+        Grid.SetColumn(control, column);
+        toolbar.Children.Add(control);
     }
 }
