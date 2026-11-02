@@ -302,11 +302,13 @@
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="CornerRadius" Value="6" />
-    <Setter Property="Width" Value="30" />
-    <Setter Property="Height" Value="30" />
-    <Setter Property="Margin" Value="1,2" />
+    <Setter Property="Width" Value="28" />
+    <Setter Property="Height" Value="28" />
+    <Setter Property="Margin" Value="0,2" />
     <Setter Property="Padding" Value="0" />
     <Setter Property="Foreground" Value="#5A5D6B" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
   <Style Selector="Button.rail /template/ ContentPresenter">
     <Setter Property="Background" Value="Transparent" />

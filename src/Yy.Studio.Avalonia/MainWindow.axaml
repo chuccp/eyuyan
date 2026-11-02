@@ -337,11 +337,13 @@
     <ComboBox x:Name="TargetBox" IsVisible="False" DockPanel.Dock="Top" />
 
     <!-- 一体式工作台:左右快捷轨 + 停靠工具窗 -->
-    <Grid x:Name="SideActionShell" ColumnDefinitions="34,*,34">
+    <Grid x:Name="SideActionShell" ColumnDefinitions="30,*,30">
       <Border x:Name="LeftActionRail"
               Grid.Column="0"
+              Margin="0,0,-6,0"
               Background="{DynamicResource Studio.PanelBrush}"
               BorderThickness="0">
+        <!-- 把右侧 6px 工具窗留白纳入轨道,图标按整条视觉轨道居中。 -->
         <DockPanel Margin="0,6" LastChildFill="False">
           <StackPanel DockPanel.Dock="Top">
             <Button Classes="rail" ToolTip.Tip="运行 (F5)" Click="OnRunProject">
@@ -701,8 +703,10 @@
       <!-- 右快捷轨 -->
       <Border x:Name="RightActionRail"
               Grid.Column="2"
+              Margin="-6,0,0,0"
               Background="{DynamicResource Studio.PanelBrush}"
               BorderThickness="0">
+        <!-- 把左侧 6px 工具窗留白纳入轨道,图标按整条视觉轨道居中。 -->
         <DockPanel Margin="0,6" LastChildFill="False">
           <StackPanel DockPanel.Dock="Top">
             <Button Classes="rail"

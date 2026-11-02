@@ -10,7 +10,8 @@ namespace Yy.Studio.Avalonia;
 
 public sealed partial class MainWindow
 {
-    private const double ActionRailWidth = 34;
+    // 视觉快捷轨 = 图标条 + 相邻工具窗留白，保持窄轨且图标居中。
+    private const double ActionRailWidth = 30;
     private ToolWindowLayoutController? _toolWindowLayout;
 
     private void InitializeToolWindowLayout()
