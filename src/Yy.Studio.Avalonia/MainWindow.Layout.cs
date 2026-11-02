@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -9,6 +10,7 @@ namespace Yy.Studio.Avalonia;
 
 public sealed partial class MainWindow
 {
+    private const double ActionRailWidth = 34;
     private ToolWindowLayoutController? _toolWindowLayout;
 
     private void InitializeToolWindowLayout()
@@ -27,9 +29,26 @@ public sealed partial class MainWindow
         {
             Configuration.WindowLayout = args.Configuration;
             Configuration.Save();
+            UpdateBottomRailState();
+        };
+        _toolWindowLayout.StartPageModeChanged += (_, _) =>
+        {
+            ApplyStartPageChrome();
+            UpdateBottomRailState();
         };
         _toolWindowLayout.Apply(Configuration.WindowLayout);
         RefreshWorkPanel();
+        UpdateBottomRailState();
+    }
+
+    private void ApplyStartPageChrome()
+    {
+        var startPage = _toolWindowLayout?.StartPageMode == true;
+        var railWidth = new GridLength(startPage ? 0 : ActionRailWidth);
+        SideActionShell.ColumnDefinitions[0].Width = railWidth;
+        SideActionShell.ColumnDefinitions[2].Width = railWidth;
+        LeftActionRail.IsVisible = !startPage;
+        RightActionRail.IsVisible = !startPage;
     }
 
     private void OnMoveToolWindow(object? sender, RoutedEventArgs e)
@@ -157,6 +176,33 @@ public sealed partial class MainWindow
 
     private void OnToggleConsoleWindow(object? sender, RoutedEventArgs e) =>
         CycleToolWindow(ToolWindowKind.Console);
+
+    /// <summary>快捷轨的显示/隐藏按钮只切换两种状态,不经过最小化。</summary>
+    private void OnToggleProjectWindowRail(object? sender, RoutedEventArgs e) =>
+        ToggleToolWindow(ToolWindowKind.Project);
+
+    private void OnToggleWorkWindowRail(object? sender, RoutedEventArgs e) =>
+        ToggleToolWindow(ToolWindowKind.Work);
+
+    private void OnToggleConsoleWindowRail(object? sender, RoutedEventArgs e) =>
+        ToggleToolWindow(ToolWindowKind.Console);
+
+    private void ToggleToolWindow(ToolWindowKind kind)
+    {
+        if (_toolWindowLayout is null)
+        {
+            return;
+        }
+
+        if (_toolWindowLayout.GetState(kind) == ToolWindowState.Visible)
+        {
+            _toolWindowLayout.Hide(kind);
+        }
+        else
+        {
+            _toolWindowLayout.Show(kind);
+        }
+    }
 
     private void OnToggleStatusBar(object? sender, RoutedEventArgs e)
     {

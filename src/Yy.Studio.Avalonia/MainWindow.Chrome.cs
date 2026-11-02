@@ -2,11 +2,26 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Yy.Studio.Avalonia.Platforms;
 
 namespace Yy.Studio.Avalonia;
 
 public sealed partial class MainWindow
 {
+    private WindowChromeControls _chrome = null!;
+
+    /// <summary>在 InitializeComponent 之后按宿主平台装配顶栏窗口按钮。</summary>
+    private void InitializePlatformChrome()
+    {
+        _chrome = new WindowChromeControls(
+            WindowsAppBadge,
+            MacTrafficLights,
+            WindowsCaptionButtons,
+            CaptionMaximizeIcon,
+            CaptionRestoreIcon);
+        WindowChromeAdapter.Apply(_chrome);
+    }
+
     private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
@@ -39,13 +54,13 @@ public sealed partial class MainWindow
 
     private void UpdateCaptionButtons()
     {
-        if (CaptionMaximizeIcon is null || CaptionRestoreIcon is null)
+        if (_chrome is null)
         {
             return;
         }
 
-        var maximized = WindowState == WindowState.Maximized;
-        CaptionMaximizeIcon.IsVisible = !maximized;
-        CaptionRestoreIcon.IsVisible = maximized;
+        WindowChromeAdapter.UpdateMaximizeButtons(
+            _chrome,
+            WindowState == WindowState.Maximized);
     }
 }

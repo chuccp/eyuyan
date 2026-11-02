@@ -94,6 +94,70 @@
     </Setter>
   </Style>
 
+  <!-- 底部命令行会话条:每个 shell 一个可关闭的标签,末尾的 + 打开新会话。 -->
+  <Style Selector="Border.terminalTab">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="8,2,5,2" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Border.terminalTab:pointerover">
+    <Setter Property="Background" Value="#ECEEF1" />
+  </Style>
+  <Style Selector="Border.terminalTab.active">
+    <Setter Property="Background" Value="{DynamicResource Studio.PanelRaisedBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Studio.SunkenDarkBrush}" />
+  </Style>
+  <Style Selector="Button.terminalTabTitle">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource Studio.TextBrush}" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Button.terminalTabTitle /template/ ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.terminalTabClose">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Width" Value="16" />
+    <Setter Property="Height" Value="16" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="CornerRadius" Value="3" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource Studio.MutedBrush}" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Button.terminalTabClose /template/ ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.terminalTabClose:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="#D5D8DC" />
+  </Style>
+  <Style Selector="Button.terminalTabAdd">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Width" Value="24" />
+    <Setter Property="Height" Value="22" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="Foreground" Value="{DynamicResource Studio.MutedBrush}" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Button.terminalTabAdd /template/ ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.terminalTabAdd:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="#E1E4E8" />
+  </Style>
+
   <!-- 默认按钮:扁平灰面、悬停凸起 -->
   <Style Selector="Button">
     <Setter Property="Foreground" Value="{DynamicResource Studio.TextBrush}" />
@@ -136,6 +200,15 @@
   <Style Selector="Button.rail:disabled /template/ ContentPresenter">
     <Setter Property="Background" Value="Transparent" />
   </Style>
+  <Style Selector="Button.rail.active">
+    <Setter Property="Foreground" Value="{DynamicResource Studio.AccentBrush}" />
+  </Style>
+  <Style Selector="Button.rail.active /template/ ContentPresenter">
+    <Setter Property="Background" Value="#E3ECFB" />
+  </Style>
+  <Style Selector="Button.rail.active:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="#D6E4FA" />
+  </Style>
 
   <!-- 窗口按钮:固定 46×38 矢量图形 -->
   <Style Selector="Button.caption">
@@ -160,6 +233,34 @@
   </Style>
   <Style Selector="Button.caption.close:pointerover Path#CaptionGlyph">
     <Setter Property="Stroke" Value="White" />
+  </Style>
+
+  <!-- macOS 红绿灯窗口按钮:12px 彩色圆点,悬停显示符号 -->
+  <Style Selector="Button.traffic">
+    <Setter Property="Width" Value="12" />
+    <Setter Property="Height" Value="12" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.traffic /template/ ContentPresenter">
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.traffic:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.traffic Path.trafficGlyph">
+    <Setter Property="Opacity" Value="0" />
+  </Style>
+  <Style Selector="Button.traffic:pointerover Path.trafficGlyph">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="Button.traffic:pressed Ellipse.trafficFace">
+    <Setter Property="Opacity" Value="0.75" />
   </Style>
 
   <!-- 顶栏“布局”按钮 -->

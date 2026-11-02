@@ -174,10 +174,11 @@ public sealed partial class MainWindow
     {
         foreach (var item in BottomTabs.Items)
         {
-            if (item is TabItem { Header: string text } &&
+            if (item is TabItem { Header: string text } tab &&
                 string.Equals(text, header, StringComparison.Ordinal))
             {
-                BottomTabs.SelectedItem = item;
+                tab.IsVisible = true;
+                BottomTabs.SelectedItem = tab;
                 return;
             }
         }

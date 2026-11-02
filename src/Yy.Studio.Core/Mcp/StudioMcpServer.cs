@@ -398,7 +398,10 @@ public sealed class StudioMcpServer
           {"name":"run_preview","description":"打开设计器预览窗口(等同 运行→预览/Ctrl+Enter),自动执行窗体载入事件；F5 用于编译并运行原生工程。","inputSchema":{"type":"object","properties":{},"additionalProperties":false}},
           {"name":"preview_click","description":"在预览窗口触发控件的事件(按钮=被单击),等待事件执行完成,返回事件输出/状态文本。","inputSchema":{"type":"object","properties":{"control":{"type":"string"}},"required":["control"],"additionalProperties":false}},
           {"name":"preview_get_text","description":"读取预览窗口中控件的当前文本。","inputSchema":{"type":"object","properties":{"control":{"type":"string"}},"required":["control"],"additionalProperties":false}},
-          {"name":"preview_close","description":"关闭预览窗口。","inputSchema":{"type":"object","properties":{},"additionalProperties":false}}
+          {"name":"preview_close","description":"关闭预览窗口。","inputSchema":{"type":"object","properties":{},"additionalProperties":false}},
+          {"name":"terminal_run","description":"在底部命令行关联的系统 shell 中执行一条命令，工作目录为当前工程根目录。","inputSchema":{"type":"object","properties":{"command":{"type":"string","description":"要执行的系统命令"}},"required":["command"],"additionalProperties":false}},
+          {"name":"terminal_state","description":"读取底部命令行的终端网格、光标位置和滚动状态，用于诊断显示问题。","inputSchema":{"type":"object","properties":{},"additionalProperties":false}},
+          {"name":"terminal_dump","description":"导出底部命令行的可回放终端内容，用于诊断显示问题。","inputSchema":{"type":"object","properties":{},"additionalProperties":false}}
         ]
         """;
 }

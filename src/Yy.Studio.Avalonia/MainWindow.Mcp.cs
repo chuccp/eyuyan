@@ -176,6 +176,17 @@ public sealed partial class MainWindow
                 _lastPreview?.Close();
                 _lastPreview = null;
                 return new { closed = true };
+            case "terminal_run":
+                var terminalCommand = ArgOr("command", string.Empty);
+                return new
+                {
+                    command = terminalCommand,
+                    sent = _commandLine?.RunCommand(terminalCommand) == true
+                };
+            case "terminal_state":
+                return _commandLine?.CaptureState();
+            case "terminal_dump":
+                return _commandLine?.Dump();
             case "get_code":
                 return new { source = CurrentCodeSource(CurrentCodeDocument()) };
             case "set_subprogram":

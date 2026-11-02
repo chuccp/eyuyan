@@ -39,6 +39,11 @@ public partial class ToolWindowLayoutController
         ToolTip.SetTip(_rightRail, null);
         ToolTip.SetTip(_bottomRail, null);
 
+        if (_startPageMode)
+        {
+            return;
+        }
+
         _rightRail.Margin = new Thickness(
             0,
             0,

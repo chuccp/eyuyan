@@ -84,7 +84,6 @@ public sealed partial class MainWindow
 
         _building = true;
         UpdateActionState();
-        SelectBottomTab("控制台");
         SetStatus("正在编译…");
         AppendConsole($"编译：{_workspace.Project.Name}");
         try
@@ -204,6 +203,7 @@ public sealed partial class MainWindow
             if (ReferenceEquals(_process, process))
             {
                 _process = null;
+                SetConsoleVisible(false);
             }
 
             AppendConsole($"程序已退出，退出码 {process.ExitCode}。");

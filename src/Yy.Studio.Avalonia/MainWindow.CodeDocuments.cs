@@ -498,15 +498,9 @@ public sealed partial class MainWindow
             Editor.CodeEditorContextMenu.MoveCaretToPointer(editor, e);
     }
 
-    /// <summary>F1/提示信息写入底部“提示”页,状态栏只留摘要。</summary>
+    /// <summary>F1/提示信息写入状态栏摘要。</summary>
     private void ShowHelpText(string text)
     {
-        if (EditorHelpBox is not null)
-        {
-            EditorHelpBox.Text = text;
-            SelectBottomTab("提示");
-        }
-
         var firstLine = text.Split('\n', 2)[0];
         SetStatus(firstLine.Length > 60 ? firstLine[..60] + "…" : firstLine);
     }
@@ -520,13 +514,6 @@ public sealed partial class MainWindow
             bar.Text = hint is null
                 ? string.Empty
                 : $"{hint.Signature}   参数 {hint.ActiveParameter + 1}：{hint.Name}";
-        }
-
-        if (EditorHelpBox is not null)
-        {
-            EditorHelpBox.Text = hint is null
-                ? string.Empty
-                : $"{hint.Signature}\n参数 {hint.ActiveParameter + 1}：{hint.Name}";
         }
 
         SetStatus(hint is null

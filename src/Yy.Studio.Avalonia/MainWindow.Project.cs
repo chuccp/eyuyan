@@ -132,12 +132,14 @@ public sealed partial class MainWindow
                 try
                 {
                     _workspace.Load(projectDirectory);
+                    _toolWindowLayout?.SetStartPageMode(false);
                     RefreshProjectTree();
                     TargetBox.SelectedItem = Yy.Compiler.YyBuildTargets.All.Contains(
                         _workspace.Project!.TargetPlatform)
                         ? _workspace.Project.TargetPlatform
                         : Yy.Compiler.YyBuildTargets.Auto;
                     SetStatus($"已打开 {_workspace.Project.Name} · {_workspace.Project.PackageName}");
+                    EnterProjectCommandLine(_workspace.Project.DirectoryPath);
                 }
                 catch (Exception exception) when (
                     exception is InvalidDataException or IOException or UnauthorizedAccessException)
@@ -153,6 +155,7 @@ public sealed partial class MainWindow
         try
         {
             _workspace.Load(path);
+            _toolWindowLayout?.SetStartPageMode(false);
             RefreshProjectTree();
             var project = _workspace.Project!;
             TargetBox.SelectedItem = Yy.Compiler.YyBuildTargets.All.Contains(project.TargetPlatform)
@@ -161,6 +164,7 @@ public sealed partial class MainWindow
             SyncTargetPlatformMenu();
             SetStatus($"已打开 {project.Name}（{project.TargetPlatform}）");
             AppendConsole($"工程：{project.ProjectPath}");
+            EnterProjectCommandLine(project.DirectoryPath);
             _recentFiles.AddRecent(project.DirectoryPath);
             if (File.Exists(project.EntryPath))
             {

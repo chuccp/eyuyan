@@ -112,9 +112,6 @@ public sealed partial class MainWindow
                 text => AppendConsoleFromAnyThread(text),
                 cancellation.Token,
                 debugger));
-            ShowDebugVariables(result.Variables);
-            CallStackList.ItemsSource = Array.Empty<string>();
-            SelectBottomTab("控制台");
             AppendConsole($"调试完成 · {result.Elapsed.TotalMilliseconds:F1} ms");
             SetStatus("调试完成");
         }
@@ -146,6 +143,7 @@ public sealed partial class MainWindow
                 _debugCancellation = null;
             }
 
+            SetConsoleVisible(false);
             cancellation.Dispose();
         }
     }
@@ -165,12 +163,6 @@ public sealed partial class MainWindow
         }
 
         SetStatus($"调试暂停 · 第 {pause.Line} 行");
-        ShowDebugVariables(pause.Variables);
-        CallStackList.ItemsSource = new[]
-        {
-            $"第 {pause.Line} 行 · 调用深度 {pause.Depth}"
-        };
-        SelectBottomTab("变量表");
         PropertySummary.Text = $"调试暂停 · 第 {pause.Line} 行" +
             Environment.NewLine +
             string.Join(
@@ -218,55 +210,7 @@ public sealed partial class MainWindow
         _debugProbe?.Stop();
         _debugCancellation?.Cancel();
         _debugPause = null;
+        SetConsoleVisible(false);
         SetStatus("调试已停止");
-    }
-}
-
-public sealed partial class MainWindow
-{
-    private readonly List<string> _watchNames = [];
-
-    private void OnAddWatch(object? sender, RoutedEventArgs e)
-    {
-        var name = WatchInputBox.Text?.Trim();
-        if (string.IsNullOrWhiteSpace(name) ||
-            _watchNames.Contains(name, StringComparer.Ordinal))
-        {
-            return;
-        }
-
-        _watchNames.Add(name);
-        WatchInputBox.Text = string.Empty;
-        RefreshWatches();
-    }
-
-    private void OnRemoveWatch(object? sender, RoutedEventArgs e)
-    {
-        if (WatchList.SelectedItem is DebugRow row)
-        {
-            _watchNames.Remove(row.Key);
-            RefreshWatches();
-        }
-    }
-
-    private sealed record DebugRow(string Key, string Value);
-
-    private void ShowDebugVariables(IReadOnlyDictionary<string, object?>? variables)
-    {
-        VariableList.ItemsSource = variables is null
-            ? Array.Empty<DebugRow>()
-            : variables.OrderBy(pair => pair.Key, StringComparer.Ordinal)
-                .Select(pair => new DebugRow(pair.Key, DisplayValue(pair.Value)))
-                .ToArray();
-        RefreshWatches(variables);
-    }
-
-    private void RefreshWatches(IReadOnlyDictionary<string, object?>? variables = null)
-    {
-        WatchList.ItemsSource = _watchNames
-            .Select(name => variables is not null && variables.TryGetValue(name, out var value)
-                ? new DebugRow(name, DisplayValue(value))
-                : new DebugRow(name, "（运行暂停时显示）"))
-            .ToArray();
     }
 }

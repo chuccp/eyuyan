@@ -39,6 +39,8 @@ public sealed partial class MainWindow : Window
     public MainWindow(string[] args)
     {
         InitializeComponent();
+        InitializePlatformChrome();
+        InitializeCommandLine();
         _tabs = new DocumentTabController(DocumentTabs);
         _tabs.SelectionChanged += OnDocumentTabsSelectionChanged;
         _tabs.SaveRequested += document => SaveDocument(document);
@@ -63,8 +65,9 @@ public sealed partial class MainWindow : Window
         TargetBox.SelectedItem = Yy.Compiler.YyBuildTargets.Auto;
         TargetBox.SelectionChanged += (_, _) => SyncTargetPlatformMenu();
         SyncTargetPlatformMenu();
-        InitializeClipHistory();
         InitializeToolWindowLayout();
+        // 首次启动只有起始页，左右和底部工具窗口在打开工程或文档后恢复。
+        _toolWindowLayout?.SetStartPageMode(true);
         ShowStartPage();
         AppendConsole("易语 Studio · Avalonia 跨平台外壳");
         AppendConsole("打开 .yyproj 工程后，双击项目树中的文件开始编辑。");
@@ -361,6 +364,7 @@ public sealed partial class MainWindow : Window
     private void OnWindowClosed(object? sender, EventArgs e)
     {
         StopProcess(silent: true);
+        _commandLine?.Stop();
         if (_toolWindowLayout is not null)
         {
             try
@@ -443,6 +447,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        _toolWindowLayout?.SetStartPageMode(false);
         _tabs.RemoveExtra(_startPageTab);
         _startPageTab = null;
         _startPage = null;

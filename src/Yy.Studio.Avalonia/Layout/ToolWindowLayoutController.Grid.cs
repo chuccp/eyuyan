@@ -49,7 +49,8 @@ public partial class ToolWindowLayoutController
     private RowDefinition _bottomSplitterRow = null!;
     private RowDefinition _bottomRow = null!;
 
-    private bool ToolboxActive => _toolboxVisible && _toolboxPanel is not null;
+    private bool ToolboxActive =>
+        _toolboxVisible && !_startPageMode && _toolboxPanel is not null;
 
     private void EnsureGridDefinitions()
     {
@@ -196,7 +197,7 @@ public partial class ToolWindowLayoutController
             var configuration = ConfigFor(kind);
             var panel = PanelFor(kind);
             panel.IsVisible = ToolWindowLayoutProtocol.IsVisible(
-                configuration.State);
+                EffectiveState(configuration));
             PlaceToolWindow(panel, configuration.Dock);
             panel.Margin = ToolWindowMargin(configuration.Dock, toolboxActive);
             panel.ZIndex = 10;
@@ -205,7 +206,7 @@ public partial class ToolWindowLayoutController
         if (_toolboxPanel is not null)
         {
             PlaceToolbox(_toolboxPanel);
-            _toolboxPanel.IsVisible = _toolboxVisible;
+            _toolboxPanel.IsVisible = toolboxActive;
         }
 
         UpdateDockColumns(toolboxActive);
@@ -280,7 +281,7 @@ public partial class ToolWindowLayoutController
         ApplyColumn(
             _leftColumn,
             _projectSplitter,
-            left?.State ?? StudioToolWindowConfiguration.HiddenState,
+            EffectiveState(left),
             left?.Size ?? 260,
             ToolWindowLayoutMetrics.SideMinSize,
             extraRail: 0);
@@ -290,7 +291,7 @@ public partial class ToolWindowLayoutController
         ApplyColumn(
             _rightColumn,
             _workSplitter,
-            right?.State ?? StudioToolWindowConfiguration.HiddenState,
+            EffectiveState(right),
             right?.Size ?? 360,
             toolboxActive
                 ? ToolWindowLayoutMetrics.WorkMinSizeWithToolbox
@@ -302,9 +303,14 @@ public partial class ToolWindowLayoutController
         ApplyBottomRow(
             _bottomRow,
             _consoleSplitter,
-            bottom?.State ?? StudioToolWindowConfiguration.HiddenState,
+            EffectiveState(bottom),
             bottom?.Size ?? 172);
     }
+
+    private string EffectiveState(StudioToolWindowConfiguration? configuration) =>
+        _startPageMode || configuration is null
+            ? StudioToolWindowConfiguration.HiddenState
+            : configuration.State;
 
     private static void ApplyColumn(
         ColumnDefinition column,

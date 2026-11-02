@@ -39,6 +39,7 @@ public partial class ToolWindowLayoutController
     private TabControl? _workTabs;
     private bool _suppressTabNotification;
     private bool _toolboxVisible;
+    private bool _startPageMode;
     private double _toolboxWidth = ToolWindowLayoutMetrics.DefaultToolboxWidth;
 
     /// <summary>
@@ -111,6 +112,9 @@ public partial class ToolWindowLayoutController
     /// <summary>用户操作需要写回 StudioConfiguration 时触发。</summary>
     public event EventHandler? SaveRequested;
 
+    /// <summary>起始页独占模式变化；宿主可同步左右快捷操作轨。</summary>
+    public event EventHandler? StartPageModeChanged;
+
     /// <summary>当前布局配置；控制器就地修改该对象。</summary>
     public StudioWindowLayoutConfiguration Configuration => _layout;
 
@@ -120,6 +124,37 @@ public partial class ToolWindowLayoutController
 
     /// <summary>组件箱是否可见；仅当传入组件箱面板时才会占用右侧空间。</summary>
     public bool ToolboxVisible => _toolboxVisible;
+
+    /// <summary>起始页是否独占工作区；该状态不写入已保存布局。</summary>
+    public bool StartPageMode => _startPageMode;
+
+    /// <summary>
+    /// 进入或退出起始页独占模式。进入后三个工具窗口和组件箱暂时隐藏，
+    /// 已保存的停靠位置、显示状态和尺寸保持不变；退出后原样恢复。
+    /// </summary>
+    public void SetStartPageMode(bool active)
+    {
+        if (_startPageMode == active)
+        {
+            return;
+        }
+
+        _startPageMode = active;
+        ApplyCore();
+        StartPageModeChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>用户显式操作工具窗口时结束起始页独占。</summary>
+    private void ExitStartPageMode()
+    {
+        if (!_startPageMode)
+        {
+            return;
+        }
+
+        _startPageMode = false;
+        StartPageModeChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     /// <summary>组件箱占用的右侧宽度，默认 132。</summary>
     public double ToolboxWidth
@@ -162,7 +197,7 @@ public partial class ToolWindowLayoutController
         ArgumentNullException.ThrowIfNull(layout);
         layout.Validate();
         _layout = layout;
-        if (_toolboxPanel is not null)
+        if (_toolboxPanel is not null && !_startPageMode)
         {
             _toolboxVisible = _toolboxPanel.IsVisible;
         }
@@ -222,6 +257,7 @@ public partial class ToolWindowLayoutController
                 "工具窗口尺寸必须是有限数值。");
         }
 
+        ExitStartPageMode();
         var configuration = ConfigFor(kind);
         configuration.Size = ToolWindowLayoutProtocol.ClampSize(
             size,
@@ -249,6 +285,7 @@ public partial class ToolWindowLayoutController
                 $"未知停靠位置“{dock}”。", nameof(dock));
         }
 
+        ExitStartPageMode();
         var source = ConfigFor(kind);
         if (string.Equals(source.Dock, targetDock, StringComparison.Ordinal))
         {
@@ -296,6 +333,7 @@ public partial class ToolWindowLayoutController
             throw new ArgumentException("布局预设不能为空。", nameof(preset));
         }
 
+        ExitStartPageMode();
         preset = preset.Trim();
         if (string.Equals(
                 preset,
@@ -303,6 +341,7 @@ public partial class ToolWindowLayoutController
                 StringComparison.Ordinal))
         {
             _layout.Preset = StudioWindowLayoutConfiguration.CustomPreset;
+            ApplyCore();
             NotifyLayoutChanged(
                 "preset",
                 markCustom: false,
@@ -319,6 +358,7 @@ public partial class ToolWindowLayoutController
     /// <summary>显示右侧工具窗口并切换到指定标签页（0 程序，1 属性）。</summary>
     public void ShowWorkTab(int index)
     {
+        ExitStartPageMode();
         _layout.WorkTools.State = StudioToolWindowConfiguration.VisibleState;
         var maximum = _workTabs is { ItemCount: > 0 } tabs ? tabs.ItemCount - 1 : 1;
         var selected = Math.Clamp(index, 0, Math.Min(maximum, 1));
@@ -368,9 +408,11 @@ public partial class ToolWindowLayoutController
         ApplyCore();
     }
 
-    /// <summary>读取工具窗口显示状态。</summary>
+    /// <summary>读取工具窗口显示状态；起始页模式下三个窗口均视为隐藏。</summary>
     public ToolWindowState GetState(ToolWindowKind kind) =>
-        ToolWindowLayoutProtocol.ParseState(ConfigFor(kind).State);
+        _startPageMode
+            ? ToolWindowState.Hidden
+            : ToolWindowLayoutProtocol.ParseState(ConfigFor(kind).State);
 
     /// <summary>读取工具窗口停靠位置。</summary>
     public ToolWindowDock GetDock(ToolWindowKind kind) =>
@@ -397,6 +439,8 @@ public partial class ToolWindowLayoutController
 
     private void SetState(ToolWindowKind kind, ToolWindowState state)
     {
+        // 用户显式操作工具窗口后结束起始页独占，按当前选择显示窗口。
+        ExitStartPageMode();
         ConfigFor(kind).State = ToolWindowLayoutProtocol.StateName(state);
         ApplyCore();
         NotifyLayoutChanged("state", kind);
