@@ -27,6 +27,8 @@ public sealed class EditorDocument
     public StructuredCodeEditor? StructuredView { get; init; }
     public Control? PlainCodeHost { get; init; }
     public Control? StructuredCodeHost { get; init; }
+    public Button? ClassicViewButton { get; init; }
+    public Button? PlainViewButton { get; init; }
     public bool UseClassicView { get; set; }
     public bool SuppressDirtyTracking { get; set; }
     public bool IsReadOnly { get; init; }

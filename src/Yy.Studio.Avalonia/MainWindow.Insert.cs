@@ -18,11 +18,22 @@ public sealed partial class MainWindow
 
         try
         {
-            structured.FlushPendingEdits();
-            var model = structured.Document ??
-                YyCodeDocumentConverter.FromSource(
+            YyCodeDocument model;
+            if (document.UseClassicView && structured.Document is { } classicModel)
+            {
+                if (!structured.FlushPendingEdits())
+                {
+                    return;
+                }
+
+                model = classicModel;
+            }
+            else
+            {
+                model = YyCodeDocumentConverter.FromSource(
                     document.Editor.Text ?? string.Empty,
                     document.Path);
+            }
             var sequence = 1;
             string name;
             do

@@ -172,12 +172,15 @@ public sealed partial class StructuredCodeEditor : UserControl
         _bodyEditors.FirstOrDefault(pair =>
             string.Equals(pair.Function.Name, functionName, StringComparison.Ordinal))?.Editor;
 
-    /// <summary>在保存、切换模式或离开窗口前，把尚未防抖提交的代码写回模型。</summary>
-    public void FlushPendingEdits()
+    /// <summary>
+    /// 在保存、切换模式或离开窗口前，把尚未防抖提交的代码写回模型。
+    /// 返回 false 表示仍有代码区无法解析；调用方不得用旧模型覆盖用户输入。
+    /// </summary>
+    public bool FlushPendingEdits()
     {
         if (_building || _dirtyFunctions.Count == 0)
         {
-            return;
+            return true;
         }
 
         var changed = false;
@@ -188,19 +191,15 @@ public sealed partial class StructuredCodeEditor : UserControl
         {
             try
             {
-                var body = YyCodeDocumentConverter.FromSource(
-                    ".程序集 _方法体\n子程序 _方法体()\n" +
-                    entry.Editor.Text +
-                    "\n结束子程序\n",
-                    "_方法体");
+                var statements = YyCodeDocumentConverter.ParseFunctionBody(
+                    entry.Editor.Text ?? string.Empty);
                 var locals = entry.Function.Statements
                     .TakeWhile(statement =>
                         statement.Kind == YyCodeStatementKinds.Variable)
                     .ToList();
                 entry.Function.Statements.Clear();
                 entry.Function.Statements.AddRange(locals);
-                entry.Function.Statements.AddRange(
-                    body.Functions.Single().Statements);
+                entry.Function.Statements.AddRange(statements);
                 _dirtyFunctions.Remove(entry.Function);
                 changed = true;
             }
@@ -220,6 +219,8 @@ public sealed partial class StructuredCodeEditor : UserControl
         {
             ModelChanged?.Invoke(this, EventArgs.Empty);
         }
+
+        return errors.Count == 0;
     }
 
     private void Rebuild()

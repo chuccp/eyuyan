@@ -317,6 +317,28 @@ public static class YyCodeDocumentConverter
         _ => statement.Expression
     };
 
+    /// <summary>
+    /// 解析经典视图单个子程序的执行代码区。代码区按官方习惯顶格书写，
+    /// 包装时整体缩进一级，避免新语汇的块缩进规则把函数体判为错误。
+    /// </summary>
+    public static List<YyCodeStatement> ParseFunctionBody(string body)
+    {
+        var normalized = (body ?? string.Empty).Replace("\r\n", "\n", StringComparison.Ordinal);
+        var indented = string.Join(
+            '\n',
+            normalized.Split('\n')
+                .Select(line => line.Length == 0 ? line : "    " + line));
+        var document = FromSource(
+            ".程序集 _方法体\n子程序 _方法体()\n" + indented + "\n结束子程序\n",
+            "_方法体");
+        if (document.Functions.Count != 1)
+        {
+            throw new YyCodeFormatException("子程序代码区无法解析。", 1, 1);
+        }
+
+        return document.Functions[0].Statements;
+    }
+
     /// <summary>解析一行语句文本为结构化语句(表格编辑器行编辑确认用)。兼容官方全角运算符显示输入。</summary>
     public static YyCodeStatement ParseStatementText(string text)
     {

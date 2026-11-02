@@ -53,6 +53,13 @@ public sealed partial class MainWindow
             _ = Task.Run(server.RunStdio);
         }
 
+        if (_mcpServer.Port != port)
+        {
+            AppendConsole(
+                $"MCP 端口 {port} 已被占用（可能已有 Studio 在运行），" +
+                $"已自动切换到 {_mcpServer.Port}。");
+        }
+
         SetMcpEndpoint(_mcpServer.Port);
         AppendConsole($"MCP：http://127.0.0.1:{_mcpServer.Port}/mcp");
     }
@@ -251,7 +258,18 @@ public sealed partial class MainWindow
             return document.Editor.Text ?? string.Empty;
         }
 
-        structured.FlushPendingEdits();
+        // 纯代码视图以编辑器文本为准;经典视图先同步代码区再输出模型。
+        if (!document.UseClassicView)
+        {
+            return document.Editor.Text ?? string.Empty;
+        }
+
+        if (!structured.FlushPendingEdits())
+        {
+            throw new InvalidOperationException(
+                "经典视图中有未同步的代码，请先修正语法错误。");
+        }
+
         return structured.Document is { } model
             ? YyCodeDocumentConverter.ToSource(model)
             : document.Editor.Text ?? string.Empty;

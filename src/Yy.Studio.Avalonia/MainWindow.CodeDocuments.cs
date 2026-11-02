@@ -76,22 +76,22 @@ public sealed partial class MainWindow
         // 易语言式代码窗口导航:对象 + 过程双下拉(对齐官方经典视图)。
         var objectCombo = new ComboBox
         {
-            Width = 190,
+            Width = 140,
             FontSize = 12,
             IsEnabled = classic is not null
         };
         var procedureCombo = new ComboBox
         {
-            Width = 230,
+            Width = 190,
             FontSize = 12,
             IsEnabled = classic is not null
         };
         var codeContext = new TextBlock
         {
-            FontSize = 11,
+            FontSize = 12,
             Foreground = Brush.Parse("#6C707E"),
             VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(10, 0, 8, 0),
+            Margin = new Thickness(8, 0, 4, 0),
             TextTrimming = TextTrimming.CharacterEllipsis
         };
         var updatingNavigation = false;
@@ -171,28 +171,35 @@ public sealed partial class MainWindow
             classic.ModelChanged += (_, _) => RefreshCodeNavigation();
         }
 
+        // 官方经典视图的紧凑分段切换:仅当前视图使用蓝底白字。
         var classicButton = new Button
         {
             Content = "经典视图",
-            Padding = new Thickness(8, 3)
+            Classes = { "viewSwitch" }
         };
         var plainButton = new Button
         {
             Content = "纯代码",
-            Padding = new Thickness(8, 3)
+            Classes = { "viewSwitch" }
         };
-        var viewButtons = new StackPanel
+        var viewSwitch = new Border
         {
-            Orientation = Orientation.Horizontal,
-            Spacing = 6,
-            Margin = new Thickness(12, 0, 0, 0),
-            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(10, 0, 2, 0),
             VerticalAlignment = VerticalAlignment.Center,
-            Children = { classicButton, plainButton }
+            Background = Brushes.White,
+            BorderBrush = Brush.Parse("#C9CED6"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(5),
+            ClipToBounds = true,
+            Child = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Children = { classicButton, plainButton }
+            }
         };
         var toolbar = new Grid
         {
-            Margin = new Thickness(8, 5),
+            Margin = new Thickness(6, 3),
             ColumnDefinitions = new ColumnDefinitions("Auto,Auto,Auto,Auto,*")
         };
         AddToolbarCell(toolbar, new TextBlock
@@ -200,23 +207,27 @@ public sealed partial class MainWindow
             Text = "对象",
             FontSize = 12,
             VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(2, 0, 6, 0)
+            Margin = new Thickness(4, 0, 5, 0)
         }, 0);
-        objectCombo.Width = 130;
+        objectCombo.MinHeight = 24;
+        objectCombo.Padding = new Thickness(6, 1);
+        objectCombo.VerticalAlignment = VerticalAlignment.Center;
         AddToolbarCell(toolbar, objectCombo, 1);
         AddToolbarCell(toolbar, new TextBlock
         {
             Text = "过程",
             FontSize = 12,
             VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(10, 0, 6, 0)
+            Margin = new Thickness(9, 0, 5, 0)
         }, 2);
-        procedureCombo.Width = 150;
+        procedureCombo.MinHeight = 24;
+        procedureCombo.Padding = new Thickness(6, 1);
+        procedureCombo.VerticalAlignment = VerticalAlignment.Center;
         AddToolbarCell(toolbar, procedureCombo, 3);
-        // 尾部始终吃满剩余宽度，视图按钮固定在右侧；上下文只在空间足够时显示。
+        // 尾部始终吃满剩余宽度，视图切换固定在右侧；上下文只在空间足够时显示。
         var toolbarTail = new DockPanel { LastChildFill = true };
-        DockPanel.SetDock(viewButtons, Dock.Right);
-        toolbarTail.Children.Add(viewButtons);
+        DockPanel.SetDock(viewSwitch, Dock.Right);
+        toolbarTail.Children.Add(viewSwitch);
         toolbarTail.Children.Add(codeContext);
         AddToolbarCell(toolbar, toolbarTail, 4);
         toolbar.SizeChanged += (_, e) =>
@@ -264,9 +275,12 @@ public sealed partial class MainWindow
             StructuredView = classic,
             PlainCodeHost = plainHost,
             StructuredCodeHost = classicHost,
+            ClassicViewButton = classicButton,
+            PlainViewButton = plainButton,
             UseClassicView = classic is not null,
             SavedText = plainText
         };
+        UpdateCodeViewButtons(document);
 
         if (classic is not null)
         {
@@ -330,13 +344,19 @@ public sealed partial class MainWindow
         UpdateActionState();
     }
 
-    private void SetCodeView(EditorDocument document, bool classic)
+    private bool SetCodeView(EditorDocument document, bool classic)
     {
         if (document.StructuredView is not { } structured ||
             document.PlainCodeHost is null ||
             document.StructuredCodeHost is null)
         {
-            return;
+            return false;
+        }
+
+        // 已在目标视图:不重建模型,避免用上一次同步的源码覆盖当前编辑。
+        if (classic == document.UseClassicView)
+        {
+            return true;
         }
 
         if (classic)
@@ -350,18 +370,24 @@ public sealed partial class MainWindow
                 document.UseClassicView = true;
                 document.StructuredCodeHost.IsVisible = true;
                 document.PlainCodeHost.IsVisible = false;
+                UpdateCodeViewButtons(document);
                 SetStatus("经典视图：方法表下方连续编辑执行代码。");
+                return true;
             }
             catch (Exception exception) when (
                 exception is YyDiagnostic or YyCodeFormatException)
             {
                 SetStatus("代码无法解析，已停留在纯代码视图：" + exception.Message);
+                return false;
             }
-
-            return;
         }
 
-        structured.FlushPendingEdits();
+        // 有无法解析的代码区时保持经典视图,绝不用旧模型覆盖用户输入。
+        if (!structured.FlushPendingEdits())
+        {
+            return false;
+        }
+
         var source = structured.Document is { } model
             ? YyCodeDocumentConverter.ToSource(model)
             : document.Editor.Text ?? string.Empty;
@@ -378,7 +404,26 @@ public sealed partial class MainWindow
         document.UseClassicView = false;
         document.StructuredCodeHost.IsVisible = false;
         document.PlainCodeHost.IsVisible = true;
+        UpdateCodeViewButtons(document);
         SetStatus("纯代码视图：编辑完整 .yyc 源码。");
+        return true;
+    }
+
+    /// <summary>经典视图/纯代码为同一分段控件,仅当前视图显示蓝底。</summary>
+    private static void UpdateCodeViewButtons(EditorDocument document)
+    {
+        ApplyViewButtonState(document.ClassicViewButton, document.UseClassicView);
+        ApplyViewButtonState(document.PlainViewButton, !document.UseClassicView);
+    }
+
+    private static void ApplyViewButtonState(Button? button, bool active)
+    {
+        if (button is null)
+        {
+            return;
+        }
+
+        button.Classes.Set("active", active);
     }
 
     private bool SaveCodeDocument(EditorDocument document)
@@ -393,7 +438,12 @@ public sealed partial class MainWindow
             YyCodeDocument model;
             if (document.UseClassicView)
             {
-                structured.FlushPendingEdits();
+                if (!structured.FlushPendingEdits())
+                {
+                    SetStatus("保存已取消：请先修正代码区的语法错误。");
+                    return false;
+                }
+
                 model = structured.Document
                     ?? throw new InvalidOperationException("经典视图尚未载入代码。");
             }
@@ -445,11 +495,24 @@ public sealed partial class MainWindow
 
         try
         {
-            structured.FlushPendingEdits();
-            var model = structured.Document ??
-                YyCodeDocumentConverter.FromSource(
+            YyCodeDocument model;
+            if (document.UseClassicView)
+            {
+                if (!structured.FlushPendingEdits())
+                {
+                    return false;
+                }
+
+                model = structured.Document
+                    ?? throw new InvalidOperationException("经典视图尚未载入代码。");
+            }
+            else
+            {
+                model = YyCodeDocumentConverter.FromSource(
                     document.Editor.Text ?? string.Empty,
                     document.Path);
+            }
+
             var source = YyCodeDocumentConverter.ToSource(model);
             document.SuppressDirtyTracking = true;
             try

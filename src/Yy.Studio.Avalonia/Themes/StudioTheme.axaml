@@ -270,6 +270,33 @@
     <Setter Property="Background" Value="{DynamicResource Studio.AccentHoverBrush}" />
   </Style>
 
+  <!-- 代码视图分段切换:紧凑标签,仅当前视图使用实心蓝底。 -->
+  <Style Selector="Button.viewSwitch">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="Padding" Value="11,2" />
+    <Setter Property="MinHeight" Value="24" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource Studio.TextBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.viewSwitch /template/ ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.viewSwitch:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Studio.HoverBrush}" />
+  </Style>
+  <Style Selector="Button.viewSwitch.active">
+    <Setter Property="Foreground" Value="White" />
+  </Style>
+  <Style Selector="Button.viewSwitch.active /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Studio.AccentBrush}" />
+  </Style>
+  <Style Selector="Button.viewSwitch.active:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Studio.AccentHoverBrush}" />
+  </Style>
+
   <!-- 侧轨按钮:IntelliJ 工具窗按钮,选中为实心蓝底白图标。 -->
   <Style Selector="Button.rail">
     <Setter Property="Background" Value="Transparent" />

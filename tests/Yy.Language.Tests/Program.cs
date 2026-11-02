@@ -34,6 +34,7 @@ var tests = new List<(string Name, Action Test)>
     ("拒绝源码版本头", TestRejectSourceVersionHeader),
     ("老语法声明行与语句", TestOfficialSyntax),
     ("语句行解析与全角输入", TestParseStatementText),
+    ("经典视图函数体往返", TestParseFunctionBody),
     ("官方文本命令", TestOfficialTextCommands),
     ("文本处理组合", TestTextProcessing),
     ("文件读写与磁盘操作", TestFileCommands),
@@ -765,6 +766,25 @@ static void TestParseStatementText()
     catch (Yy.Language.Structured.YyCodeFormatException)
     {
     }
+}
+
+static void TestParseFunctionBody()
+{
+    // 经典视图代码区按官方习惯顶格书写;解析时应自动整体缩进,
+    // 不能被“块体需要缩进”误判为语法错误(否则切换视图会丢失编辑)。
+    var statements = Yy.Language.Structured.YyCodeDocumentConverter.ParseFunctionBody("""
+        计次 = 计次 + 1
+        如果真 (计次 > 3)
+            调试输出("大")
+        调试输出("点击")
+        """);
+    Equal(3, statements.Count);
+    Equal(Yy.Language.Structured.YyCodeStatementKinds.If, statements[1].Kind);
+    Equal(1, statements[1].Children.Count);
+    Equal(Yy.Language.Structured.YyCodeStatementKinds.Call, statements[2].Kind);
+
+    var empty = Yy.Language.Structured.YyCodeDocumentConverter.ParseFunctionBody(string.Empty);
+    Equal(0, empty.Count);
 }
 
 static void TestOfficialTextCommands()

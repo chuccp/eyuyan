@@ -558,10 +558,25 @@ public sealed partial class MainWindow
             }
             else if (document.StructuredView is { } structured)
             {
-                structured.FlushPendingEdits();
-                var model = YyCodeDocumentConverter.FromSource(
-                    document.Editor.Text ?? string.Empty,
-                    path);
+                YyCodeDocument model;
+                if (document.UseClassicView)
+                {
+                    if (!structured.FlushPendingEdits())
+                    {
+                        SetStatus("另存为已取消：请先修正代码区的语法错误。");
+                        return;
+                    }
+
+                    model = structured.Document
+                        ?? throw new InvalidOperationException("经典视图尚未载入代码。");
+                }
+                else
+                {
+                    model = YyCodeDocumentConverter.FromSource(
+                        document.Editor.Text ?? string.Empty,
+                        path);
+                }
+
                 File.WriteAllText(path, YyCodeSerializer.Serialize(model), new UTF8Encoding(false));
                 document.SavedText = YyCodeDocumentConverter.ToSource(model);
                 document.IsDirty = false;
@@ -577,7 +592,7 @@ public sealed partial class MainWindow
             SetStatus($"已另存为 {document.FileName}");
         }
         catch (Exception exception) when (
-            exception is IOException or UnauthorizedAccessException)
+            exception is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
             SetStatus("另存为失败。");
             AppendConsole("错误：" + exception.Message);
