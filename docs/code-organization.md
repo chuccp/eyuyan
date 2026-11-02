@@ -11,8 +11,10 @@
 | `src/Yy.Studio.Avalonia/App.axaml` | Avalonia 应用、Fluent 主题和 AvaloniaEdit 主题 |
 | `src/Yy.Studio.Avalonia/MainWindow.axaml` | 顶栏、项目树、文档区、命令行/控制台和状态栏 |
 | `src/Yy.Studio.Avalonia/MainWindow.axaml.cs` | 窗口生命周期、快捷键和公共状态 |
-| `src/Yy.Studio.Avalonia/MainWindow.CommandLine.cs` | 底部命令行多会话标签、新建/关闭、工程目录切换和控制台自动显隐 |
-| `src/Yy.Studio.Avalonia/Features/CommandLine/CommandLineView.cs` | PTY 托管系统 shell，复用 `Terminal.Pty` 与 `Exclr8.Terminal` 终端控件 |
+| `src/Yy.Studio.Avalonia/MainWindow.CommandLine.cs` | 底部命令行多会话标签、新建/关闭、重命名/移动、拆分和控制台自动显隐 |
+| `src/Yy.Studio.Avalonia/MainWindow.CommandLine.Search.cs` | 终端查找栏、匹配导航和状态更新 |
+| `src/Yy.Studio.Avalonia/Features/CommandLine/CommandLineView.cs` | PTY 托管系统 shell，复用 `Terminal.Pty` 与 `Exclr8.Terminal` 终端控件，提供标题、工作目录和查找桥接 |
+| `src/Yy.Studio.Avalonia/Features/CommandLine/TerminalTabView.cs` | 标签内的终端窗格树：向右/向下拆分、活动窗格、窗格标题与关闭 |
 | `src/Yy.Studio.Avalonia/MainWindow.Chrome.cs` | 顶栏拖动、双击最大化、最小化/还原/关闭 |
 | `src/Yy.Studio.Avalonia/Platforms/PtyResize.cs` | PTY 窗口尺寸同步；按 Apple ARM64 ABI 调用 `ioctl(TIOCSWINSZ)`，让 shell 收到真实行列数 |
 | `src/Yy.Studio.Avalonia/Platforms/WindowChromeAdapter.cs` | 顶栏窗口按钮的宿主平台适配:Windows 右侧方形按钮、macOS 左侧红绿灯 |

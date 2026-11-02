@@ -1,6 +1,10 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Threading;
 using Yy.Studio.Avalonia.Features.CommandLine;
 using Yy.Studio.Avalonia.Layout;
 
@@ -10,10 +14,15 @@ public sealed partial class MainWindow
 {
     private sealed class CommandLineSession
     {
-        public required CommandLineView View { get; init; }
+        public required TerminalTabView TabView { get; init; }
         public required TabItem Tab { get; init; }
-        public required string Name { get; init; }
+        public required string DefaultName { get; init; }
+        public string? UserTitle { get; set; }
         public Border Chip { get; set; } = null!;
+        public Button TitleButton { get; set; } = null!;
+        public TextBlock TitleText { get; set; } = null!;
+        public TextBox TitleEditor { get; set; } = null!;
+        public bool IsRenaming { get; set; }
     }
 
     private readonly List<CommandLineSession> _commandLines = [];
@@ -29,6 +38,13 @@ public sealed partial class MainWindow
 
     private string CurrentProjectDirectory =>
         _workspace.Project?.DirectoryPath ?? Environment.CurrentDirectory;
+
+    private CommandLineView CreateTerminalView(string workingDirectory)
+    {
+        var view = new CommandLineView(workingDirectory);
+        view.SearchRequested += (_, _) => ShowTerminalSearch(view);
+        return view;
+    }
 
     private void OnNewCommandLine(object? sender, RoutedEventArgs e) =>
         AddCommandLineSession(CurrentProjectDirectory, select: true);
@@ -122,23 +138,28 @@ public sealed partial class MainWindow
     private CommandLineSession AddCommandLineSession(string workingDirectory, bool select)
     {
         var number = ++_commandLineSequence;
-        var name = number == 1 ? "本地" : $"本地 {number}";
-        var view = new CommandLineView(workingDirectory);
+        var defaultName = number == 1 ? "本地" : $"本地 {number}";
+        var initialView = CreateTerminalView(workingDirectory);
+        var tabView = new TerminalTabView(initialView, CreateTerminalView);
         var tab = new TabItem
         {
-            Header = name,
-            Content = new ContentControl { Content = view }
+            Header = defaultName,
+            Content = tabView
         };
         var session = new CommandLineSession
         {
-            View = view,
+            TabView = tabView,
             Tab = tab,
-            Name = name
+            DefaultName = defaultName
         };
         session.Chip = CreateCommandLineChip(session);
+        tabView.TitleChanged += (_, _) => RefreshSessionTitle(session);
+        tabView.StructureChanged += (_, _) => RefreshSessionTitle(session);
+        tabView.ActiveViewChanged += (_, _) => OnSessionActiveViewChanged(session);
         BottomTabs.Items.Add(tab);
         TerminalTabStrip.Children.Add(session.Chip);
         _commandLines.Add(session);
+        RefreshSessionTitle(session);
         if (select)
         {
             SelectCommandLineSession(session);
@@ -149,13 +170,55 @@ public sealed partial class MainWindow
 
     private Border CreateCommandLineChip(CommandLineSession session)
     {
-        var title = new Button
+        var titleText = new TextBlock
         {
-            Content = session.Name,
+            Text = session.DefaultName,
+            FontSize = 12,
+            MaxWidth = 180,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        var titleButton = new Button
+        {
+            Content = titleText,
             Classes = { "terminalTabTitle" }
         };
-        title.Click += (_, _) => SelectCommandLineSession(session);
+        titleButton.Click += (_, _) => SelectCommandLineSession(session);
 
+        var titleEditor = new TextBox
+        {
+            IsVisible = false,
+            MinWidth = 70,
+            MaxWidth = 200,
+            FontSize = 12,
+            Padding = new Thickness(0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        titleEditor.KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Enter)
+            {
+                CommitRename(session);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Escape)
+            {
+                CancelRename(session);
+                e.Handled = true;
+            }
+        };
+        titleEditor.LostFocus += (_, _) =>
+        {
+            if (session.IsRenaming)
+            {
+                CommitRename(session);
+            }
+        };
+
+        var titlePanel = new Grid
+        {
+            Children = { titleButton, titleEditor }
+        };
         var close = new Button
         {
             Content = "×",
@@ -163,18 +226,84 @@ public sealed partial class MainWindow
             VerticalAlignment = VerticalAlignment.Center
         };
         close.Click += (_, _) => CloseCommandLineSession(session);
-
         var content = new StackPanel
         {
             Orientation = Orientation.Horizontal,
             Spacing = 2,
-            Children = { title, close }
+            Children = { titlePanel, close }
         };
+        session.TitleButton = titleButton;
+        session.TitleText = titleText;
+        session.TitleEditor = titleEditor;
         return new Border
         {
             Classes = { "terminalTab" },
-            Child = content
+            Child = content,
+            ContextMenu = BuildTabContextMenu(session)
         };
+    }
+
+    private ContextMenu BuildTabContextMenu(CommandLineSession? session)
+    {
+        var menu = new ContextMenu();
+        menu.Items.Add(MenuItemFor(
+            "新建命令行",
+            () => AddCommandLineSession(CurrentProjectDirectory, select: true)));
+        if (session is null)
+        {
+            return menu;
+        }
+
+        var index = _commandLines.IndexOf(session);
+        menu.Items.Add(new Separator());
+        menu.Items.Add(MenuItemFor("重命名", () => BeginRename(session)));
+        menu.Items.Add(MenuItemFor(
+            "查找",
+            () => ShowTerminalSearch(session.TabView.ActiveView)));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(MenuItemFor("关闭", () => CloseCommandLineSession(session)));
+        menu.Items.Add(MenuItemFor(
+            "关闭其他",
+            () => CloseOtherCommandLines(session),
+            _commandLines.Count > 1));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(MenuItemFor(
+            "向左移动",
+            () => MoveCommandLineSession(session, -1),
+            index > 0));
+        menu.Items.Add(MenuItemFor(
+            "向右移动",
+            () => MoveCommandLineSession(session, 1),
+            index >= 0 && index < _commandLines.Count - 1));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(MenuItemFor(
+            "向右拆分",
+            () => SplitCommandLineSession(session, Orientation.Horizontal)));
+        menu.Items.Add(MenuItemFor(
+            "向下拆分",
+            () => SplitCommandLineSession(session, Orientation.Vertical)));
+        return menu;
+    }
+
+    private static MenuItem MenuItemFor(
+        string header,
+        Action action,
+        bool enabled = true)
+    {
+        var item = new MenuItem { Header = header, IsEnabled = enabled };
+        item.Click += (_, _) => action();
+        return item;
+    }
+
+    private void OnTerminalMenu(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Control anchor)
+        {
+            return;
+        }
+
+        var session = _activeCommandLine ?? _commandLines.FirstOrDefault();
+        BuildTabContextMenu(session).Open(anchor);
     }
 
     private void SelectCommandLineSession(CommandLineSession session)
@@ -186,7 +315,7 @@ public sealed partial class MainWindow
 
         if (ReferenceEquals(BottomTabs.SelectedItem, session.Tab))
         {
-            session.View.FocusTerminal();
+            session.TabView.ActiveView.FocusTerminal();
             UpdateBottomChipSelection();
             return;
         }
@@ -203,17 +332,22 @@ public sealed partial class MainWindow
         }
 
         var wasSelected = ReferenceEquals(BottomTabs.SelectedItem, session.Tab);
+        if (_searchTarget is not null && session.TabView.Views.Contains(_searchTarget))
+        {
+            HideTerminalSearch(focusTerminal: false);
+        }
+
         _commandLines.RemoveAt(index);
         BottomTabs.Items.Remove(session.Tab);
         TerminalTabStrip.Children.Remove(session.Chip);
-        session.View.Stop();
+        session.TabView.Stop();
 
         if (ReferenceEquals(_activeCommandLine, session))
         {
             _activeCommandLine = null;
         }
 
-        if (ReferenceEquals(_commandLine, session.View))
+        if (_commandLine is not null && session.TabView.Views.Contains(_commandLine))
         {
             _commandLine = null;
         }
@@ -236,7 +370,152 @@ public sealed partial class MainWindow
             }
         }
 
+        UpdateBottomHeader();
         UpdateBottomChipSelection();
+        UpdateBottomRailState();
+    }
+
+    private void CloseOtherCommandLines(CommandLineSession session)
+    {
+        foreach (var other in _commandLines
+                     .Where(item => !ReferenceEquals(item, session))
+                     .ToArray())
+        {
+            CloseCommandLineSession(other);
+        }
+
+        SelectCommandLineSession(session);
+    }
+
+    private void MoveCommandLineSession(CommandLineSession session, int delta)
+    {
+        var index = _commandLines.IndexOf(session);
+        var target = index + delta;
+        if (index < 0 || target < 0 || target >= _commandLines.Count)
+        {
+            return;
+        }
+
+        _commandLines.RemoveAt(index);
+        _commandLines.Insert(target, session);
+        var chipIndex = TerminalTabStrip.Children.IndexOf(session.Chip);
+        if (chipIndex >= 0)
+        {
+            TerminalTabStrip.Children.RemoveAt(chipIndex);
+            TerminalTabStrip.Children.Insert(target, session.Chip);
+        }
+
+        SelectCommandLineSession(session);
+        UpdateBottomChipSelection();
+    }
+
+    private void SplitCommandLineSession(
+        CommandLineSession session,
+        Orientation orientation)
+    {
+        if (!_commandLines.Contains(session))
+        {
+            return;
+        }
+
+        SelectCommandLineSession(session);
+        session.TabView.Split(orientation);
+        _commandLine = session.TabView.ActiveView;
+        RefreshSessionTitle(session);
+        session.TabView.ActiveView.FocusTerminal();
+    }
+
+    private void BeginRename(CommandLineSession session)
+    {
+        if (!_commandLines.Contains(session))
+        {
+            return;
+        }
+
+        session.IsRenaming = true;
+        session.TitleEditor.Text = SessionTitle(session);
+        session.TitleButton.IsVisible = false;
+        session.TitleEditor.IsVisible = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            session.TitleEditor.Focus();
+            session.TitleEditor.SelectAll();
+        });
+    }
+
+    private void CommitRename(CommandLineSession session)
+    {
+        if (!session.IsRenaming)
+        {
+            return;
+        }
+
+        session.IsRenaming = false;
+        var text = session.TitleEditor.Text?.Trim();
+        session.UserTitle = string.IsNullOrWhiteSpace(text) ? null : text;
+        session.TitleEditor.IsVisible = false;
+        session.TitleButton.IsVisible = true;
+        RefreshSessionTitle(session);
+        if (_commandLines.Contains(session))
+        {
+            session.TabView.ActiveView.FocusTerminal();
+        }
+    }
+
+    private void CancelRename(CommandLineSession session)
+    {
+        if (!session.IsRenaming)
+        {
+            return;
+        }
+
+        session.IsRenaming = false;
+        session.TitleEditor.IsVisible = false;
+        session.TitleButton.IsVisible = true;
+        RefreshSessionTitle(session);
+        session.TabView.ActiveView.FocusTerminal();
+    }
+
+    private static string SessionTitle(CommandLineSession session)
+    {
+        if (!string.IsNullOrWhiteSpace(session.UserTitle))
+        {
+            return session.UserTitle;
+        }
+
+        var shellTitle = session.TabView.ActiveView.ShellTitle;
+        return string.IsNullOrWhiteSpace(shellTitle)
+            ? session.DefaultName
+            : shellTitle;
+    }
+
+    private void RefreshSessionTitle(CommandLineSession session)
+    {
+        if (session.IsRenaming)
+        {
+            return;
+        }
+
+        var title = SessionTitle(session);
+        session.TitleText.Text = title;
+        session.Tab.Header = title;
+    }
+
+    private void OnSessionActiveViewChanged(CommandLineSession session)
+    {
+        if (ReferenceEquals(_activeCommandLine, session))
+        {
+            _commandLine = session.TabView.ActiveView;
+        }
+
+        if (ReferenceEquals(_activeCommandLine, session) &&
+            _searchTarget is not null &&
+            !ReferenceEquals(session.TabView.ActiveView, _searchTarget))
+        {
+            HideTerminalSearch(focusTerminal: false);
+        }
+
+        RefreshSessionTitle(session);
         UpdateBottomRailState();
     }
 
@@ -249,9 +528,15 @@ public sealed partial class MainWindow
             if (session is not null)
             {
                 _activeCommandLine = session;
-                _commandLine = session.View;
-                session.View.FocusTerminal();
+                _commandLine = session.TabView.ActiveView;
+                session.TabView.ActiveView.FocusTerminal();
+                RefreshSessionTitle(session);
             }
+        }
+
+        if (_searchTarget is not null)
+        {
+            HideTerminalSearch(focusTerminal: false);
         }
 
         UpdateBottomHeader();
@@ -264,9 +549,16 @@ public sealed partial class MainWindow
     {
         var consoleMode = ConsoleTab.IsVisible &&
             ReferenceEquals(BottomTabs.SelectedItem, ConsoleTab);
+        if (consoleMode && TerminalSearchBar.IsVisible)
+        {
+            HideTerminalSearch(focusTerminal: false);
+        }
+
         BottomPanelTitle.Text = consoleMode ? "控制台" : "命令行";
         TerminalTabStrip.IsVisible = !consoleMode;
         NewCommandLineButton.IsVisible = !consoleMode;
+        TerminalMenuButton.IsVisible = !consoleMode;
+        TerminalSearchButton.IsVisible = !consoleMode;
     }
 
     private void UpdateBottomChipSelection()
@@ -305,7 +597,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        session.View.EnterProject(projectDirectory);
+        session.TabView.ActiveView.EnterProject(projectDirectory);
         SelectCommandLineSession(session);
     }
 
@@ -338,4 +630,5 @@ public sealed partial class MainWindow
             SelectCommandLineSession(session);
         }
     }
+
 }

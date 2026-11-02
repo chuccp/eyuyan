@@ -553,50 +553,98 @@
                         Content="+"
                         ToolTip.Tip="新建命令行"
                         Click="OnNewCommandLine" />
+                <Button x:Name="TerminalMenuButton"
+                        Classes="terminalTabAdd"
+                        Content="⋮"
+                        ToolTip.Tip="终端操作"
+                        Click="OnTerminalMenu" />
+                <Button x:Name="TerminalSearchButton"
+                        Classes="terminalTabAdd"
+                        Content="⌕"
+                        ToolTip.Tip="在终端中查找 (⌘F)"
+                        Click="OnShowTerminalSearchButton" />
               </StackPanel>
             </Border>
-            <TabControl x:Name="BottomTabs" Padding="0">
-              <TabControl.Template>
-                <ControlTemplate TargetType="TabControl">
-                  <Grid>
-                    <!-- 只保留选择逻辑,原生页签头由顶部会话条替代 -->
-                    <ItemsPresenter Name="PART_ItemsPresenter"
-                                    Height="0"
-                                    Opacity="0"
-                                    ClipToBounds="True"
-                                    IsHitTestVisible="False" />
-                    <ContentPresenter Content="{TemplateBinding SelectedContent}"
-                                      ContentTemplate="{TemplateBinding SelectedContentTemplate}"
-                                      HorizontalAlignment="Stretch"
-                                      VerticalAlignment="Stretch" />
-                  </Grid>
-                </ControlTemplate>
-              </TabControl.Template>
-              <TabItem x:Name="ConsoleTab" Header="控制台" IsVisible="False">
-                <DockPanel>
-                  <TextBox x:Name="ConsoleText"
-                         IsReadOnly="True"
-                         AcceptsReturn="True"
-                         TextWrapping="NoWrap"
-                         FontFamily="Cascadia Code,Consolas,Menlo,monospace"
-                         FontSize="12"
-                         BorderThickness="0"
-                         Background="Transparent"
-                         Padding="12,4,12,8"
-                         ScrollViewer.VerticalScrollBarVisibility="Auto"
-                         ScrollViewer.HorizontalScrollBarVisibility="Auto">
-                  <TextBox.ContextMenu>
-                    <ContextMenu>
-                      <MenuItem Header="复制" InputGesture="Ctrl+C" Click="OnConsoleCopy" />
-                      <MenuItem Header="全选" InputGesture="Ctrl+A" Click="OnConsoleSelectAll" />
-                      <Separator />
-                      <MenuItem Header="清空控制台" Click="OnClearConsole" />
-                    </ContextMenu>
-                  </TextBox.ContextMenu>
-                </TextBox>
-              </DockPanel>
-            </TabItem>
-            </TabControl>
+            <Grid>
+              <TabControl x:Name="BottomTabs" Padding="0">
+                <TabControl.Template>
+                  <ControlTemplate TargetType="TabControl">
+                    <Grid>
+                      <!-- 只保留选择逻辑,原生页签头由顶部会话条替代 -->
+                      <ItemsPresenter Name="PART_ItemsPresenter"
+                                      Height="0"
+                                      Opacity="0"
+                                      ClipToBounds="True"
+                                      IsHitTestVisible="False" />
+                      <ContentPresenter Content="{TemplateBinding SelectedContent}"
+                                        ContentTemplate="{TemplateBinding SelectedContentTemplate}"
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch" />
+                    </Grid>
+                  </ControlTemplate>
+                </TabControl.Template>
+                <TabItem x:Name="ConsoleTab" Header="控制台" IsVisible="False">
+                  <DockPanel>
+                    <TextBox x:Name="ConsoleText"
+                           IsReadOnly="True"
+                           AcceptsReturn="True"
+                           TextWrapping="NoWrap"
+                           FontFamily="Cascadia Code,Consolas,Menlo,monospace"
+                           FontSize="12"
+                           BorderThickness="0"
+                           Background="Transparent"
+                           Padding="12,4,12,8"
+                           ScrollViewer.VerticalScrollBarVisibility="Auto"
+                           ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                    <TextBox.ContextMenu>
+                      <ContextMenu>
+                        <MenuItem Header="复制" InputGesture="Ctrl+C" Click="OnConsoleCopy" />
+                        <MenuItem Header="全选" InputGesture="Ctrl+A" Click="OnConsoleSelectAll" />
+                        <Separator />
+                        <MenuItem Header="清空控制台" Click="OnClearConsole" />
+                      </ContextMenu>
+                    </TextBox.ContextMenu>
+                  </TextBox>
+                </DockPanel>
+              </TabItem>
+              </TabControl>
+              <Border x:Name="TerminalSearchBar"
+                      IsVisible="False"
+                      HorizontalAlignment="Right"
+                      VerticalAlignment="Top"
+                      Margin="0,5,18,0"
+                      Padding="6,3"
+                      Background="#FFFFFF"
+                      BorderBrush="#C8CDD4"
+                      BorderThickness="1"
+                      CornerRadius="4">
+                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                  <TextBox x:Name="TerminalSearchBox"
+                           Width="180"
+                           FontSize="12"
+                           Padding="4,1"
+                           BorderThickness="0"
+                           Background="Transparent"
+                           Watermark="在终端中查找"
+                           TextChanged="OnTerminalSearchTextChanged"
+                           KeyDown="OnTerminalSearchKeyDown" />
+                  <TextBlock x:Name="TerminalSearchStatus"
+                             MinWidth="36"
+                             FontSize="11"
+                             Foreground="#6F737A"
+                             VerticalAlignment="Center" />
+                  <Button Classes="terminalTabAdd" Content="↑"
+                          ToolTip.Tip="上一个 (Shift+Enter)"
+                          Click="OnTerminalSearchPrev" />
+                  <Button Classes="terminalTabAdd" Content="↓"
+                          ToolTip.Tip="下一个 (Enter)"
+                          Click="OnTerminalSearchNext" />
+                  <Button Classes="terminalTabAdd" Content="×"
+                          ToolTip.Tip="关闭查找"
+                          Click="OnCloseTerminalSearch" />
+                </StackPanel>
+              </Border>
+            </Grid>
           </DockPanel>
         </Border>
       </Grid>

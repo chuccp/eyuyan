@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.Text;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Exclr8.Terminal;
@@ -26,6 +28,7 @@ public sealed class CommandLineView : UserControl
     private int _session;
     private int _ptyColumns;
     private int _ptyRows;
+    private string _workingDirectory;
 
     public CommandLineView()
         : this(Environment.CurrentDirectory)
@@ -46,6 +49,18 @@ public sealed class CommandLineView : UserControl
         };
         _terminal.Input += (_, payload) => WriteToPty(payload.Span);
         _terminal.Output += (_, payload) => WriteToPty(payload.Span);
+        _terminal.TitleChanged += (_, title) =>
+        {
+            ShellTitle = title;
+            TitleChanged?.Invoke(this, title);
+        };
+        _terminal.WorkingDirectoryChanged += (_, directory) =>
+            WorkingDirectoryChanged?.Invoke(this, directory);
+        _terminal.GotFocus += (_, _) => Activated?.Invoke(this, EventArgs.Empty);
+        _terminal.AddHandler(
+            KeyDownEvent,
+            OnTerminalKeyDown,
+            RoutingStrategies.Tunnel);
         _terminal.Resized += (_, size) =>
         {
             _ptyColumns = size.Cols;
@@ -62,8 +77,29 @@ public sealed class CommandLineView : UserControl
             Child = _terminal
         };
 
+        _workingDirectory = workingDirectory;
         StartShell(workingDirectory);
     }
+
+    /// <summary>shell 通过 OSC 0/2 设置的标题；未设置时为 null。</summary>
+    public string? ShellTitle { get; private set; }
+
+    /// <summary>当前工作目录：优先使用 shell 通过 OSC 7 上报的目录。</summary>
+    public string WorkingDirectory =>
+        _terminal.WorkingDirectory ?? _workingDirectory;
+
+    public event EventHandler? Activated;
+    public event EventHandler<string>? TitleChanged;
+    public event EventHandler<string>? WorkingDirectoryChanged;
+    public event EventHandler? SearchRequested;
+
+    public int MatchCount => _terminal.MatchCount;
+    public int CurrentMatch => _terminal.CurrentMatch;
+
+    public void Find(string? needle) => _terminal.Find(needle);
+    public void FindNext() => _terminal.FindNext();
+    public void FindPrev() => _terminal.FindPrev();
+    public void CloseFind() => _terminal.CloseFind();
 
     /// <summary>切换工程时在工程根目录重新启动系统 shell。</summary>
     public void EnterProject(string projectDirectory)
@@ -74,6 +110,20 @@ public sealed class CommandLineView : UserControl
 
     /// <summary>切换到命令行页时把键盘焦点交给 shell。</summary>
     public void FocusTerminal() => _terminal.Focus();
+
+    private void OnTerminalKeyDown(object? sender, KeyEventArgs e)
+    {
+        var modifier = OperatingSystem.IsMacOS()
+            ? KeyModifiers.Meta
+            : KeyModifiers.Control;
+        if (e.Key == Key.F &&
+            e.KeyModifiers.HasFlag(modifier) &&
+            !e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+        {
+            SearchRequested?.Invoke(this, EventArgs.Empty);
+            e.Handled = true;
+        }
+    }
 
     /// <summary>向当前 shell 会话写入一条命令(MCP 自动化使用)。</summary>
     public bool RunCommand(string command)
@@ -134,6 +184,8 @@ public sealed class CommandLineView : UserControl
         var rows = _terminal.Buffer.Rows > 0 ? _terminal.Buffer.Rows : DefaultRows;
         StopSession();
         _terminal.PrepareForNewSession();
+        _workingDirectory = workingDirectory;
+        ShellTitle = null;
         try
         {
             _ptyColumns = columns;
